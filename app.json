@@ -1,22 +1,27 @@
 {
   "expo": {
-    "name": "Mallo",
-    "slug": "Mallo",
+    "name": "말로",
+    "slug": "mallo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "scheme": "mallo",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.danielpark.mallo",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "음성 메모를 녹음하기 위해 마이크 접근 권한이 필요합니다."
+      }
     },
     "android": {
+      "package": "com.danielpark.mallo",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0b0b1c",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
