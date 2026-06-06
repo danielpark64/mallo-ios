@@ -12,6 +12,7 @@ export type ScheduleRecord = {
   hasDate: boolean;
   hasTime: boolean;
   notifIds?: string[];    // expo-notifications 식별자 배열 (main + +1분 + +2분 슬롯)
+  alarmMode?: 'both' | 'sound' | 'vibe'; // 알람 방식
   createdAt: number;      // 생성 시각(epoch ms)
 };
 

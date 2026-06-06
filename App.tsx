@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  LogBox,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -10,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 import {
   AudioModule,
   RecordingPresets,
@@ -156,6 +159,8 @@ export default function App() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [liveText, setLiveText] = useState('');
   const liveTextRef = useRef('');
+  // STT 재시작 의도 추적 (React state보다 빠르게 반영)
+  const sttActiveRef = useRef(false);
 
   // 현재 시각 (매분 갱신)
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -227,13 +232,12 @@ export default function App() {
     console.warn('STT 에러:', e.error, e.message);
   });
   useSpeechRecognitionEvent('end', () => {
-    if (recorderState.isRecording) {
-      setTimeout(() => {
-        if (recorderState.isRecording) {
-          try { ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true }); } catch {}
-        }
-      }, 200);
-    }
+    // recorderState(React state) 대신 ref로 판단 → 상태 업데이트 지연 문제 없음
+    if (!sttActiveRef.current) return;
+    setTimeout(() => {
+      if (!sttActiveRef.current) return;
+      try { ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true }); } catch {}
+    }, 200);
   });
 
   // ── 저장 헬퍼 ─────────────────────────────────────────────────────────────────
@@ -243,6 +247,21 @@ export default function App() {
   };
 
   // ── 녹음 ─────────────────────────────────────────────────────────────────────
+  // STT 시작 (실패 시 최대 3회 재시도)
+  const startSTT = () => {
+    sttActiveRef.current = true;
+    const attempt = (n: number) => {
+      if (!sttActiveRef.current) return;
+      try {
+        ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
+      } catch {
+        if (n < 3) setTimeout(() => attempt(n + 1), 400);
+      }
+    };
+    // 마이크 워밍업 후 시작
+    setTimeout(() => attempt(0), 300);
+  };
+
   const startRecording = async () => {
     if (!permissionGranted) {
       Alert.alert('권한 없음', '마이크 및 음성 인식 권한을 허용해주세요.');
@@ -253,10 +272,11 @@ export default function App() {
     setShowRecorder(true);
     await recorder.prepareToRecordAsync();
     recorder.record();
-    try { ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true }); } catch {}
+    startSTT();
   };
 
   const cancelRecording = async () => {
+    sttActiveRef.current = false;
     try { ExpoSpeechRecognitionModule.abort(); } catch {}
     try { await recorder.stop(); } catch {}
     setLiveText('');
@@ -265,6 +285,7 @@ export default function App() {
   };
 
   const stopRecording = async () => {
+    sttActiveRef.current = false;
     try { ExpoSpeechRecognitionModule.stop(); } catch {}
     await recorder.stop();
     const uri = recorder.uri;
@@ -391,23 +412,23 @@ export default function App() {
       // 수정: 기존 알림 취소 후 새로 등록
       const old = records.find((r) => r.id === res.id);
       if (old?.notifIds?.length) await cancelAlarm(old.notifIds);
-      const newIds = notifAt ? await scheduleAlarm(res.id, res.content, notifAt) : [];
+      const newIds = notifAt ? await scheduleAlarm(res.id, res.content, notifAt, res.alarmMode) : [];
       const notifIds = newIds.length ? newIds : undefined;
       const next = records.map((r) =>
         r.id === res.id
-          ? { ...r, content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display, hasDate: true, hasTime: res.hasTime, notifIds }
+          ? { ...r, content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display, hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode }
           : r
       );
       commit(next);
     } else {
       // 수동 추가 (녹음 없음)
       const id = Date.now().toString();
-      const newIds = notifAt ? await scheduleAlarm(id, res.content, notifAt) : [];
+      const newIds = notifAt ? await scheduleAlarm(id, res.content, notifAt, res.alarmMode) : [];
       const notifIds = newIds.length ? newIds : undefined;
       const rec: ScheduleRecord = {
         id, uri: '', durationSec: 0, transcript: '',
         content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display,
-        hasDate: true, hasTime: res.hasTime, notifIds, createdAt: Date.now(),
+        hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode, createdAt: Date.now(),
       };
       commit([rec, ...records]);
     }

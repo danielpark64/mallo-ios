@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -12,15 +13,22 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 import { Calendar } from './Calendar';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
+
+export type AlarmMode = 'both' | 'sound' | 'vibe';
 
 export type EditorResult = {
   id?: string;
   content: string;
   date: Date;
   hasTime: boolean;
+  alarmMode: AlarmMode;
 };
 
 // ─── 무한궤도 스크롤 피커 ─────────────────────────────────────────────────────
@@ -137,7 +145,82 @@ export function ScheduleEditor({
   const [ampm, setAmpm]       = useState(0);   // 0=오전 1=오후
   const [hour12, setHour12]   = useState(9);   // 1~12
   const [minute, setMinute]   = useState(0);
-  const [showCal, setShowCal] = useState(false);
+  const [alarmMode, setAlarmMode] = useState<AlarmMode>('both');
+  const [showCal, setShowCal]     = useState(false);
+
+  // ── 내용 입력 STT ─────────────────────────────────────────────────────────
+  const [sttOn, setSttOn]         = useState(false);
+  const sttRef                    = useRef(false);
+  const baseContentRef            = useRef(''); // STT 시작 전 기존 내용
+  const micAnim                   = useRef(new Animated.Value(1)).current;
+
+  // 마이크 pulse 애니메이션
+  useEffect(() => {
+    if (sttOn) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(micAnim, { toValue: 1.25, duration: 500, useNativeDriver: true }),
+          Animated.timing(micAnim, { toValue: 1,    duration: 500, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      micAnim.stopAnimation();
+      micAnim.setValue(1);
+    }
+  }, [sttOn]);
+
+  useSpeechRecognitionEvent('result', (e) => {
+    if (!sttRef.current) return;
+    const text = e.results?.[0]?.transcript ?? '';
+    const combined = baseContentRef.current
+      ? baseContentRef.current.trimEnd() + ' ' + text
+      : text;
+    setContent(combined);
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    if (!sttRef.current) return;
+    // 자동 재시작 (iOS continuous 제한 우회)
+    setTimeout(() => {
+      if (!sttRef.current) return;
+      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+    }, 150);
+  });
+
+  useSpeechRecognitionEvent('error', () => {
+    if (!sttRef.current) return;
+    setTimeout(() => {
+      if (!sttRef.current) return;
+      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+    }, 300);
+  });
+
+  const startStt = () => {
+    baseContentRef.current = content; // 현재 내용 보존
+    sttRef.current = true;
+    setSttOn(true);
+    setTimeout(() => {
+      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+    }, 100);
+  };
+
+  const stopStt = () => {
+    sttRef.current = false;
+    setSttOn(false);
+    try { ExpoSpeechRecognitionModule.stop(); } catch {}
+  };
+
+  const toggleStt = () => {
+    if (sttOn) stopStt();
+    else startStt();
+  };
+
+  // 에디터 닫힐 때 STT 정리
+  useEffect(() => {
+    if (!visible) {
+      stopStt();
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -149,12 +232,14 @@ export function ScheduleEditor({
       setAmpm(h < 12 ? 0 : 1);
       setHour12(h % 12 === 0 ? 12 : h % 12);
       setMinute(d.getMinutes());
+      setAlarmMode((record.alarmMode as AlarmMode) ?? 'both');
     } else {
       setContent('');
       setDate(new Date(defaultDate));
       setAmpm(0);
       setHour12(9);
       setMinute(0);
+      setAlarmMode('both');
     }
     setShowCal(false);
   }, [visible, record]);
@@ -165,7 +250,7 @@ export function ScheduleEditor({
     if (!content.trim()) { Alert.alert('내용을 입력해주세요'); return; }
     const d = new Date(date);
     d.setHours(h24Preview, minute, 0, 0);
-    onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true });
+    onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode });
   };
 
   const handleDelete = () => {
@@ -187,19 +272,32 @@ export function ScheduleEditor({
           <View style={styles.handle} />
           <Text style={styles.title}>{record ? '일정 수정' : '새 일정'}</Text>
 
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ width: '100%' }} nestedScrollEnabled>
-            {/* 내용 */}
+          {/* 내용 + 날짜 — ScrollView 안에 (FlatList 없음) */}
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
             <Text style={styles.label}>내용</Text>
-            <TextInput
-              style={styles.input}
-              value={content}
-              onChangeText={setContent}
-              placeholder="할 일을 입력하세요"
-              placeholderTextColor="#55557a"
-              multiline
-            />
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={content}
+                onChangeText={(t) => {
+                  // 직접 타이핑하면 현재 텍스트를 base로 업데이트
+                  if (sttOn) baseContentRef.current = t;
+                  setContent(t);
+                }}
+                placeholder="할 일을 입력하세요"
+                placeholderTextColor="#55557a"
+                multiline
+              />
+              <TouchableOpacity style={styles.micBtn} onPress={toggleStt} activeOpacity={0.7}>
+                <Animated.Text style={[styles.micIcon, { transform: [{ scale: micAnim }] }]}>
+                  {sttOn ? '🔴' : '🎙️'}
+                </Animated.Text>
+              </TouchableOpacity>
+            </View>
+            {sttOn && (
+              <Text style={styles.sttHint}>🎤 듣는 중… 탭하면 중지</Text>
+            )}
 
-            {/* 날짜 */}
             <Text style={styles.label}>날짜</Text>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCal((s) => !s)}>
               <Text style={styles.dateBtnText}>{formatDayHeader(date)}</Text>
@@ -214,19 +312,39 @@ export function ScheduleEditor({
                 />
               </View>
             )}
-
-            {/* 시간 */}
-            <Text style={styles.label}>시간</Text>
-            <View style={styles.pickerRow}>
-              <ScrollPicker value={ampm}   items={AMPM_ITEMS} onChange={setAmpm}   label={labelAmpm} />
-              <ScrollPicker value={hour12} items={HOURS12}    onChange={setHour12} label={labelHour} />
-              <Text style={styles.colon}>:</Text>
-              <ScrollPicker value={minute} items={MINUTES}    onChange={setMinute} label={labelMin}  />
-              <Text style={styles.timePreview}>
-                {formatTime(new Date(2000, 0, 1, h24Preview, minute))}
-              </Text>
-            </View>
           </ScrollView>
+
+          {/* 시간 피커 — ScrollView 밖 (FlatList 중첩 경고 방지) */}
+          <Text style={[styles.label, { alignSelf: 'flex-start' }]}>시간</Text>
+          <View style={styles.pickerRow}>
+            <ScrollPicker value={ampm}   items={AMPM_ITEMS} onChange={setAmpm}   label={labelAmpm} />
+            <ScrollPicker value={hour12} items={HOURS12}    onChange={setHour12} label={labelHour} />
+            <Text style={styles.colon}>:</Text>
+            <ScrollPicker value={minute} items={MINUTES}    onChange={setMinute} label={labelMin}  />
+            <Text style={styles.timePreview}>
+              {formatTime(new Date(2000, 0, 1, h24Preview, minute))}
+            </Text>
+          </View>
+
+          {/* 알람 방식 */}
+          <Text style={[styles.label, { alignSelf: 'flex-start' }]}>🔔 알람</Text>
+          <View style={styles.alarmModeRow}>
+            {([
+              { id: 'both',  label: '소리+진동' },
+              { id: 'sound', label: '소리만' },
+              { id: 'vibe',  label: '진동만' },
+            ] as { id: AlarmMode; label: string }[]).map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                style={[styles.modePill, alarmMode === opt.id && styles.modePillOn]}
+                onPress={() => setAlarmMode(opt.id)}
+              >
+                <Text style={[styles.modePillText, alarmMode === opt.id && styles.modePillTextOn]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {/* 버튼 */}
           <View style={styles.btnRow}>
@@ -272,11 +390,20 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 16 },
 
   label: { color: '#9bdcff', fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   input: {
+    flex: 1,
     backgroundColor: '#1d1d38', borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12,
     color: '#f0f0ff', fontSize: 16, minHeight: 48,
   },
+  micBtn: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: '#1d1d38',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  micIcon: { fontSize: 22 },
+  sttHint: { color: '#e05c5c', fontSize: 12, marginTop: 6, textAlign: 'center' },
 
   dateBtn: {
     backgroundColor: '#1d1d38', borderRadius: 12,
@@ -294,6 +421,14 @@ const styles = StyleSheet.create({
   pickerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a30', borderRadius: 16, paddingHorizontal: 8, marginTop: 6 },
   colon:       { color: '#f0f0ff', fontSize: 26, fontWeight: '700', paddingHorizontal: 2 },
   timePreview: { color: '#666680', fontSize: 11, marginLeft: 6, minWidth: 44 },
+
+  alarmRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 14, paddingHorizontal: 4 },
+  alarmLabel:   { color: '#f0f0ff', fontSize: 15, fontWeight: '600' },
+  alarmModeRow: { flexDirection: 'row', gap: 8, width: '100%', marginTop: 10 },
+  modePill:     { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1d1d38', alignItems: 'center' },
+  modePillOn:   { backgroundColor: '#e05c5c' },
+  modePillText: { color: '#666680', fontSize: 13, fontWeight: '600' },
+  modePillTextOn: { color: '#fff' },
 
   btnRow:    { flexDirection: 'row', gap: 10, width: '100%', marginTop: 18 },
   cancelBtn: { flex: 1, height: 52, borderRadius: 14, backgroundColor: '#26263f', alignItems: 'center', justifyContent: 'center' },

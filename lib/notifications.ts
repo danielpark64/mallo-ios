@@ -43,7 +43,8 @@ const SOUND = Platform.OS === 'ios' ? 'alarm_long.wav' : 'alarm_long.wav';
 export async function scheduleAlarm(
   recordId: string,
   content: string,
-  at: Date
+  at: Date,
+  mode: 'both' | 'sound' | 'vibe' = 'both'
 ): Promise<string[]> {
   if (at.getTime() <= Date.now()) return [];
 
@@ -51,7 +52,9 @@ export async function scheduleAlarm(
   const base: Notifications.NotificationContentInput = {
     title: '말로',
     body: content,
-    sound: SOUND,
+    // iOS: sound 있으면 자동 진동, sound 없으면 무진동
+    // both/sound → alarm_long.wav (iOS는 소리+진동 자동), vibe → 무음(배너만)
+    sound: mode === 'vibe' ? undefined : SOUND,
     categoryIdentifier: 'alarm',
     data: { recordId },
   };
