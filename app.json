@@ -11,7 +11,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.danielpark.mallo",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "음성 메모를 녹음하기 위해 마이크 접근 권한이 필요합니다."
+        "NSMicrophoneUsageDescription": "음성 메모를 녹음하기 위해 마이크 접근 권한이 필요합니다.",
+        "NSSpeechRecognitionUsageDescription": "말씀하신 내용을 텍스트로 변환하기 위해 음성 인식 권한이 필요합니다."
       }
     },
     "android": {
@@ -25,6 +26,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-speech-recognition"
+    ]
   }
 }
