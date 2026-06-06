@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
-  FlatList,
+  Modal,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,7 +24,14 @@ import {
 } from 'expo-speech-recognition';
 import { StatusBar } from 'expo-status-bar';
 
-import { parseSchedule } from './lib/parseSchedule';
+import { parseSchedule, formatDisplay } from './lib/parseSchedule';
+import {
+  daysWithSchedules,
+  formatDayHeader,
+  formatTime,
+  isSameDay,
+  schedulesOn,
+} from './lib/dateUtils';
 import {
   deleteAudio,
   loadRecords,
@@ -31,6 +39,16 @@ import {
   saveRecords,
   type ScheduleRecord,
 } from './lib/storage';
+import * as Notifications from 'expo-notifications';
+import {
+  cancelAlarm,
+  cancelAlarmByRecordId,
+  registerNotificationCategories,
+  requestNotificationPermission,
+  scheduleAlarm,
+} from './lib/notifications';
+import { Calendar } from './components/Calendar';
+import { ScheduleEditor, type EditorResult } from './components/ScheduleEditor';
 
 function formatDuration(sec: number) {
   const m = Math.floor(sec / 60);
@@ -38,30 +56,23 @@ function formatDuration(sec: number) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// ─── 파형 컴포넌트 ────────────────────────────────────────────────────────────
+// ─── 파형 ─────────────────────────────────────────────────────────────────────
 const BAR_COUNT = 30;
-
 function Waveform({ metering, isRecording }: { metering: number | undefined; isRecording: boolean }) {
-  const barsRef = useRef<number[]>(Array(BAR_COUNT).fill(0.15));
   const animValues = useRef(
     Array.from({ length: BAR_COUNT }, () => new Animated.Value(0.15))
   ).current;
+  const barsRef = useRef<number[]>(Array(BAR_COUNT).fill(0.15));
 
   useEffect(() => {
     if (!isRecording) return;
     const timer = setInterval(() => {
       const meteringLevel =
         metering !== undefined ? Math.max(0, Math.min(1, (metering + 60) / 60)) : 0;
-      const idle = 0.15 + Math.random() * 0.15;
-      const level = Math.min(1, meteringLevel + idle);
+      const level = Math.min(1, meteringLevel + 0.15 + Math.random() * 0.15);
       barsRef.current = [...barsRef.current.slice(1), level];
       barsRef.current.forEach((v, i) => {
-        Animated.spring(animValues[i], {
-          toValue: v,
-          useNativeDriver: true,
-          speed: 50,
-          bounciness: 0,
-        }).start();
+        Animated.spring(animValues[i], { toValue: v, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
       });
     }, 80);
     return () => clearInterval(timer);
@@ -75,14 +86,7 @@ function Waveform({ metering, isRecording }: { metering: number | undefined; isR
           style={[
             styles.bar,
             {
-              transform: [
-                {
-                  scaleY: anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.1, 1],
-                  }),
-                },
-              ],
+              transform: [{ scaleY: anim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 1] }) }],
               opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }),
             },
           ]}
@@ -92,15 +96,15 @@ function Waveform({ metering, isRecording }: { metering: number | undefined; isR
   );
 }
 
-// ─── 일정 아이템 ──────────────────────────────────────────────────────────────
-function ScheduleItem({
+// ─── 하루 일정 행 (탭하면 편집) ───────────────────────────────────────────────
+function DayRow({
   item,
-  onDelete,
+  onPress,
 }: {
   item: ScheduleRecord;
-  onDelete: (id: string) => void;
+  onPress: (r: ScheduleRecord) => void;
 }) {
-  const player = useAudioPlayer(item.uri);
+  const player = useAudioPlayer(item.uri || undefined);
   const [playing, setPlaying] = useState(false);
 
   const toggle = () => {
@@ -113,63 +117,67 @@ function ScheduleItem({
       setPlaying(true);
     }
   };
-
   useEffect(() => {
-    if (player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
-      setPlaying(false);
-    }
+    if (player.currentTime > 0 && player.currentTime >= player.duration - 0.1) setPlaying(false);
   }, [player.currentTime]);
 
+  const timeLabel = item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
   const title = item.content || item.transcript || '(내용 없음)';
 
   return (
-    <View style={styles.item}>
-      <View style={styles.itemInfo}>
-        {item.scheduleDisplay ? (
-          <Text style={styles.itemSchedule}>📅 {item.scheduleDisplay}</Text>
-        ) : (
-          <Text style={styles.itemNoSchedule}>날짜·시간 없음</Text>
-        )}
-        <Text style={styles.itemTitle} numberOfLines={2}>
-          {title}
-        </Text>
-        <Text style={styles.itemMeta}>
-          {formatDuration(item.durationSec)} ·{' '}
-          {new Date(item.createdAt).toLocaleTimeString('ko-KR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </Text>
+    <TouchableOpacity style={styles.row} onPress={() => onPress(item)} activeOpacity={0.7}>
+      <View style={styles.timeCol}>
+        <Text style={styles.rowTime}>{timeLabel}</Text>
       </View>
-      <TouchableOpacity style={styles.playBtn} onPress={toggle}>
-        <Text style={styles.playBtnText}>{playing ? '⏸' : '▶'}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id)}>
-        <Text style={styles.deleteBtnText}>🗑</Text>
-      </TouchableOpacity>
-    </View>
+      <View style={styles.rowBar} />
+      <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
+      {item.uri ? (
+        <TouchableOpacity style={styles.iconBtn} onPress={toggle}>
+          <Text style={styles.iconBtnText}>{playing ? '⏸' : '▶'}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </TouchableOpacity>
   );
 }
 
-// ─── 메인 앱 ──────────────────────────────────────────────────────────────────
+// ─── 메인 ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const recorder = useAudioRecorder({
-    ...RecordingPresets.HIGH_QUALITY,
-    isMeteringEnabled: true,
-  });
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
   const recorderState = useAudioRecorderState(recorder, 50);
+
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  });
+
+  // 녹음 오버레이
+  const [showRecorder, setShowRecorder] = useState(false);
   const [liveText, setLiveText] = useState('');
-  const countRef = useRef(1);
   const liveTextRef = useRef('');
 
-  // ── 초기화: 권한 + 저장된 일정 로드 ─────────────────────────────────────────
+  // 현재 시각 (매분 갱신)
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  // 편집기
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<ScheduleRecord | null>(null);
+  // 달력 탭 여부 (탭하면 오늘 과거 일정도 표시)
+  const [calTapped, setCalTapped] = useState(false);
+
+  // ── 초기화 ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       const audio = await AudioModule.requestRecordingPermissionsAsync();
       const speech = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      await requestNotificationPermission();
+      await registerNotificationCategories();
       setPermissionGranted(audio.granted && speech.granted);
       if (!audio.granted || !speech.granted) {
         Alert.alert('권한 필요', '마이크 및 음성 인식 권한이 모두 필요합니다.');
@@ -178,35 +186,63 @@ export default function App() {
     setRecords(loadRecords());
   }, []);
 
-  // ── 실시간 파싱 (말하는 중 날짜·시간/내용 추출) ──────────────────────────────
-  const liveParsed = useMemo(() => parseSchedule(liveText), [liveText]);
+  // 알림 액션(알람 끄기) 응답 → 나머지 슬롯 취소
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as any;
+      const recordId: string | undefined = data?.recordId;
+      if (recordId) cancelAlarmByRecordId(recordId).catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
-  // ── STT 이벤트 ────────────────────────────────────────────────────────────
+  const liveParsed = useMemo(() => parseSchedule(liveText), [liveText]);
+  const marked = useMemo(() => daysWithSchedules(records), [records]);
+  const dayList = useMemo(() => {
+    const all = schedulesOn(records, selectedDate);
+    // 오늘이 자동 선택(앱 실행)된 상태에서만 과거 일정 숨김
+    // 달력에서 직접 탭하면(calTapped) 오늘이라도 전체 표시
+    if (calTapped || !isSameDay(selectedDate, new Date())) return all;
+    const now = Date.now();
+    return all.filter((r) => !r.hasTime || (r.scheduleAt ?? 0) >= now);
+  }, [records, selectedDate, calTapped]);
+
+  // 다음 예정 일정 (헤더 표시용)
+  const nextSchedule = useMemo(() => {
+    const now = Date.now();
+    return records
+      .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt >= now)
+      .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0))[0] ?? null;
+  }, [records]);
+
+  // ── STT ─────────────────────────────────────────────────────────────────────
   useSpeechRecognitionEvent('result', (e) => {
     const text = e.results[0]?.transcript ?? '';
     setLiveText(text);
     liveTextRef.current = text;
   });
-
   useSpeechRecognitionEvent('error', (e) => {
     const ignored = ['aborted', 'no-speech', 'audio-capture', 'network'];
     if (ignored.includes(e.error)) return;
     console.warn('STT 에러:', e.error, e.message);
   });
-
   useSpeechRecognitionEvent('end', () => {
     if (recorderState.isRecording) {
       setTimeout(() => {
         if (recorderState.isRecording) {
-          try {
-            ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
-          } catch {}
+          try { ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true }); } catch {}
         }
       }, 200);
     }
   });
 
-  // ── 녹음 시작 ─────────────────────────────────────────────────────────────
+  // ── 저장 헬퍼 ─────────────────────────────────────────────────────────────────
+  const commit = (next: ScheduleRecord[]) => {
+    setRecords(next);
+    saveRecords(next);
+  };
+
+  // ── 녹음 ─────────────────────────────────────────────────────────────────────
   const startRecording = async () => {
     if (!permissionGranted) {
       Alert.alert('권한 없음', '마이크 및 음성 인식 권한을 허용해주세요.');
@@ -214,243 +250,342 @@ export default function App() {
     }
     setLiveText('');
     liveTextRef.current = '';
-
+    setShowRecorder(true);
     await recorder.prepareToRecordAsync();
     recorder.record();
-
-    try {
-      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
-    } catch {}
+    try { ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true }); } catch {}
   };
 
-  // ── 녹음 중지 + 파싱 + 저장 ─────────────────────────────────────────────────
+  const cancelRecording = async () => {
+    try { ExpoSpeechRecognitionModule.abort(); } catch {}
+    try { await recorder.stop(); } catch {}
+    setLiveText('');
+    liveTextRef.current = '';
+    setShowRecorder(false);
+  };
+
   const stopRecording = async () => {
     try { ExpoSpeechRecognitionModule.stop(); } catch {}
     await recorder.stop();
-
     const uri = recorder.uri;
-    if (!uri) return;
-
     const transcript = liveTextRef.current.trim();
     const durationSec = Math.round((recorderState.durationMillis ?? 0) / 1000);
     const parsed = parseSchedule(transcript);
+    setShowRecorder(false);
+    setLiveText('');
+    liveTextRef.current = '';
 
-    // 날짜·시간이 전혀 없으면 저장하지 않고 경고
-    if (transcript && !parsed.hasDate && !parsed.hasTime) {
-      Alert.alert(
-        '언제인지 알 수 없어요',
-        `"${transcript}"\n\n날짜나 시간이 빠졌어요. "내일 오후 3시"처럼 시점을 포함해서 다시 말씀해주세요.`,
-        [{ text: '다시 녹음', style: 'destructive' }]
-      );
-      return;
-    }
-    // STT가 아무것도 못 잡은 경우
+    if (!uri) return;
     if (!transcript) {
       Alert.alert('인식 실패', '음성이 인식되지 않았어요. 다시 시도해주세요.');
       return;
     }
-
-    const id = Date.now().toString();
-    let savedUri = uri;
-    try {
-      savedUri = persistAudio(uri, id);
-    } catch (e) {
-      console.warn('오디오 저장 실패:', e);
+    if (!parsed.hasDate && !parsed.hasTime) {
+      Alert.alert(
+        '언제인지 알 수 없어요',
+        `"${transcript}"\n\n날짜나 시간이 빠졌어요. "내일 오후 3시"처럼 시점을 포함해서 다시 말씀해주세요.`,
+        [{ text: '확인' }]
+      );
+      return;
     }
 
-    const record: ScheduleRecord = {
-      id,
-      uri: savedUri,
-      durationSec,
-      transcript,
-      content: parsed.content,
-      scheduleAt: parsed.date ? parsed.date.getTime() : null,
-      scheduleDisplay: parsed.display,
-      hasDate: parsed.hasDate,
-      hasTime: parsed.hasTime,
-      createdAt: Date.now(),
+    // B: 알림 등록 + 새 레코드 저장
+    const saveAsNew = async () => {
+      const id = Date.now().toString();
+      let savedUri = uri!;
+      try { savedUri = persistAudio(uri!, id); } catch (e) { console.warn('오디오 저장 실패:', e); }
+      let notifIds: string[] | undefined;
+      if (parsed.date && parsed.hasTime) {
+        const ids = await scheduleAlarm(id, parsed.content || transcript, parsed.date);
+        if (ids.length) notifIds = ids;
+      }
+      const record: ScheduleRecord = {
+        id, uri: savedUri, durationSec, transcript,
+        content: parsed.content,
+        scheduleAt: parsed.date ? parsed.date.getTime() : null,
+        scheduleDisplay: parsed.display,
+        hasDate: parsed.hasDate, hasTime: parsed.hasTime,
+        notifIds, createdAt: Date.now(),
+      };
+      commit([record, ...records]);
+      if (parsed.date) {
+        setSelectedDate(new Date(parsed.date.getFullYear(), parsed.date.getMonth(), parsed.date.getDate()));
+      }
     };
 
-    setRecords((prev) => {
-      const next = [record, ...prev];
-      saveRecords(next);
-      return next;
-    });
-    countRef.current += 1;
-    setLiveText('');
-    liveTextRef.current = '';
+    // A1: 삭제 의도 감지
+    const DELETE_WORDS = ['삭제', '지워', '없애', '제거'];
+    const isDeleteIntent = DELETE_WORDS.some((k) => transcript.includes(k));
+    if (isDeleteIntent && parsed.date) {
+      const targets = records.filter(
+        (r) => r.scheduleAt != null && isSameDay(new Date(r.scheduleAt), parsed.date!)
+      );
+      if (targets.length === 0) {
+        Alert.alert('삭제할 일정 없음', `${formatDayHeader(parsed.date)}에 일정이 없어요.`);
+        return;
+      }
+      const target = parsed.hasTime
+        ? targets.reduce((a, b) =>
+            Math.abs((a.scheduleAt ?? 0) - parsed.date!.getTime()) <=
+            Math.abs((b.scheduleAt ?? 0) - parsed.date!.getTime())
+              ? a : b)
+        : targets[0];
+      const extras = targets.filter((r) => r.id !== target.id);
+      const extrasStr = extras.length > 0
+        ? '\n\n같은 날 다른 일정:\n' + extras.map((r) => `• ${r.content}`).join('\n')
+        : '';
+      Alert.alert(
+        '일정 삭제',
+        `삭제할 일정:\n"${target.content}"\n${target.scheduleDisplay}${extrasStr}`,
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '삭제', style: 'destructive', onPress: async () => {
+            if (target.uri) deleteAudio(target.uri);
+            if (target.notifIds?.length) await cancelAlarm(target.notifIds);
+            commit(records.filter((r) => r.id !== target.id));
+            setSelectedDate(new Date(parsed.date!.getFullYear(), parsed.date!.getMonth(), parsed.date!.getDate()));
+          }},
+        ]
+      );
+      return;
+    }
+
+    // A2: 같은 시각(±5분) 기존 일정 → 메모 추가 / 새 일정 선택
+    if (parsed.date && parsed.hasTime) {
+      const MARGIN_MS = 5 * 60 * 1000;
+      const existing = records.find(
+        (r) => r.scheduleAt != null && Math.abs(r.scheduleAt - parsed.date!.getTime()) <= MARGIN_MS
+      );
+      if (existing) {
+        Alert.alert(
+          '비슷한 시간 일정이 있어요',
+          `기존: "${existing.content}"\n${existing.scheduleDisplay}\n\n새로 인식:\n"${parsed.content}"`,
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '메모 추가', onPress: () => {
+              const appended = existing.content + (parsed.content ? '\n• ' + parsed.content : '');
+              const next = records.map((r) =>
+                r.id === existing.id ? { ...r, content: appended } : r
+              );
+              commit(next);
+              setSelectedDate(new Date(existing.scheduleAt!));
+            }},
+            { text: '새 일정', onPress: saveAsNew },
+          ]
+        );
+        return;
+      }
+    }
+
+    await saveAsNew();
   };
 
-  const deleteRecord = (id: string) => {
-    setRecords((prev) => {
-      const target = prev.find((r) => r.id === id);
-      if (target) deleteAudio(target.uri);
-      const next = prev.filter((r) => r.id !== id);
-      saveRecords(next);
-      return next;
-    });
+  // ── 편집기 저장/삭제 ──────────────────────────────────────────────────────────
+  const openNew = () => { setEditing(null); setEditorOpen(true); };
+  const openEdit = (r: ScheduleRecord) => { setEditing(r); setEditorOpen(true); };
+
+  const handleEditorSave = async (res: EditorResult) => {
+    const display = formatDisplay(res.date, true, res.hasTime);
+    const notifAt = res.hasTime && res.date.getTime() > Date.now() ? res.date : null;
+    if (res.id) {
+      // 수정: 기존 알림 취소 후 새로 등록
+      const old = records.find((r) => r.id === res.id);
+      if (old?.notifIds?.length) await cancelAlarm(old.notifIds);
+      const newIds = notifAt ? await scheduleAlarm(res.id, res.content, notifAt) : [];
+      const notifIds = newIds.length ? newIds : undefined;
+      const next = records.map((r) =>
+        r.id === res.id
+          ? { ...r, content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display, hasDate: true, hasTime: res.hasTime, notifIds }
+          : r
+      );
+      commit(next);
+    } else {
+      // 수동 추가 (녹음 없음)
+      const id = Date.now().toString();
+      const newIds = notifAt ? await scheduleAlarm(id, res.content, notifAt) : [];
+      const notifIds = newIds.length ? newIds : undefined;
+      const rec: ScheduleRecord = {
+        id, uri: '', durationSec: 0, transcript: '',
+        content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display,
+        hasDate: true, hasTime: res.hasTime, notifIds, createdAt: Date.now(),
+      };
+      commit([rec, ...records]);
+    }
+    setSelectedDate(new Date(res.date.getFullYear(), res.date.getMonth(), res.date.getDate()));
+    setEditorOpen(false);
   };
 
-  // 일정 시각 순 정렬 (날짜 있는 것 먼저, 가까운 순)
-  const sorted = useMemo(() => {
-    return [...records].sort((a, b) => {
-      if (a.scheduleAt && b.scheduleAt) return a.scheduleAt - b.scheduleAt;
-      if (a.scheduleAt) return -1;
-      if (b.scheduleAt) return 1;
-      return b.createdAt - a.createdAt;
-    });
-  }, [records]);
+  const handleEditorDelete = async (id: string) => {
+    const target = records.find((r) => r.id === id);
+    if (target?.uri) deleteAudio(target.uri);
+    if (target?.notifIds?.length) await cancelAlarm(target.notifIds);
+    commit(records.filter((r) => r.id !== id));
+    setEditorOpen(false);
+  };
 
-  const isRecording = recorderState.isRecording;
   const elapsedSec = Math.floor((recorderState.durationMillis ?? 0) / 1000);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <Text style={styles.title}>말로</Text>
-      <Text style={styles.subtitle}>음성으로 기록하다</Text>
 
-      {/* ── 녹음 섹션 ── */}
-      <View style={styles.recordSection}>
-        {isRecording && (
-          <Waveform metering={recorderState.metering} isRecording={isRecording} />
-        )}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>말로</Text>
+          {nextSchedule?.scheduleAt ? (
+            <Text style={styles.nextLabel} numberOfLines={1}>
+              예정: {formatDayHeader(new Date(nextSchedule.scheduleAt))} {formatTime(new Date(nextSchedule.scheduleAt))}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={styles.clockLabel}>{formatTime(currentTime)}</Text>
+      </View>
 
-        {/* 실시간 STT 텍스트 + 파싱 결과 */}
-        {isRecording && (
-          <View style={styles.transcriptBox}>
-            {liveText ? (
-              <Text style={styles.transcriptText} numberOfLines={4}>
-                {liveText}
-              </Text>
-            ) : (
-              <Text style={styles.transcriptPlaceholder}>
-                말씀해보세요…{'\n'}예: "내일 오후 3시에 회의"
-              </Text>
-            )}
+      {/* 달력 */}
+      <Calendar
+        selectedDate={selectedDate}
+        onSelectDate={(d) => { setSelectedDate(d); setCalTapped(true); }}
+        markedDays={marked}
+      />
 
-            {/* 날짜·시간 인식 실시간 배지 */}
-            {liveText ? (
-              liveParsed.hasDate || liveParsed.hasTime ? (
-                <View style={styles.detectRow}>
-                  <Text style={styles.detectOk}>✓ {liveParsed.display}</Text>
-                  {liveParsed.content ? (
-                    <Text style={styles.detectContent}>“{liveParsed.content}”</Text>
-                  ) : null}
-                </View>
-              ) : (
-                <Text style={styles.detectWait}>⏳ 날짜·시간을 기다리는 중…</Text>
-              )
-            ) : null}
-          </View>
-        )}
-
-        {isRecording && <Text style={styles.timer}>{formatDuration(elapsedSec)}</Text>}
-
-        <TouchableOpacity
-          style={[styles.recordBtn, isRecording && styles.recordBtnActive]}
-          onPress={isRecording ? stopRecording : startRecording}
-        >
-          <Text style={styles.recordBtnIcon}>{isRecording ? '⏹' : '🎙'}</Text>
-          <Text style={styles.recordBtnLabel}>{isRecording ? '녹음 중지' : '녹음 시작'}</Text>
+      {/* 선택일 헤더 + 추가 */}
+      <View style={styles.dayHeader}>
+        <Text style={styles.dayHeaderText}>{formatDayHeader(selectedDate)}</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={openNew}>
+          <Text style={styles.addBtnText}>＋ 추가</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── 일정 목록 ── */}
-      <View style={styles.listSection}>
-        <Text style={styles.listTitle}>
-          일정{records.length > 0 ? ` (${records.length})` : ''}
-        </Text>
-        {records.length === 0 ? (
-          <Text style={styles.empty}>아직 기록된 일정이 없습니다</Text>
+      {/* 선택일 일정 목록 */}
+      <ScrollView style={styles.dayList} contentContainerStyle={{ paddingBottom: 120 }}>
+        {dayList.length === 0 ? (
+          <Text style={styles.empty}>이 날은 일정이 없어요</Text>
         ) : (
-          <FlatList
-            data={sorted}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <ScheduleItem item={item} onDelete={deleteRecord} />}
-          />
+          dayList.map((item) => <DayRow key={item.id} item={item} onPress={openEdit} />)
         )}
-      </View>
+      </ScrollView>
+
+      {/* 녹음 FAB */}
+      <TouchableOpacity style={styles.fab} onPress={startRecording} activeOpacity={0.85}>
+        <Text style={styles.fabIcon}>🎙</Text>
+      </TouchableOpacity>
+
+      {/* 편집기 */}
+      <ScheduleEditor
+        visible={editorOpen}
+        record={editing}
+        defaultDate={selectedDate}
+        markedDays={marked}
+        onSave={handleEditorSave}
+        onDelete={handleEditorDelete}
+        onClose={() => setEditorOpen(false)}
+      />
+
+      {/* 녹음 오버레이 */}
+      <Modal visible={showRecorder} animationType="slide" transparent onRequestClose={cancelRecording}>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>듣고 있어요</Text>
+            <Waveform metering={recorderState.metering} isRecording={recorderState.isRecording} />
+            <View style={styles.transcriptBox}>
+              {liveText ? (
+                <Text style={styles.transcriptText} numberOfLines={4}>{liveText}</Text>
+              ) : (
+                <Text style={styles.transcriptPlaceholder}>말씀해보세요…{'\n'}예: "내일 오후 3시에 회의"</Text>
+              )}
+              {liveText ? (
+                liveParsed.hasDate || liveParsed.hasTime ? (
+                  <View style={styles.detectRow}>
+                    <Text style={styles.detectOk}>✓ {liveParsed.display}</Text>
+                    {liveParsed.content ? <Text style={styles.detectContent}>“{liveParsed.content}”</Text> : null}
+                  </View>
+                ) : (
+                  <Text style={styles.detectWait}>⏳ 날짜·시간을 기다리는 중…</Text>
+                )
+              ) : null}
+            </View>
+            <Text style={styles.timer}>{formatDuration(elapsedSec)}</Text>
+            <View style={styles.sheetBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={cancelRecording}>
+                <Text style={styles.cancelBtnText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.stopBtn} onPress={stopRecording}>
+                <Text style={styles.stopBtnIcon}>⏹</Text>
+                <Text style={styles.stopBtnText}>완료</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── 스타일 ────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b0b1c' },
-  title: { color: '#fff', fontSize: 32, fontWeight: '700', textAlign: 'center', marginTop: 24 },
-  subtitle: { color: '#666680', fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 24 },
 
-  recordSection: { alignItems: 'center', paddingHorizontal: 20, marginBottom: 28 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 6,
+  },
+  headerLeft: { flex: 1, gap: 2 },
+  title: { color: '#fff', fontSize: 28, fontWeight: '700' },
+  nextLabel: { color: '#9bdcff', fontSize: 12, fontWeight: '500' },
+  clockLabel: { color: '#f0f0ff', fontSize: 22, fontWeight: '300', letterSpacing: 1 },
 
-  waveform: { flexDirection: 'row', alignItems: 'center', height: 60, gap: 3, marginBottom: 12 },
-  bar: { width: 4, height: 50, borderRadius: 2, backgroundColor: '#e05c5c' },
+  dayHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, marginTop: 6, marginBottom: 6,
+  },
+  dayHeaderText: { color: '#f0f0ff', fontSize: 17, fontWeight: '700' },
+  addBtn: { backgroundColor: '#1d1d38', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
+  addBtnText: { color: '#9bdcff', fontSize: 14, fontWeight: '600' },
 
+  dayList: { flex: 1, paddingHorizontal: 20, marginTop: 4 },
+  empty: { color: '#444460', fontSize: 14, textAlign: 'center', marginTop: 30 },
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#15152a', borderRadius: 14, padding: 14, marginBottom: 8,
+  },
+  timeCol: { width: 76 },
+  rowTime: { color: '#9bdcff', fontSize: 14, fontWeight: '600' },
+  rowBar: { width: 3, height: 32, borderRadius: 2, backgroundColor: '#e05c5c', marginRight: 12 },
+  rowTitle: { flex: 1, color: '#f0f0ff', fontSize: 16, fontWeight: '500', lineHeight: 22 },
+  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  iconBtnText: { fontSize: 16 },
+
+  fab: {
+    position: 'absolute', right: 24, bottom: 32,
+    width: 64, height: 64, borderRadius: 32, backgroundColor: '#e05c5c',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+  },
+  fabIcon: { fontSize: 28 },
+
+  // 녹음 오버레이
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#14142a', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40, alignItems: 'center',
+  },
+  sheetTitle: { color: '#e05c5c', fontSize: 15, fontWeight: '600', marginBottom: 16 },
+  waveform: { flexDirection: 'row', alignItems: 'center', height: 56, gap: 3, marginBottom: 16 },
+  bar: { width: 4, height: 48, borderRadius: 2, backgroundColor: '#e05c5c' },
   transcriptBox: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    width: '100%',
-    minHeight: 96,
-    marginBottom: 12,
-    justifyContent: 'center',
+    backgroundColor: '#1d1d38', borderRadius: 14, padding: 16, width: '100%',
+    minHeight: 100, marginBottom: 16, justifyContent: 'center',
   },
   transcriptText: { color: '#f0f0ff', fontSize: 20, fontWeight: '500', lineHeight: 28 },
   transcriptPlaceholder: { color: '#55557a', fontSize: 16, lineHeight: 24 },
-  detectRow: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#2a2a40', paddingTop: 10 },
+  detectRow: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#2a2a45', paddingTop: 10 },
   detectOk: { color: '#4ade80', fontSize: 15, fontWeight: '700' },
   detectContent: { color: '#aaaacc', fontSize: 14, marginTop: 4 },
   detectWait: { color: '#888', fontSize: 13, marginTop: 12 },
-
-  timer: { color: '#e05c5c', fontSize: 28, fontWeight: '300', letterSpacing: 3, marginBottom: 16 },
-
-  recordBtn: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: '#1e1e36',
-    borderWidth: 2,
-    borderColor: '#3a3a60',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordBtnActive: { borderColor: '#e05c5c', backgroundColor: '#2a1520' },
-  recordBtnIcon: { fontSize: 34, marginBottom: 4 },
-  recordBtnLabel: { color: '#aaaacc', fontSize: 12 },
-
-  listSection: { flex: 1, paddingHorizontal: 20 },
-  listTitle: {
-    color: '#666680',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  empty: { color: '#444460', fontSize: 14, textAlign: 'center', marginTop: 40 },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-  },
-  itemInfo: { flex: 1 },
-  itemSchedule: { color: '#7dd3fc', fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  itemNoSchedule: { color: '#888', fontSize: 12, marginBottom: 4 },
-  itemTitle: { color: '#f0f0ff', fontSize: 16, fontWeight: '500' },
-  itemMeta: { color: '#666680', fontSize: 12, marginTop: 4 },
-  playBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2a2a4a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  playBtnText: { fontSize: 16 },
-  deleteBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
-  deleteBtnText: { fontSize: 18 },
+  timer: { color: '#e05c5c', fontSize: 26, fontWeight: '300', letterSpacing: 3, marginBottom: 20 },
+  sheetBtns: { flexDirection: 'row', gap: 14, width: '100%' },
+  cancelBtn: { flex: 1, height: 56, borderRadius: 16, backgroundColor: '#26263f', alignItems: 'center', justifyContent: 'center' },
+  cancelBtnText: { color: '#aaaacc', fontSize: 16, fontWeight: '600' },
+  stopBtn: { flex: 2, height: 56, borderRadius: 16, backgroundColor: '#e05c5c', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  stopBtnIcon: { fontSize: 18 },
+  stopBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

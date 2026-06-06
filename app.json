@@ -29,7 +29,8 @@
     },
     "plugins": [
       "expo-audio",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      ["expo-notifications", { "sounds": ["./assets/alarm_long.wav"] }]
     ]
   }
 }

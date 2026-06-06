@@ -11,6 +11,7 @@ export type ScheduleRecord = {
   scheduleDisplay: string;   // "6월 7일 (토) 오후 3:00"
   hasDate: boolean;
   hasTime: boolean;
+  notifIds?: string[];    // expo-notifications 식별자 배열 (main + +1분 + +2분 슬롯)
   createdAt: number;      // 생성 시각(epoch ms)
 };
 
