@@ -292,6 +292,10 @@ export default function App() {
     const transcript = liveTextRef.current.trim();
     const durationSec = Math.round((recorderState.durationMillis ?? 0) / 1000);
     const parsed = parseSchedule(transcript);
+    const recordedDate = (() => {
+      const n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    })();
     setShowRecorder(false);
     setLiveText('');
     liveTextRef.current = '';
@@ -329,9 +333,7 @@ export default function App() {
         notifIds, createdAt: Date.now(),
       };
       commit([record, ...records]);
-      if (parsed.date) {
-        setSelectedDate(new Date(parsed.date.getFullYear(), parsed.date.getMonth(), parsed.date.getDate()));
-      }
+      setSelectedDate(recordedDate);
     };
 
     // A1: 삭제 의도 감지
@@ -364,7 +366,7 @@ export default function App() {
             if (target.uri) deleteAudio(target.uri);
             if (target.notifIds?.length) await cancelAlarm(target.notifIds);
             commit(records.filter((r) => r.id !== target.id));
-            setSelectedDate(new Date(parsed.date!.getFullYear(), parsed.date!.getMonth(), parsed.date!.getDate()));
+            setSelectedDate(recordedDate);
           }},
         ]
       );
@@ -389,7 +391,7 @@ export default function App() {
                 r.id === existing.id ? { ...r, content: appended } : r
               );
               commit(next);
-              setSelectedDate(new Date(existing.scheduleAt!));
+              setSelectedDate(recordedDate);
             }},
             { text: '새 일정', onPress: saveAsNew },
           ]

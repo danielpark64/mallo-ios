@@ -17,8 +17,9 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Calendar } from './Calendar';
-import { formatDayHeader, formatTime } from '../lib/dateUtils';
+import { formatDayHeader } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
 
 export type AlarmMode = 'both' | 'sound' | 'vibe';
@@ -32,7 +33,7 @@ export type EditorResult = {
 };
 
 // ─── 무한궤도 스크롤 피커 ─────────────────────────────────────────────────────
-const PICK_H = 54;
+const PICK_H = 42;
 // 항목 수가 적은 피커(시 등)도 양방향 스크롤 버퍼가 충분하도록
 // midOffset(중앙까지의 행 수)이 대략 같아지게 loopCount를 동적으로 계산
 const TARGET_MID_OFFSET = 48;
@@ -279,6 +280,10 @@ export function ScheduleEditor({
   const labelHour  = useCallback((v: number) => v.toString().padStart(2, '0'), []);
   const labelMin   = useCallback((v: number) => v.toString().padStart(2, '0'), []);
 
+  const meridiem = hour < 12 ? '오전' : '오후';
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  const timeStr = `${h12}:${minute.toString().padStart(2, '0')}`;
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -331,32 +336,40 @@ export function ScheduleEditor({
           {/* 시간 피커 — ScrollView 밖 (FlatList 중첩 경고 방지) */}
           <Text style={[styles.label, { alignSelf: 'flex-start' }]}>시간</Text>
           <View style={styles.pickerRow}>
-            <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
-            <Text style={styles.colon}>:</Text>
-            <ScrollPicker value={minute} items={MINUTES} onChange={setMinute} label={labelMin}  />
-            <Text style={styles.timePreview}>
-              {formatTime(new Date(2000, 0, 1, hour, minute))}
-            </Text>
-          </View>
-
-          {/* 알람 방식 */}
-          <Text style={[styles.label, { alignSelf: 'flex-start' }]}>🔔 알람</Text>
-          <View style={styles.alarmModeRow}>
-            {([
-              { id: 'both',  label: '소리+진동' },
-              { id: 'sound', label: '소리만' },
-              { id: 'vibe',  label: '진동만' },
-            ] as { id: AlarmMode; label: string }[]).map((opt) => (
-              <TouchableOpacity
-                key={opt.id}
-                style={[styles.modePill, alarmMode === opt.id && styles.modePillOn]}
-                onPress={() => setAlarmMode(opt.id)}
-              >
-                <Text style={[styles.modePillText, alarmMode === opt.id && styles.modePillTextOn]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <View style={styles.timePickerGroup}>
+              <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
+              <Text style={styles.colon}>:</Text>
+              <ScrollPicker value={minute} items={MINUTES} onChange={setMinute} label={labelMin}  />
+            </View>
+            <View style={styles.alarmSide}>
+              <View style={styles.alarmTextCol}>
+                <Text style={styles.meridiemText}>{meridiem}</Text>
+                <Text style={styles.timePreview}>{timeStr}</Text>
+              </View>
+              <View style={styles.alarmIconCol}>
+                <TouchableOpacity
+                  style={[styles.modeIconBtn, alarmMode === 'both' && styles.modeIconBtnOn]}
+                  onPress={() => setAlarmMode('both')}
+                >
+                  <Text style={styles.modeIconBell}>🔔</Text>
+                  <MaterialCommunityIcons name="vibrate" size={14} color={alarmMode === 'both' ? '#fff' : '#666680'} />
+                </TouchableOpacity>
+                <View style={styles.modeIconGroup}>
+                  <TouchableOpacity
+                    style={[styles.modeIconBtn, alarmMode === 'sound' && styles.modeIconBtnOn]}
+                    onPress={() => setAlarmMode('sound')}
+                  >
+                    <Text style={styles.modeIconBell}>🔔</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeIconBtn, alarmMode === 'vibe' && styles.modeIconBtnOn]}
+                    onPress={() => setAlarmMode('vibe')}
+                  >
+                    <MaterialCommunityIcons name="vibrate" size={14} color={alarmMode === 'vibe' ? '#fff' : '#666680'} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           </View>
 
           {/* 버튼 */}
@@ -383,8 +396,8 @@ const pick = StyleSheet.create({
   wrap:      { flex: 1, height: PICK_H * 3, overflow: 'hidden', position: 'relative' },
   highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: '#26263f', borderRadius: 10 },
   item:      { height: PICK_H, justifyContent: 'center', alignItems: 'center' },
-  sel:       { fontSize: 28, color: '#f0f0ff', fontWeight: '700' },
-  dim:       { fontSize: 18, color: '#44446a', fontWeight: '400' },
+  sel:       { fontSize: 24, color: '#f0f0ff', fontWeight: '700' },
+  dim:       { fontSize: 15, color: '#44446a', fontWeight: '400' },
 });
 
 const styles = StyleSheet.create({
@@ -431,17 +444,19 @@ const styles = StyleSheet.create({
   timeToggle:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   timeToggleLabel: { color: '#aaaacc', fontSize: 13 },
 
-  pickerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a30', borderRadius: 16, paddingHorizontal: 8, marginTop: 6 },
-  colon:       { color: '#f0f0ff', fontSize: 26, fontWeight: '700', paddingHorizontal: 2 },
-  timePreview: { color: '#666680', fontSize: 11, marginLeft: 6, minWidth: 44 },
+  pickerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: '#1a1a30', borderRadius: 16, paddingHorizontal: 8, marginTop: 6 },
+  timePickerGroup: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  colon:       { color: '#f0f0ff', fontSize: 20, fontWeight: '700', paddingHorizontal: 2 },
 
-  alarmRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 14, paddingHorizontal: 4 },
-  alarmLabel:   { color: '#f0f0ff', fontSize: 15, fontWeight: '600' },
-  alarmModeRow: { flexDirection: 'row', gap: 8, width: '100%', marginTop: 10 },
-  modePill:     { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1d1d38', alignItems: 'center' },
-  modePillOn:   { backgroundColor: '#e05c5c' },
-  modePillText: { color: '#666680', fontSize: 13, fontWeight: '600' },
-  modePillTextOn: { color: '#fff' },
+  alarmSide:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingLeft: 12, paddingVertical: 10, width: 130 },
+  alarmTextCol: { alignItems: 'center', gap: 4 },
+  alarmIconCol: { alignItems: 'center', gap: 6 },
+  meridiemText: { color: '#aaaacc', fontSize: 18, fontWeight: '700' },
+  timePreview:  { color: '#f0f0ff', fontSize: 18, fontWeight: '700' },
+  modeIconGroup: { flexDirection: 'row', gap: 6 },
+  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: '#26263f' },
+  modeIconBtnOn: { backgroundColor: '#e05c5c' },
+  modeIconBell: { fontSize: 14 },
 
   btnRow:    { flexDirection: 'row', gap: 10, width: '100%', marginTop: 18 },
   cancelBtn: { flex: 1, height: 52, borderRadius: 14, backgroundColor: '#26263f', alignItems: 'center', justifyContent: 'center' },
