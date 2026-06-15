@@ -33,10 +33,11 @@ export type EditorResult = {
 
 // ─── 무한궤도 스크롤 피커 ─────────────────────────────────────────────────────
 const PICK_H = 54;
-const LOOP   = 50;
+// 항목 수가 적은 피커(시 등)도 양방향 스크롤 버퍼가 충분하도록
+// midOffset(중앙까지의 행 수)이 대략 같아지게 loopCount를 동적으로 계산
+const TARGET_MID_OFFSET = 48;
 
-const AMPM_ITEMS  = [0, 1];           // 0=오전, 1=오후
-const HOURS12     = [1,2,3,4,5,6,7,8,9,10,11,12];
+const HOURS24     = Array.from({ length: 24 }, (_, i) => i); // 0~23
 const MINUTES     = [0,5,10,15,20,25,30,35,40,45,50,55];
 
 function ScrollPicker({
@@ -50,28 +51,43 @@ function ScrollPicker({
   const flatRef        = useRef<FlatList>(null);
   const isScrolling    = useRef(false);
   const skipEffect     = useRef(false);
+  const [laid, setLaid] = useState(false);
 
-  const looped   = useMemo(() => Array.from({ length: LOOP }, () => items).flat(), [items]);
+  const loopCount = useMemo(
+    () => 2 * Math.ceil(TARGET_MID_OFFSET / items.length) + 1,
+    [items]
+  );
+  const looped   = useMemo(() => Array.from({ length: loopCount }, () => items).flat(), [items, loopCount]);
   const total    = looped.length;
-  const midOff   = Math.floor(LOOP / 2) * items.length;
+  const midOff   = Math.floor(loopCount / 2) * items.length;
 
   const targetY = useCallback(
     (v: number) => (midOff + items.indexOf(v)) * PICK_H,
     [items, midOff]
   );
 
+  // initialScrollIndex: item n-1 을 뷰포트 상단에 → item n 이 중앙 하이라이트에 위치
+  const initScrollIndex = Math.max(0, midOff + items.indexOf(value) - 1);
+
+  // 초기 스크롤 — onLayout 후 200ms + 500ms 2단계로 확실하게 실행
   useEffect(() => {
-    const t = setTimeout(() => {
+    if (!laid) return;
+    const t1 = setTimeout(() => {
       flatRef.current?.scrollToOffset({ offset: targetY(value), animated: false });
-    }, 80);
-    return () => clearTimeout(t);
-  }, []);
+    }, 200);
+    const t2 = setTimeout(() => {
+      flatRef.current?.scrollToOffset({ offset: targetY(value), animated: false });
+    }, 500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laid]);
 
   useEffect(() => {
+    if (!laid) return;
     if (skipEffect.current) { skipEffect.current = false; return; }
     if (isScrolling.current) return;
     flatRef.current?.scrollToOffset({ offset: targetY(value), animated: true });
-  }, [value]);
+  }, [value, laid, targetY]);
 
   const handleEnd = useCallback((y: number) => {
     isScrolling.current = false;
@@ -103,7 +119,7 @@ function ScrollPicker({
   ), [value, onChange, label]);
 
   return (
-    <View style={pick.wrap}>
+    <View style={pick.wrap} onLayout={() => setLaid(true)}>
       <View style={pick.highlight} pointerEvents="none" />
       <FlatList
         ref={flatRef}
@@ -111,6 +127,7 @@ function ScrollPicker({
         keyExtractor={(_, i) => String(i)}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
+        initialScrollIndex={initScrollIndex}
         showsVerticalScrollIndicator={false}
         snapToInterval={PICK_H}
         decelerationRate="fast"
@@ -118,10 +135,14 @@ function ScrollPicker({
         nestedScrollEnabled
         contentContainerStyle={{ paddingVertical: PICK_H }}
         onScrollBeginDrag={() => { isScrolling.current = true; }}
-        onMomentumScrollEnd={(e: any) => handleEnd(e.nativeEvent.contentOffset.y)}
+        onMomentumScrollEnd={(e: any) => {
+          if (!isScrolling.current) return;
+          handleEnd(e.nativeEvent.contentOffset.y);
+        }}
         onScrollEndDrag={(e: any) => {
-          if (Math.abs(e.nativeEvent.velocity?.y ?? 0) < 0.01)
-            handleEnd(e.nativeEvent.contentOffset.y);
+          if (!isScrolling.current) return;
+          const vy = e.nativeEvent.velocity?.y ?? 0;
+          if (Math.abs(vy) < 0.01) handleEnd(e.nativeEvent.contentOffset.y);
         }}
       />
     </View>
@@ -142,8 +163,7 @@ export function ScheduleEditor({
 }) {
   const [content, setContent] = useState('');
   const [date, setDate]       = useState(new Date());
-  const [ampm, setAmpm]       = useState(0);   // 0=오전 1=오후
-  const [hour12, setHour12]   = useState(9);   // 1~12
+  const [hour, setHour]       = useState(9);   // 0~23
   const [minute, setMinute]   = useState(0);
   const [alarmMode, setAlarmMode] = useState<AlarmMode>('both');
   const [showCal, setShowCal]     = useState(false);
@@ -228,28 +248,23 @@ export function ScheduleEditor({
       setContent(record.content || record.transcript || '');
       const d = record.scheduleAt ? new Date(record.scheduleAt) : new Date(defaultDate);
       setDate(d);
-      const h = d.getHours();
-      setAmpm(h < 12 ? 0 : 1);
-      setHour12(h % 12 === 0 ? 12 : h % 12);
+      setHour(d.getHours());
       setMinute(d.getMinutes());
       setAlarmMode((record.alarmMode as AlarmMode) ?? 'both');
     } else {
       setContent('');
       setDate(new Date(defaultDate));
-      setAmpm(0);
-      setHour12(9);
+      setHour(9);
       setMinute(0);
       setAlarmMode('both');
     }
     setShowCal(false);
   }, [visible, record]);
 
-  const h24Preview = hour12 % 12 + (ampm === 0 ? 0 : 12);
-
   const handleSave = () => {
     if (!content.trim()) { Alert.alert('내용을 입력해주세요'); return; }
     const d = new Date(date);
-    d.setHours(h24Preview, minute, 0, 0);
+    d.setHours(hour, minute, 0, 0);
     onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode });
   };
 
@@ -261,8 +276,7 @@ export function ScheduleEditor({
     ]);
   };
 
-  const labelAmpm  = useCallback((v: number) => v === 0 ? '오전' : '오후', []);
-  const labelHour  = useCallback((v: number) => String(v), []);
+  const labelHour  = useCallback((v: number) => v.toString().padStart(2, '0'), []);
   const labelMin   = useCallback((v: number) => v.toString().padStart(2, '0'), []);
 
   return (
@@ -317,12 +331,11 @@ export function ScheduleEditor({
           {/* 시간 피커 — ScrollView 밖 (FlatList 중첩 경고 방지) */}
           <Text style={[styles.label, { alignSelf: 'flex-start' }]}>시간</Text>
           <View style={styles.pickerRow}>
-            <ScrollPicker value={ampm}   items={AMPM_ITEMS} onChange={setAmpm}   label={labelAmpm} />
-            <ScrollPicker value={hour12} items={HOURS12}    onChange={setHour12} label={labelHour} />
+            <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
             <Text style={styles.colon}>:</Text>
-            <ScrollPicker value={minute} items={MINUTES}    onChange={setMinute} label={labelMin}  />
+            <ScrollPicker value={minute} items={MINUTES} onChange={setMinute} label={labelMin}  />
             <Text style={styles.timePreview}>
-              {formatTime(new Date(2000, 0, 1, h24Preview, minute))}
+              {formatTime(new Date(2000, 0, 1, hour, minute))}
             </Text>
           </View>
 
