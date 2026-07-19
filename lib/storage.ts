@@ -1,6 +1,12 @@
 // ─── 일정 영구 저장 (expo-file-system JSON) ──────────────────────────────────
 import { Directory, File, Paths } from 'expo-file-system';
 
+export type TranscriptSegment = {
+  segment: string;          // 세그먼트(단어/구절) 텍스트
+  startTimeMillis: number;  // 녹음 시작 기준 시작 시각(ms)
+  endTimeMillis: number;    // 녹음 시작 기준 끝 시각(ms)
+};
+
 export type ScheduleRecord = {
   id: string;
   uri: string;            // 녹음 파일 경로
@@ -13,6 +19,7 @@ export type ScheduleRecord = {
   hasTime: boolean;
   notifIds?: string[];    // expo-notifications 식별자 배열 (main + +1분 + +2분 슬롯)
   alarmMode?: 'both' | 'sound' | 'vibe'; // 알람 방식
+  segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
   createdAt: number;      // 생성 시각(epoch ms)
 };
 

@@ -13,6 +13,16 @@
 - 같은 일시면 기존 일정에 메모 추가, 없으면 새 일정 생성
 - 저장: expo-sqlite / 녹음: expo-audio + expo-file-system / 날짜인식: Claude API (자유 말투)
 
+## Android 알람 시스템 — 주의사항
+
+Android는 알림 시스템이 **두 개** 동시에 동작한다. 알람 관련 로직을 건드릴 때 반드시 둘 다 처리해야 한다.
+
+1. **Expo Notifications** — Expo 알림 예약/취소
+2. **네이티브 AlarmManager** — 네이티브 모듈로 직접 예약/취소
+
+Expo만 취소하고 AlarmManager를 빠뜨리면 알람이 비활성화해도 계속 울린다.  
+iOS 기준으로 짜면 Android에서 이 버그가 반복된다.
+
 ## 작업 완료 후 규칙
 - 작업이 끝날 때마다 항상 커밋 및 푸시 여부를 사용자에게 물어볼 것
 

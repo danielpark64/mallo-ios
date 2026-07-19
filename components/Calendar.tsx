@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { dayKey, isSameDay, monthGrid, WEEKDAYS } from '../lib/dateUtils';
+import { C } from '../lib/colors';
 
 export function Calendar({
   selectedDate,
@@ -41,7 +42,7 @@ export function Calendar({
         <TouchableOpacity onPress={prevMonth} style={styles.navBtn}>
           <Text style={styles.navText}>‹</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={goToday}>
+        <TouchableOpacity onPress={goToday} activeOpacity={0.7}>
           <Text style={styles.monthLabel}>
             {view.year}년 {view.month + 1}월
           </Text>
@@ -78,7 +79,13 @@ export function Calendar({
               onPress={() => onSelectDate(d)}
               activeOpacity={0.7}
             >
-              <View style={[styles.dayCircle, selected && styles.daySelected, !selected && isToday && styles.dayToday]}>
+              <View
+                style={[
+                  styles.dayCircle,
+                  selected && styles.daySelected,
+                  !selected && isToday && styles.dayToday,
+                ]}
+              >
                 <Text
                   style={[
                     styles.dayText,
@@ -100,24 +107,41 @@ export function Calendar({
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  navBtn: { width: 44, height: 36, alignItems: 'center', justifyContent: 'center' },
-  navText: { color: '#9bdcff', fontSize: 26, fontWeight: '300' },
-  monthLabel: { color: '#f0f0ff', fontSize: 18, fontWeight: '700' },
+  wrap: {
+    backgroundColor: C.surface,
+    marginHorizontal: 16,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
 
-  weekRow: { flexDirection: 'row', marginBottom: 4 },
-  weekday: { flex: 1, textAlign: 'center', color: '#666680', fontSize: 12, fontWeight: '600' },
-  sun: { color: '#e06c6c' },
-  sat: { color: '#6c9ce0' },
+  head: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  navBtn: { width: 44, height: 36, alignItems: 'center', justifyContent: 'center' },
+  navText: { color: C.textSub, fontSize: 26, fontWeight: '300' },
+  monthLabel: { color: C.text, fontSize: 17, fontWeight: '700' },
+
+  weekRow: { flexDirection: 'row', marginBottom: 2 },
+  weekday: { flex: 1, textAlign: 'center', color: C.textSub, fontSize: 12, fontWeight: '600' },
+  sun: { color: C.sun },
+  sat: { color: C.sat },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 3 },
-  dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  daySelected: { backgroundColor: '#e05c5c' },
-  dayToday: { borderWidth: 1.5, borderColor: '#9bdcff' },
-  dayText: { color: '#d8d8ee', fontSize: 15, fontWeight: '500' },
+  dayCircle: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  daySelected: { backgroundColor: C.accent },
+  dayToday: { borderWidth: 1.5, borderColor: C.accent },
+  dayText: { color: C.text, fontSize: 15, fontWeight: '400' },
   dayTextSelected: { color: '#fff', fontWeight: '700' },
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 2, backgroundColor: 'transparent' },
-  dotOn: { backgroundColor: '#7dd3fc' },
+  dotOn: { backgroundColor: C.accent },
 });

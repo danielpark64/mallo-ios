@@ -137,8 +137,8 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
     hasDate = true;
     mark(md[0]);
   } else {
-    // "N일" 단독 (이번 달 그 날짜)
-    const dayOnly = text.match(/(?<![월\d])\s(\d{1,2})\s*일(?!\s*(후|뒤|이따|있다가))/);
+    // "N일" 단독 (이번 달 그 날짜) — 문장 첫머리("15일에 회의")도 인식
+    const dayOnly = text.match(/(?<![월\d])(?:^|\s)(\d{1,2})\s*일(?!\s*(후|뒤|이따|있다가))/);
     if (dayOnly) {
       const date = parseInt(dayOnly[1], 10);
       if (date >= 1 && date <= 31) {
@@ -197,7 +197,8 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
   if (hour !== null) {
     if (meridiem === 'pm' && hour < 12) hour += 12;
     else if (meridiem === 'am' && hour === 12) hour = 0;
-    // 오전/오후 미명시 + 1~7시 → 사람들은 보통 오후를 의미하는 경향 (단, 명시 안 됨 표시)
+    // 오전/오후 미명시 + 1~7시 → 보통 오후를 의미 ("3시에 회의" = 15시)
+    else if (!meridiemKnown && hour >= 1 && hour <= 7) hour += 12;
   }
 
   // ─── 결합 ──────────────────────────────────────────────────────────────────

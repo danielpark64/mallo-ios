@@ -3,9 +3,11 @@ import {
   Alert,
   Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,9 +19,9 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Calendar } from './Calendar';
 import { formatDayHeader } from '../lib/dateUtils';
+import { C } from '../lib/colors';
 import type { ScheduleRecord } from '../lib/storage';
 
 export type AlarmMode = 'both' | 'sound' | 'vibe';
@@ -150,15 +152,18 @@ function ScrollPicker({
   );
 }
 
-// ─── 편집기 모달 ──────────────────────────────────────────────────────────────
+// ─── 편집기 (전체화면) ─────────────────────────────────────────────────────────
 export function ScheduleEditor({
-  visible, record, defaultDate, markedDays, onSave, onDelete, onClose,
+  visible, record, defaultDate, markedDays, appendMode = false,
+  onSave, onAppend, onDelete, onClose,
 }: {
   visible: boolean;
   record: ScheduleRecord | null;
   defaultDate: Date;
   markedDays: Set<string>;
+  appendMode?: boolean;
   onSave: (r: EditorResult) => void;
+  onAppend: (id: string, appendedText: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
@@ -246,11 +251,12 @@ export function ScheduleEditor({
   useEffect(() => {
     if (!visible) return;
     if (record) {
-      setContent(record.content || record.transcript || '');
+      setContent(appendMode ? '' : (record.content || record.transcript || ''));
       const d = record.scheduleAt ? new Date(record.scheduleAt) : new Date(defaultDate);
       setDate(d);
-      setHour(d.getHours());
-      setMinute(d.getMinutes());
+      // 시간 미정 일정은 저장 시각(0시)이 아니라 9시를 기본으로 (자정 알람 방지)
+      setHour(record.hasTime ? d.getHours() : 9);
+      setMinute(record.hasTime ? d.getMinutes() : 0);
       setAlarmMode((record.alarmMode as AlarmMode) ?? 'both');
     } else {
       setContent('');
@@ -260,10 +266,14 @@ export function ScheduleEditor({
       setAlarmMode('both');
     }
     setShowCal(false);
-  }, [visible, record]);
+  }, [visible, record, appendMode]);
 
   const handleSave = () => {
     if (!content.trim()) { Alert.alert('내용을 입력해주세요'); return; }
+    if (appendMode && record) {
+      onAppend(record.id, content.trim());
+      return;
+    }
     const d = new Date(date);
     d.setHours(hour, minute, 0, 0);
     onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode });
@@ -284,185 +294,215 @@ export function ScheduleEditor({
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
   const timeStr = `${h12}:${minute.toString().padStart(2, '0')}`;
 
+  const navTitle = appendMode ? '내용 추가' : record ? '일정 수정' : '새 일정';
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <Text style={styles.title}>{record ? '일정 수정' : '새 일정'}</Text>
-
-          {/* 내용 + 날짜 — ScrollView 안에 (FlatList 없음) */}
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>내용</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                value={content}
-                onChangeText={(t) => {
-                  // 직접 타이핑하면 현재 텍스트를 base로 업데이트
-                  if (sttOn) baseContentRef.current = t;
-                  setContent(t);
-                }}
-                placeholder="할 일을 입력하세요"
-                placeholderTextColor="#55557a"
-                multiline
-              />
-              <TouchableOpacity style={styles.micBtn} onPress={toggleStt} activeOpacity={0.7}>
-                <Animated.Text style={[styles.micIcon, { transform: [{ scale: micAnim }] }]}>
-                  {sttOn ? '🔴' : '🎙️'}
-                </Animated.Text>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.screen}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {/* 상단 네비게이션 */}
+        <View style={styles.navBar}>
+          <TouchableOpacity style={styles.navBtn} onPress={onClose}>
+            <Text style={styles.navCancelText}>취소</Text>
+          </TouchableOpacity>
+          <Text style={styles.navTitle} numberOfLines={1}>{navTitle}</Text>
+          <View style={styles.navRight}>
+            {record && !appendMode && (
+              <TouchableOpacity style={styles.navIconBtn} onPress={handleDelete}>
+                <Text style={styles.navDeleteIcon}>🗑</Text>
               </TouchableOpacity>
-            </View>
-            {sttOn && (
-              <Text style={styles.sttHint}>🎤 듣는 중… 탭하면 중지</Text>
             )}
-
-            <Text style={styles.label}>날짜</Text>
-            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCal((s) => !s)}>
-              <Text style={styles.dateBtnText}>{formatDayHeader(date)}</Text>
-              <Text style={styles.dateBtnChevron}>{showCal ? '▲' : '▼'}</Text>
+            <TouchableOpacity style={styles.navBtn} onPress={handleSave}>
+              <Text style={styles.navSaveText}>저장</Text>
             </TouchableOpacity>
-            {showCal && (
-              <View style={styles.calBox}>
-                <Calendar
-                  selectedDate={date}
-                  onSelectDate={(d) => { setDate(d); setShowCal(false); }}
-                  markedDays={markedDays}
-                />
-              </View>
-            )}
-          </ScrollView>
+          </View>
+        </View>
 
-          {/* 시간 피커 — ScrollView 밖 (FlatList 중첩 경고 방지) */}
-          <Text style={[styles.label, { alignSelf: 'flex-start' }]}>시간</Text>
-          <View style={styles.pickerRow}>
-            <View style={styles.timePickerGroup}>
-              <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
-              <Text style={styles.colon}>:</Text>
-              <ScrollPicker value={minute} items={MINUTES} onChange={setMinute} label={labelMin}  />
+        {appendMode ? (
+          <>
+            {/* 추가 모드: 기존 내용 잠금 표시 */}
+            <View style={styles.appendInfoRow}>
+              <Text style={styles.appendInfoText}>
+                {record ? formatDayHeader(new Date(record.scheduleAt ?? Date.now())) : ''}
+                {record?.hasTime && record.scheduleAt ? ` · ${timeStr}` : ''}
+              </Text>
             </View>
-            <View style={styles.alarmSide}>
-              <View style={styles.alarmTextCol}>
-                <Text style={styles.meridiemText}>{meridiem}</Text>
-                <Text style={styles.timePreview}>{timeStr}</Text>
-              </View>
-              <View style={styles.alarmIconCol}>
-                <TouchableOpacity
-                  style={[styles.modeIconBtn, alarmMode === 'both' && styles.modeIconBtnOn]}
-                  onPress={() => setAlarmMode('both')}
-                >
-                  <Text style={styles.modeIconBell}>🔔</Text>
-                  <MaterialCommunityIcons name="vibrate" size={14} color={alarmMode === 'both' ? '#fff' : '#666680'} />
-                </TouchableOpacity>
-                <View style={styles.modeIconGroup}>
-                  <TouchableOpacity
-                    style={[styles.modeIconBtn, alarmMode === 'sound' && styles.modeIconBtnOn]}
-                    onPress={() => setAlarmMode('sound')}
-                  >
-                    <Text style={styles.modeIconBell}>🔔</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modeIconBtn, alarmMode === 'vibe' && styles.modeIconBtnOn]}
-                    onPress={() => setAlarmMode('vibe')}
-                  >
-                    <MaterialCommunityIcons name="vibrate" size={14} color={alarmMode === 'vibe' ? '#fff' : '#666680'} />
-                  </TouchableOpacity>
+            <ScrollView style={styles.lockedBox} contentContainerStyle={{ padding: 14 }}>
+              <Text style={styles.lockedText}>{record?.content || record?.transcript}</Text>
+            </ScrollView>
+          </>
+        ) : (
+          <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={styles.section}>
+              <Text style={styles.label}>날짜</Text>
+              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCal((s) => !s)}>
+                <Text style={styles.dateBtnText}>{formatDayHeader(date)}</Text>
+                <Text style={styles.dateBtnChevron}>{showCal ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+              {showCal && (
+                <View style={styles.calBox}>
+                  <Calendar
+                    selectedDate={date}
+                    onSelectDate={(d) => { setDate(d); setShowCal(false); }}
+                    markedDays={markedDays}
+                  />
+                </View>
+              )}
+
+              <Text style={styles.label}>시간</Text>
+              <View style={styles.pickerRow}>
+                <View style={styles.timePickerGroup}>
+                  <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
+                  <Text style={styles.colon}>:</Text>
+                  <ScrollPicker value={minute} items={MINUTES} onChange={setMinute} label={labelMin}  />
+                </View>
+                <View style={styles.alarmSide}>
+                  <View style={styles.alarmTextCol}>
+                    <Text style={styles.meridiemText}>{meridiem}</Text>
+                    <Text style={styles.timePreview}>{timeStr}</Text>
+                  </View>
+                  <View style={styles.alarmIconCol}>
+                    <TouchableOpacity
+                      style={[styles.modeIconBtn, alarmMode === 'both' && styles.modeIconBtnOn]}
+                      onPress={() => setAlarmMode('both')}
+                    >
+                      <Text style={styles.modeIconBell}>🔔</Text>
+                      <Image source={require('../assets/vibrate_icon.png')} style={styles.modeIconVibe} />
+                    </TouchableOpacity>
+                    <View style={styles.modeIconGroup}>
+                      <TouchableOpacity
+                        style={[styles.modeIconBtn, alarmMode === 'sound' && styles.modeIconBtnOn]}
+                        onPress={() => setAlarmMode('sound')}
+                      >
+                        <Text style={styles.modeIconBell}>🔔</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modeIconBtn, alarmMode === 'vibe' && styles.modeIconBtnOn]}
+                        onPress={() => setAlarmMode('vibe')}
+                      >
+                        <Image source={require('../assets/vibrate_icon.png')} style={styles.modeIconVibe} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          </ScrollView>
+        )}
 
-          {/* 버튼 */}
-          <View style={styles.btnRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelText}>취소</Text>
-            </TouchableOpacity>
-            {record && (
-              <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-                <Text style={styles.deleteText}>삭제</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveText}>저장</Text>
+        {/* 내용 입력 — 남은 공간 전부 차지 */}
+        <View style={styles.contentArea}>
+          <View style={styles.contentLabelRow}>
+            <Text style={styles.label}>{appendMode ? '추가할 내용' : '내용'}</Text>
+            {sttOn && <Text style={styles.sttHint}>🎤 듣는 중… 탭하면 중지</Text>}
+          </View>
+          <View style={styles.contentInputWrap}>
+            <TextInput
+              style={styles.contentInput}
+              value={content}
+              onChangeText={(t) => {
+                if (sttOn) baseContentRef.current = t;
+                setContent(t);
+              }}
+              placeholder={appendMode ? '이어붙일 내용을 입력하세요' : '할 일을 입력하세요'}
+              placeholderTextColor={C.textDim}
+              multiline
+              textAlignVertical="top"
+            />
+            <TouchableOpacity style={styles.micBtn} onPress={toggleStt} activeOpacity={0.7}>
+              <Animated.Text style={[styles.micIcon, { transform: [{ scale: micAnim }] }]}>
+                {sttOn ? '🔴' : '🎙️'}
+              </Animated.Text>
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const pick = StyleSheet.create({
   wrap:      { flex: 1, height: PICK_H * 3, overflow: 'hidden', position: 'relative' },
-  highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: '#26263f', borderRadius: 10 },
+  highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: C.surfaceHigh, borderRadius: 10 },
   item:      { height: PICK_H, justifyContent: 'center', alignItems: 'center' },
-  sel:       { fontSize: 24, color: '#f0f0ff', fontWeight: '700' },
-  dim:       { fontSize: 15, color: '#44446a', fontWeight: '400' },
+  sel:       { fontSize: 24, color: C.text, fontWeight: '700' },
+  dim:       { fontSize: 15, color: C.textDim, fontWeight: '400' },
 });
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#14142a',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: 34,
-    maxHeight: '90%',
-    alignItems: 'center',
-  },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#33334a', marginBottom: 14 },
-  title: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 16 },
+  screen: { flex: 1, backgroundColor: C.bg },
 
-  label: { color: '#9bdcff', fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 8 },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  input: {
-    flex: 1,
-    backgroundColor: '#1d1d38', borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    color: '#f0f0ff', fontSize: 16, minHeight: 48,
+  navBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, height: 52,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  micBtn: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: '#1d1d38',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  micIcon: { fontSize: 22 },
-  sttHint: { color: '#e05c5c', fontSize: 12, marginTop: 6, textAlign: 'center' },
+  navBtn: { paddingHorizontal: 10, paddingVertical: 8 },
+  navCancelText: { color: C.textSub, fontSize: 16, fontWeight: '600' },
+  navSaveText: { color: C.red, fontSize: 16, fontWeight: '700' },
+  navTitle: { position: 'absolute', left: 60, right: 60, textAlign: 'center', color: C.text, fontSize: 16, fontWeight: '700' },
+  navRight: { flexDirection: 'row', alignItems: 'center' },
+  navIconBtn: { paddingHorizontal: 10, paddingVertical: 8 },
+  navDeleteIcon: { fontSize: 18 },
+
+  section: { paddingHorizontal: 20, paddingBottom: 8 },
+  label: { color: C.accent, fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 8 },
 
   dateBtn: {
-    backgroundColor: '#1d1d38', borderRadius: 12,
+    backgroundColor: C.surface, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: C.border,
   },
-  dateBtnText:    { color: '#f0f0ff', fontSize: 16, fontWeight: '500' },
-  dateBtnChevron: { color: '#9bdcff', fontSize: 12 },
+  dateBtnText:    { color: C.text, fontSize: 16, fontWeight: '500' },
+  dateBtnChevron: { color: C.accent, fontSize: 12 },
   calBox:         { borderRadius: 12, marginTop: 8 },
 
-  timeHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
-  timeToggle:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
-  timeToggleLabel: { color: '#aaaacc', fontSize: 13 },
-
-  pickerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: '#1a1a30', borderRadius: 16, paddingHorizontal: 8, marginTop: 6 },
+  pickerRow: {
+    flexDirection: 'row', alignItems: 'center', width: '100%',
+    backgroundColor: C.surface, borderRadius: 16, paddingHorizontal: 8,
+    borderWidth: 1, borderColor: C.border,
+  },
   timePickerGroup: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  colon:       { color: '#f0f0ff', fontSize: 20, fontWeight: '700', paddingHorizontal: 2 },
+  colon:       { color: C.text, fontSize: 20, fontWeight: '700', paddingHorizontal: 2 },
 
   alarmSide:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingLeft: 12, paddingVertical: 10, width: 130 },
   alarmTextCol: { alignItems: 'center', gap: 4 },
   alarmIconCol: { alignItems: 'center', gap: 6 },
-  meridiemText: { color: '#aaaacc', fontSize: 18, fontWeight: '700' },
-  timePreview:  { color: '#f0f0ff', fontSize: 18, fontWeight: '700' },
+  meridiemText: { color: C.textSub, fontSize: 18, fontWeight: '700' },
+  timePreview:  { color: C.text, fontSize: 18, fontWeight: '700' },
   modeIconGroup: { flexDirection: 'row', gap: 6 },
-  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: '#26263f' },
-  modeIconBtnOn: { backgroundColor: '#e05c5c' },
+  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: C.surfaceHigh },
+  modeIconBtnOn: { backgroundColor: C.red },
   modeIconBell: { fontSize: 14 },
+  modeIconVibe: { width: 16, height: 16, resizeMode: 'contain' },
 
-  btnRow:    { flexDirection: 'row', gap: 10, width: '100%', marginTop: 18 },
-  cancelBtn: { flex: 1, height: 52, borderRadius: 14, backgroundColor: '#26263f', alignItems: 'center', justifyContent: 'center' },
-  cancelText: { color: '#aaaacc', fontSize: 15, fontWeight: '600' },
-  deleteBtn: { flex: 1, height: 52, borderRadius: 14, backgroundColor: '#3a1620', alignItems: 'center', justifyContent: 'center' },
-  deleteText: { color: '#e06c6c', fontSize: 15, fontWeight: '600' },
-  saveBtn:   { flex: 1.4, height: 52, borderRadius: 14, backgroundColor: '#e05c5c', alignItems: 'center', justifyContent: 'center' },
-  saveText:  { color: '#fff', fontSize: 15, fontWeight: '700' },
+  appendInfoRow: { paddingHorizontal: 20, paddingTop: 14 },
+  appendInfoText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
+  lockedBox: {
+    marginHorizontal: 20, marginTop: 8, maxHeight: 140,
+    backgroundColor: C.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: C.border,
+  },
+  lockedText: { color: C.textSub, fontSize: 15, lineHeight: 22 },
+
+  contentArea: { flex: 1, paddingHorizontal: 20, paddingBottom: 20 },
+  contentLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sttHint: { color: C.red, fontSize: 12, marginTop: 14 },
+  contentInputWrap: { flex: 1, position: 'relative' },
+  contentInput: {
+    flex: 1,
+    backgroundColor: C.surface, borderRadius: 16,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 56,
+    color: C.text, fontSize: 17, lineHeight: 24,
+    borderWidth: 1, borderColor: C.border,
+  },
+  micBtn: {
+    position: 'absolute', right: 12, bottom: 12,
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: C.surfaceHigh,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  micIcon: { fontSize: 20 },
 });

@@ -22,16 +22,23 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 export async function registerNotificationCategories() {
-  await Notifications.setNotificationCategoryAsync('alarm', [
-    {
-      identifier: 'stop',
-      buttonTitle: '알람 끄기',
-      options: { isDestructive: false, isAuthenticationRequired: false },
-    },
-    ...(Platform.OS === 'android'
-      ? [{ identifier: 'snooze', buttonTitle: '5분 후', options: { isDestructive: false, isAuthenticationRequired: false } }]
-      : []),
-  ]);
+  await Notifications.setNotificationCategoryAsync(
+    'alarm',
+    [
+      {
+        identifier: 'stop',
+        buttonTitle: '알람 끄기',
+        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: true },
+      },
+      {
+        identifier: 'snooze',
+        buttonTitle: '5분 후 다시',
+        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: true },
+      },
+    ],
+    // iOS: 워치/배너에서 스와이프로 닫기만 해도 응답 이벤트가 오도록 (재알림 취소 누락 방지)
+    { customDismissAction: true }
+  );
 }
 
 const SOUND = Platform.OS === 'ios' ? 'alarm_long.wav' : 'alarm_long.wav';
@@ -96,4 +103,41 @@ export async function cancelAlarmByRecordId(recordId: string): Promise<void> {
       .filter((n) => (n.content.data as any)?.recordId === recordId)
       .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {}))
   );
+}
+
+/**
+ * 앱 시작 시 전체 알람 재동기화.
+ * - 삭제된 일정의 잔여 알림 정리 (전부 취소 후 재등록)
+ * - iOS 로컬 알림 64개 제한 대응: 가까운 일정부터 예산(60개) 안에서만 등록
+ */
+export async function resyncAlarms(
+  records: Array<{
+    id: string;
+    content: string;
+    transcript: string;
+    scheduleAt: number | null;
+    hasTime: boolean;
+    alarmMode?: 'both' | 'sound' | 'vibe';
+  }>
+): Promise<void> {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    const now = Date.now();
+    const future = records
+      .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt > now)
+      .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
+    let budget = 60; // 64개 한도에서 여유분 확보
+    for (const r of future) {
+      if (budget < 3) break;
+      const ids = await scheduleAlarm(
+        r.id,
+        r.content || r.transcript,
+        new Date(r.scheduleAt!),
+        r.alarmMode ?? 'both'
+      );
+      budget -= ids.length;
+    }
+  } catch (e) {
+    console.warn('알람 재동기화 실패:', e);
+  }
 }
