@@ -142,6 +142,6 @@ const styles = StyleSheet.create({
   dayToday: { borderWidth: 1.5, borderColor: C.accent },
   dayText: { color: C.text, fontSize: 15, fontWeight: '400' },
   dayTextSelected: { color: '#fff', fontWeight: '700' },
-  dot: { width: 5, height: 5, borderRadius: 3, marginTop: 2, backgroundColor: 'transparent' },
-  dotOn: { backgroundColor: C.accent },
+  dot: { width: 7, height: 7, borderRadius: 3.5, marginTop: 2, backgroundColor: 'transparent' },
+  dotOn: { backgroundColor: '#6FB2FF' },
 });

@@ -3,9 +3,9 @@ import {
   Alert,
   Animated,
   Image,
+  Keyboard,
   LogBox,
   Modal,
-  SafeAreaView,
   ScrollView,
   SectionList,
   StyleSheet,
@@ -14,20 +14,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 import {
   AudioModule,
-  RecordingPresets,
   setAudioModeAsync,
   useAudioPlayer,
-  useAudioRecorder,
-  useAudioRecorderState,
 } from 'expo-audio';
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { StatusBar } from 'expo-status-bar';
 
 import { parseSchedule, formatDisplay } from './lib/parseSchedule';
@@ -43,9 +38,10 @@ import {
   loadRecords,
   persistAudio,
   saveRecords,
+  type AppendEntry,
   type ScheduleRecord,
-  type TranscriptSegment,
 } from './lib/storage';
+import { useVoiceRecorder } from './lib/useVoiceRecorder';
 import * as Notifications from 'expo-notifications';
 import {
   cancelAlarm,
@@ -56,8 +52,10 @@ import {
   scheduleAlarm,
 } from './lib/notifications';
 import { C } from './lib/colors';
+import { copyRecords, exportRecordsPdf, exportRecordsTxt } from './lib/exportUtils';
 import { Calendar } from './components/Calendar';
-import { ScheduleEditor, type EditorResult } from './components/ScheduleEditor';
+import { ScheduleDetail } from './components/ScheduleDetail';
+import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
 
 function formatDuration(sec: number) {
   const m = Math.floor(sec / 60);
@@ -122,16 +120,10 @@ function ScheduleCard({
 }) {
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
   const [playing, setPlaying] = useState(false);
-  const segEndRef = useRef<number | null>(null);
-
-  // 범위선택 모드
-  const [rangeMode, setRangeMode] = useState(false);
-  const [rangeAnchor, setRangeAnchor] = useState<number | null>(null);
 
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
     try { player.pause(); } catch {}
-    segEndRef.current = null;
     setPlaying(false);
   };
   const stableStop = useRef(() => stopSelfRef.current()).current;
@@ -146,7 +138,6 @@ function ScheduleCard({
   }, []);
 
   const toggle = () => {
-    segEndRef.current = null;
     if (playing) {
       player.pause();
       setPlaying(false);
@@ -162,51 +153,11 @@ function ScheduleCard({
     }
   };
 
-  const playSegment = (startMs: number, endMs: number) => {
-    claimPlayback();
-    segEndRef.current = endMs / 1000;
-    player.seekTo(startMs / 1000);
-    player.play();
-    setPlaying(true);
-  };
-
   useEffect(() => {
-    if (segEndRef.current != null && player.currentTime >= segEndRef.current) {
-      player.pause();
-      segEndRef.current = null;
-      setPlaying(false);
-    } else if (player.duration > 0 && player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
+    if (player.duration > 0 && player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
       setPlaying(false);
     }
   }, [player.currentTime]);
-
-  const onWordPress = (idx: number) => {
-    if (!item.segments) return;
-    if (rangeMode) {
-      if (rangeAnchor === null) {
-        setRangeAnchor(idx);
-      } else {
-        const startIdx = Math.min(rangeAnchor, idx);
-        const endIdx = Math.max(rangeAnchor, idx);
-        playSegment(item.segments[startIdx].startTimeMillis, item.segments[endIdx].endTimeMillis);
-        setRangeAnchor(null);
-        setRangeMode(false);
-      }
-    } else {
-      playSegment(item.segments[idx].startTimeMillis, item.segments[idx].endTimeMillis);
-    }
-  };
-
-  const onWordLongPress = (idx: number) => {
-    if (!item.segments) return;
-    setRangeMode(true);
-    setRangeAnchor(idx);
-  };
-
-  const toggleRangeMode = () => {
-    setRangeMode((m) => !m);
-    setRangeAnchor(null);
-  };
 
   const timeLabel = item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
   const title = item.content || item.transcript || '(내용 없음)';
@@ -214,30 +165,10 @@ function ScheduleCard({
   const mainTitle = title.split('\n• ')[0];
   const mode = (item as any).alarmMode as 'sound' | 'vibe' | 'both' | undefined;
   const isPast = item.scheduleAt != null && item.scheduleAt < Date.now();
-  const hasSegments = !!(item.segments && item.segments.length > 0);
+  // 구버전 데이터 호환용 — 새 데이터는 appends[]를 사용
   const appendedNotes = (item.content || '').includes('\n• ')
     ? (item.content || '').split('\n• ').slice(1)
     : [];
-
-  // 현재 재생 위치와 일치하는 단어(구간) 하이라이트
-  const currentMs = player.currentTime * 1000;
-  const activeSegIdx =
-    hasSegments && playing
-      ? item.segments!.findIndex((s) => currentMs >= s.startTimeMillis && currentMs < s.endTimeMillis)
-      : -1;
-
-  // 파형(고정 패턴, 재생 진행률에 따라 하이라이트)
-  const WAVE_BARS = 28;
-  const barHeights = useMemo(() => {
-    let seed = 0;
-    for (let i = 0; i < item.id.length; i++) seed += item.id.charCodeAt(i);
-    return Array.from({ length: WAVE_BARS }, (_, i) => {
-      const v = Math.sin(seed + i * 12.9898) * 43758.5453;
-      const frac = Math.abs(v - Math.floor(v));
-      return 0.3 + frac * 0.7;
-    });
-  }, [item.id]);
-  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
 
   const accentColor = mode === 'vibe' ? C.textSub : mode === 'both' ? C.accent : C.red;
 
@@ -261,69 +192,13 @@ function ScheduleCard({
       <View style={[styles.cardDivider, { backgroundColor: accentColor }]} />
 
       <View style={styles.cardBody}>
-        {hasSegments ? (
-          <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]}>
-            {item.segments!.map((seg, idx) => (
-              <Text
-                key={idx}
-                onPress={() => onWordPress(idx)}
-                onLongPress={() => onWordLongPress(idx)}
-                style={
-                  rangeMode && rangeAnchor === idx
-                    ? styles.wordHighlight
-                    : idx === activeSegIdx
-                    ? styles.wordPlaying
-                    : undefined
-                }
-              >
-                {seg.segment}{' '}
-              </Text>
-            ))}
-          </Text>
-        ) : (
-          <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]}>{mainTitle}</Text>
-        )}
+        <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]}>{mainTitle}</Text>
         {appendedNotes.map((note, i) => (
           <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
         ))}
-
-        {item.uri ? (
-          <View style={styles.cardWaveform}>
-            {barHeights.map((h, i) => {
-              const filled = i / WAVE_BARS <= progress;
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.cardWaveBar,
-                    { height: 4 + h * 18 },
-                    filled && { backgroundColor: accentColor },
-                  ]}
-                />
-              );
-            })}
-          </View>
-        ) : null}
-
-        {item.uri ? (
-          <View style={styles.segControlRow}>
-            {hasSegments ? (
-              <TouchableOpacity
-                style={[styles.rangeToggleBtn, rangeMode && styles.rangeToggleBtnOn]}
-                onPress={toggleRangeMode}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Text style={[styles.rangeToggleText, rangeMode && styles.rangeToggleTextOn]}>
-                  {rangeMode ? (rangeAnchor === null ? '시작 단어 탭' : '끝 단어 탭') : '범위선택'}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.segUnsupportedText}>
-                이 기기는 OS 버전으로 인해 부분별 녹음 재생을 사용할 수 없습니다
-              </Text>
-            )}
-          </View>
-        ) : null}
+        {item.appends && item.appends.length > 0 && (
+          <Text style={styles.cardAppendedNote}>🎙 추가 {item.appends.length}건</Text>
+        )}
 
         <View style={styles.cardBottomRow}>
           {mode ? (
@@ -378,29 +253,50 @@ function AllSchedulesList({
   const [dayStr, setDayStr] = useState('');
   const [keyword, setKeyword] = useState('');
   const [combine, setCombine] = useState<'AND' | 'OR'>('AND');
+  // 조회 버튼을 눌렀을 때만 실제 필터로 반영
+  const [applied, setApplied] = useState<{
+    y: number | null; m: number | null; d: number | null; kw: string; combine: 'AND' | 'OR';
+  } | null>(null);
 
   const activeFilters = useMemo(() => {
     const list: Array<(r: ScheduleRecord) => boolean> = [];
-    const y = parseInt(yearStr, 10);
-    const m = parseInt(monthStr, 10);
-    const d = parseInt(dayStr, 10);
-    const kw = keyword.trim();
-    if (!isNaN(y)) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getFullYear() === y);
-    if (!isNaN(m)) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getMonth() + 1 === m);
-    if (!isNaN(d)) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getDate() === d);
-    if (kw) list.push((r) => (r.content || r.transcript || '').includes(kw));
+    if (!applied) return list;
+    if (applied.y != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getFullYear() === applied.y);
+    if (applied.m != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getMonth() + 1 === applied.m);
+    if (applied.d != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getDate() === applied.d);
+    if (applied.kw) list.push((r) => (r.content || r.transcript || '').includes(applied.kw));
     return list;
-  }, [yearStr, monthStr, dayStr, keyword]);
+  }, [applied]);
 
   const filteredRecords = useMemo(() => {
     if (activeFilters.length === 0) return records;
+    const mode = applied?.combine ?? 'AND';
     return records.filter((r) =>
-      combine === 'AND' ? activeFilters.every((f) => f(r)) : activeFilters.some((f) => f(r))
+      mode === 'AND' ? activeFilters.every((f) => f(r)) : activeFilters.some((f) => f(r))
     );
-  }, [records, activeFilters, combine]);
+  }, [records, activeFilters, applied]);
+
+  const runSearch = () => {
+    Keyboard.dismiss();
+    const yRaw = parseInt(yearStr, 10);
+    // 2자리 연도(예: 26) → 2026
+    const y = isNaN(yRaw) ? null : yRaw < 100 ? 2000 + yRaw : yRaw;
+    const mRaw = parseInt(monthStr, 10);
+    const m = isNaN(mRaw) || mRaw < 1 || mRaw > 12 ? null : mRaw;
+    const dRaw = parseInt(dayStr, 10);
+    const d = isNaN(dRaw) || dRaw < 1 || dRaw > 31 ? null : dRaw;
+    const kw = keyword.trim();
+    // 조건이 하나도 없으면 전체 보기
+    if (y == null && m == null && d == null && !kw) {
+      setApplied(null);
+      return;
+    }
+    setApplied({ y, m, d, kw, combine });
+  };
 
   const resetFilters = () => {
     setYearStr(''); setMonthStr(''); setDayStr(''); setKeyword('');
+    setApplied(null);
   };
 
   const sections: Section[] = useMemo(() => {
@@ -445,67 +341,92 @@ function AllSchedulesList({
         activeOpacity={0.75}
       >
         <Text style={styles.searchToggleText}>
-          🔍 조회{hasActiveFilters ? ` · 조건 ${activeFilters.length}개` : ''}
+          🔍 조회{hasActiveFilters ? ` · 결과 ${filteredRecords.length}건` : ''}
         </Text>
         <Text style={styles.searchToggleChevron}>{searchOpen ? '▲' : '▼'}</Text>
       </TouchableOpacity>
       {searchOpen && (
         <View style={styles.searchPanel}>
           <View style={styles.searchRow}>
-            <TextInput
-              style={styles.searchInputSmall}
-              value={yearStr}
-              onChangeText={(t) => setYearStr(t.replace(/[^0-9]/g, ''))}
-              placeholder="년(예: 2026)"
-              placeholderTextColor={C.textDim}
-              keyboardType="number-pad"
-              maxLength={4}
-            />
-            <TextInput
-              style={styles.searchInputTiny}
-              value={monthStr}
-              onChangeText={(t) => setMonthStr(t.replace(/[^0-9]/g, ''))}
-              placeholder="월"
-              placeholderTextColor={C.textDim}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            <TextInput
-              style={styles.searchInputTiny}
-              value={dayStr}
-              onChangeText={(t) => setDayStr(t.replace(/[^0-9]/g, ''))}
-              placeholder="일"
-              placeholderTextColor={C.textDim}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
+            <View style={styles.searchField}>
+              <Text style={styles.searchFieldLabel}>년</Text>
+              <TextInput
+                style={styles.searchInput}
+                value={yearStr}
+                onChangeText={(t) => setYearStr(t.replace(/[^0-9]/g, ''))}
+                placeholder="26"
+                placeholderTextColor={C.textDim}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+            </View>
+            <View style={styles.searchField}>
+              <Text style={styles.searchFieldLabel}>월</Text>
+              <TextInput
+                style={styles.searchInput}
+                value={monthStr}
+                onChangeText={(t) => setMonthStr(t.replace(/[^0-9]/g, ''))}
+                placeholder="7"
+                placeholderTextColor={C.textDim}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+            </View>
+            <View style={styles.searchField}>
+              <Text style={styles.searchFieldLabel}>일</Text>
+              <TextInput
+                style={styles.searchInput}
+                value={dayStr}
+                onChangeText={(t) => setDayStr(t.replace(/[^0-9]/g, ''))}
+                placeholder="15"
+                placeholderTextColor={C.textDim}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+            </View>
           </View>
           <TextInput
             style={styles.searchInputKeyword}
             value={keyword}
             onChangeText={setKeyword}
-            placeholder="키워드 검색"
+            placeholder="키워드 (예: 회의)"
             placeholderTextColor={C.textDim}
+            returnKeyType="search"
+            onSubmitEditing={runSearch}
           />
           <View style={styles.searchBottomRow}>
-            {activeFilters.length >= 2 ? (
-              <View style={styles.combineToggle}>
-                <TouchableOpacity
-                  style={[styles.combineBtn, combine === 'AND' && styles.combineBtnOn]}
-                  onPress={() => setCombine('AND')}
-                >
-                  <Text style={[styles.combineBtnText, combine === 'AND' && styles.combineBtnTextOn]}>AND</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.combineBtn, combine === 'OR' && styles.combineBtnOn]}
-                  onPress={() => setCombine('OR')}
-                >
-                  <Text style={[styles.combineBtnText, combine === 'OR' && styles.combineBtnTextOn]}>OR</Text>
-                </TouchableOpacity>
-              </View>
-            ) : <View />}
-            <TouchableOpacity onPress={resetFilters}>
+            <View style={styles.combineToggle}>
+              <TouchableOpacity
+                style={[styles.combineBtn, combine === 'AND' && styles.combineBtnOn]}
+                onPress={() => setCombine('AND')}
+              >
+                <Text style={[styles.combineBtnText, combine === 'AND' && styles.combineBtnTextOn]}>모두 만족</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.combineBtn, combine === 'OR' && styles.combineBtnOn]}
+                onPress={() => setCombine('OR')}
+              >
+                <Text style={[styles.combineBtnText, combine === 'OR' && styles.combineBtnTextOn]}>하나라도</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={resetFilters} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.searchResetText}>초기화</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.searchRunBtn} onPress={runSearch} activeOpacity={0.85}>
+            <Text style={styles.searchRunBtnText}>조회하기</Text>
+          </TouchableOpacity>
+          {/* 결과 내보내기 */}
+          <View style={styles.searchExportRow}>
+            <Text style={styles.searchExportLabel}>결과 {filteredRecords.length}건:</Text>
+            <TouchableOpacity style={styles.searchExportBtn} onPress={() => copyRecords(filteredRecords)}>
+              <Text style={styles.searchExportBtnText}>복사</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsTxt(filteredRecords)}>
+              <Text style={styles.searchExportBtnText}>텍스트</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsPdf(filteredRecords)}>
+              <Text style={styles.searchExportBtnText}>PDF</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -568,9 +489,18 @@ function AllSchedulesList({
 }
 
 // ─── 메인 ─────────────────────────────────────────────────────────────────────
+// useSafeAreaInsets()는 SafeAreaProvider의 자손 컴포넌트에서만 호출 가능하므로,
+// Provider와 실제 컨텐츠를 분리한다.
 export default function App() {
-  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
-  const recorderState = useAudioRecorderState(recorder, 50);
+  return (
+    <SafeAreaProvider>
+      <AppInner />
+    </SafeAreaProvider>
+  );
+}
+
+function AppInner() {
+  const voice = useVoiceRecorder();
 
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -580,15 +510,6 @@ export default function App() {
   });
 
   const [showRecorder, setShowRecorder] = useState(false);
-  const [liveText, setLiveText] = useState('');
-  const liveTextRef = useRef('');
-  const liveSegmentsRef = useRef<TranscriptSegment[]>([]);
-  // iOS STT는 중간에 세션이 끊겨 재시작됨 → 이전 세션 결과를 베이스로 누적
-  const sttBaseTextRef = useRef('');
-  const sttBaseSegsRef = useRef<TranscriptSegment[]>([]);
-  const recordStartAtRef = useRef<number>(0);
-  const sttOffsetMsRef = useRef<number>(0); // 현재 STT 세션 시작 시점의 녹음 경과(ms)
-  const sttActiveRef = useRef(false);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
@@ -599,6 +520,7 @@ export default function App() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduleRecord | null>(null);
   const [appendMode, setAppendMode] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [calTapped, setCalTapped] = useState(false);
   const [activeTab, setActiveTab] = useState<'calendar' | 'all'>('calendar');
 
@@ -650,7 +572,7 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  const liveParsed = useMemo(() => parseSchedule(liveText), [liveText]);
+  const liveParsed = useMemo(() => parseSchedule(voice.liveText), [voice.liveText]);
   const marked = useMemo(() => daysWithSchedules(records), [records]);
   const dayList = useMemo(() => {
     const all = schedulesOn(records, selectedDate);
@@ -666,49 +588,6 @@ export default function App() {
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0))[0] ?? null;
   }, [records, currentTime]);
 
-  // ── STT ─────────────────────────────────────────────────────────────────────
-  useSpeechRecognitionEvent('result', (e) => {
-    // 편집기 STT 사용 중엔 메인 녹음 상태를 오염시키지 않도록 차단
-    if (!sttActiveRef.current) return;
-    const text = e.results[0]?.transcript ?? '';
-    // 이전 세션 텍스트 + 현재 세션 텍스트 누적
-    const combined = sttBaseTextRef.current
-      ? sttBaseTextRef.current.trimEnd() + ' ' + text
-      : text;
-    setLiveText(combined);
-    liveTextRef.current = combined;
-    const segs = e.results[0]?.segments;
-    if (segs && segs.length) {
-      // 세션별 타임스탬프는 0부터 시작 → 녹음 기준 오프셋을 즉시 반영해 누적
-      liveSegmentsRef.current = [
-        ...sttBaseSegsRef.current,
-        ...segs.map((s) => ({
-          segment: s.segment,
-          startTimeMillis: s.startTimeMillis + sttOffsetMsRef.current,
-          endTimeMillis: s.endTimeMillis + sttOffsetMsRef.current,
-        })),
-      ];
-    }
-  });
-  useSpeechRecognitionEvent('error', (e) => {
-    const ignored = ['aborted', 'no-speech', 'audio-capture', 'network'];
-    if (ignored.includes(e.error)) return;
-    console.warn('STT 에러:', e.error, e.message);
-  });
-  useSpeechRecognitionEvent('end', () => {
-    if (!sttActiveRef.current) return;
-    // 세션 종료 → 지금까지 결과를 베이스로 확정하고 재시작
-    sttBaseTextRef.current = liveTextRef.current;
-    sttBaseSegsRef.current = liveSegmentsRef.current;
-    setTimeout(() => {
-      if (!sttActiveRef.current) return;
-      try {
-        ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
-        sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
-      } catch {}
-    }, 200);
-  });
-
   // ── 저장 헬퍼 ─────────────────────────────────────────────────────────────────
   const commit = (next: ScheduleRecord[]) => {
     setRecords(next);
@@ -716,66 +595,29 @@ export default function App() {
   };
 
   // ── 녹음 ─────────────────────────────────────────────────────────────────────
-  const startSTT = () => {
-    sttActiveRef.current = true;
-    const attempt = (n: number) => {
-      if (!sttActiveRef.current) return;
-      try {
-        ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
-        // STT 타임스탬프는 이 시점부터 0으로 시작 → 녹음 시작 시점과의 차이를 보정값으로 저장
-        sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
-      } catch {
-        if (n < 3) setTimeout(() => attempt(n + 1), 400);
-      }
-    };
-    setTimeout(() => attempt(0), 300);
-  };
-
   const startRecording = async () => {
     if (!permissionGranted) {
       Alert.alert('권한 없음', '마이크 및 음성 인식 권한을 허용해주세요.');
       return;
     }
-    setLiveText('');
-    liveTextRef.current = '';
-    liveSegmentsRef.current = [];
-    sttBaseTextRef.current = '';
-    sttBaseSegsRef.current = [];
-    sttOffsetMsRef.current = 0;
     setShowRecorder(true);
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
-    await recorder.prepareToRecordAsync();
-    recorder.record();
-    recordStartAtRef.current = Date.now();
-    startSTT();
+    await voice.start();
   };
 
   const cancelRecording = async () => {
-    sttActiveRef.current = false;
-    try { ExpoSpeechRecognitionModule.abort(); } catch {}
-    try { await recorder.stop(); } catch {}
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
-    setLiveText('');
-    liveTextRef.current = '';
+    await voice.cancel();
     setShowRecorder(false);
   };
 
   const stopRecording = async () => {
-    sttActiveRef.current = false;
-    try { ExpoSpeechRecognitionModule.stop(); } catch {}
-    await recorder.stop();
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
-    const uri = recorder.uri;
-    const transcript = liveTextRef.current.trim();
-    const durationSec = Math.round((recorderState.durationMillis ?? 0) / 1000);
+    const res = await voice.stop();
+    setShowRecorder(false);
+    const { uri, transcript, durationSec, segments: capturedSegments } = res;
     const parsed = parseSchedule(transcript);
     const recordedDate = (() => {
       const n = new Date();
       return new Date(n.getFullYear(), n.getMonth(), n.getDate());
     })();
-    setShowRecorder(false);
-    setLiveText('');
-    liveTextRef.current = '';
 
     if (!uri) return;
     if (!transcript) {
@@ -807,8 +649,7 @@ export default function App() {
         scheduleDisplay: parsed.display,
         hasDate: parsed.hasDate, hasTime: parsed.hasTime,
         notifIds,
-        // 세그먼트 타임스탬프는 result 핸들러에서 이미 녹음 기준으로 보정됨
-        segments: liveSegmentsRef.current.length ? [...liveSegmentsRef.current] : undefined,
+        segments: capturedSegments.length ? [...capturedSegments] : undefined,
         alarmMode: 'both',
         createdAt: Date.now(),
       };
@@ -844,6 +685,7 @@ export default function App() {
           { text: '취소', style: 'cancel' },
           { text: '삭제', style: 'destructive', onPress: async () => {
             if (target.uri) deleteAudio(target.uri);
+            for (const a of target.appends ?? []) if (a.uri) deleteAudio(a.uri);
             if (target.notifIds?.length) await cancelAlarm(target.notifIds);
             commit(records.filter((r) => r.id !== target.id));
             setSelectedDate(recordedDate);
@@ -864,17 +706,20 @@ export default function App() {
           `기존: "${existing.content}"\n${existing.scheduleDisplay}\n\n새로 인식:\n"${parsed.content}"`,
           [
             { text: '취소', style: 'cancel' },
-            { text: '메모 추가', onPress: async () => {
-              const appended = existing.content + (parsed.content ? '\n• ' + parsed.content : '');
-              // 미래 알람이 있으면 알림 내용도 갱신
-              let notifIds = existing.notifIds;
-              if (existing.hasTime && existing.scheduleAt && existing.scheduleAt > Date.now()) {
-                if (existing.notifIds?.length) await cancelAlarm(existing.notifIds);
-                const ids = await scheduleAlarm(existing.id, appended, new Date(existing.scheduleAt), existing.alarmMode ?? 'both');
-                notifIds = ids.length ? ids : undefined;
-              }
+            { text: '추가로 붙이기', onPress: async () => {
+              // 메모가 아니라 메인과 동등한 독립 엔트리로 추가 — 자기 녹음/전사/구간재생을 그대로 보존
+              const appendId = Date.now().toString();
+              let savedUri = uri;
+              try { savedUri = persistAudio(uri, `${existing.id}_a${appendId}`); }
+              catch (e) { console.warn('추가 오디오 저장 실패:', e); }
+              const newAppend: AppendEntry = {
+                id: appendId, uri: savedUri, durationSec,
+                transcript, content: parsed.content || transcript,
+                segments: capturedSegments.length ? [...capturedSegments] : undefined,
+                createdAt: Date.now(),
+              };
               commit(records.map((r) =>
-                r.id === existing.id ? { ...r, content: appended, notifIds } : r
+                r.id === existing.id ? { ...r, appends: [...(r.appends ?? []), newAppend] } : r
               ));
               setSelectedDate(recordedDate);
             }},
@@ -888,10 +733,27 @@ export default function App() {
     await saveAsNew();
   };
 
-  // ── 편집기 ────────────────────────────────────────────────────────────────────
+  // ── 상세/편집기 ───────────────────────────────────────────────────────────────
+  // 카드 탭 → 상세 보기. 상세에서 수정/추가를 누르면 상세를 닫고 편집기로 전환
+  // (iOS는 Modal을 동시에 두 개 띄울 수 없어 닫힘 애니메이션 후 열어야 함)
+  const detailRecord = useMemo(
+    () => records.find((r) => r.id === detailId) ?? null,
+    [records, detailId]
+  );
+  const openDetail = (r: ScheduleRecord) => setDetailId(r.id);
+
   const openNew = () => { setEditing(null); setAppendMode(false); setEditorOpen(true); };
   const openEdit = (r: ScheduleRecord) => { setEditing(r); setAppendMode(false); setEditorOpen(true); };
   const openAppend = (r: ScheduleRecord) => { setEditing(r); setAppendMode(true); setEditorOpen(true); };
+
+  const openEditFromDetail = (r: ScheduleRecord) => {
+    setDetailId(null);
+    setTimeout(() => openEdit(r), 450);
+  };
+  const openAppendFromDetail = (r: ScheduleRecord) => {
+    setDetailId(null);
+    setTimeout(() => openAppend(r), 450);
+  };
 
   const handleEditorSave = async (res: EditorResult) => {
     const display = formatDisplay(res.date, true, res.hasTime);
@@ -936,30 +798,42 @@ export default function App() {
   const handleEditorDelete = async (id: string) => {
     const target = records.find((r) => r.id === id);
     if (target?.uri) deleteAudio(target.uri);
+    for (const a of target?.appends ?? []) if (a.uri) deleteAudio(a.uri);
     if (target?.notifIds?.length) await cancelAlarm(target.notifIds);
     commit(records.filter((r) => r.id !== id));
     setEditorOpen(false);
   };
 
-  const handleEditorAppend = async (id: string, appendedText: string) => {
+  // "추가"는 메모가 아니라 메인과 동등한 독립 엔트리 — 자기 녹음/전사/구간재생을 갖고
+  // appends[]에 쌓여 메인과 한 일정 아래 함께 표시·내보내기된다.
+  const handleEditorAppend = (id: string, entry: AppendResult) => {
     const target = records.find((r) => r.id === id);
     if (!target) { setEditorOpen(false); return; }
-    const newContent = (target.content ? target.content.trimEnd() + '\n• ' : '') + appendedText;
-    // 미래 알람이 있으면 알림 내용도 갱신
-    let notifIds = target.notifIds;
-    if (target.hasTime && target.scheduleAt && target.scheduleAt > Date.now()) {
-      if (target.notifIds?.length) await cancelAlarm(target.notifIds);
-      const ids = await scheduleAlarm(id, newContent, new Date(target.scheduleAt), target.alarmMode ?? 'both');
-      notifIds = ids.length ? ids : undefined;
+    const appendId = Date.now().toString();
+    let savedUri = entry.uri;
+    if (entry.uri) {
+      try { savedUri = persistAudio(entry.uri, `${id}_a${appendId}`); }
+      catch (e) { console.warn('추가 오디오 저장 실패:', e); }
     }
-    commit(records.map((r) => (r.id === id ? { ...r, content: newContent, notifIds } : r)));
+    const newAppend: AppendEntry = {
+      id: appendId, uri: savedUri, durationSec: entry.durationSec,
+      transcript: entry.transcript, content: entry.content,
+      segments: entry.segments, createdAt: Date.now(),
+    };
+    commit(records.map((r) =>
+      r.id === id ? { ...r, appends: [...(r.appends ?? []), newAppend] } : r
+    ));
     setEditorOpen(false);
   };
 
-  const elapsedSec = Math.floor((recorderState.durationMillis ?? 0) / 1000);
+  const elapsedSec = Math.floor((voice.recorderState.durationMillis ?? 0) / 1000);
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.container}>
+    // 하단은 SafeAreaView에 맡기지 않고 FAB에서 직접 insets.bottom을 더함 —
+    // absolute 포지션 FAB가 SafeAreaView의 padding 안에서 이중으로 계산되어
+    // 기기별로 안전영역을 못 미치게 잡히는 경우가 있어 명시적으로 처리
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
 
       {/* ── 헤더 ── */}
@@ -1033,23 +907,32 @@ export default function App() {
               </View>
             ) : (
               dayList.map((item) => (
-                <ScheduleCard key={item.id} item={item} onPress={openEdit} onAppend={openAppend} />
+                <ScheduleCard key={item.id} item={item} onPress={openDetail} onAppend={openAppend} />
               ))
             )}
           </ScrollView>
         </>
       ) : (
         <View style={styles.allWrap}>
-          <AllSchedulesList records={records} onPress={openEdit} onAppend={openAppend} />
+          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} />
         </View>
       )}
 
       {/* ── 녹음 FAB ── */}
-      <View style={styles.fabWrap}>
+      <View style={[styles.fabWrap, { paddingBottom: 36 + insets.bottom }]}>
         <TouchableOpacity style={styles.fab} onPress={startRecording} activeOpacity={0.85}>
           <Text style={styles.fabIcon}>🎙</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── 상세 보기 ── */}
+      <ScheduleDetail
+        visible={detailId != null}
+        record={detailRecord}
+        onClose={() => setDetailId(null)}
+        onEdit={openEditFromDetail}
+        onAppend={openAppendFromDetail}
+      />
 
       {/* ── 편집기 ── */}
       <ScheduleEditor
@@ -1067,19 +950,19 @@ export default function App() {
       {/* ── 녹음 오버레이 ── */}
       <Modal visible={showRecorder} animationType="slide" transparent onRequestClose={cancelRecording}>
         <View style={styles.overlay}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: 44 + insets.bottom }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>듣고 있어요</Text>
-            <Waveform metering={recorderState.metering} isRecording={recorderState.isRecording} />
+            <Waveform metering={voice.recorderState.metering} isRecording={voice.recorderState.isRecording} />
             <View style={styles.transcriptBox}>
-              {liveText ? (
-                <Text style={styles.transcriptText} numberOfLines={4}>{liveText}</Text>
+              {voice.liveText ? (
+                <Text style={styles.transcriptText} numberOfLines={4}>{voice.liveText}</Text>
               ) : (
                 <Text style={styles.transcriptPlaceholder}>
                   말씀해보세요…{'\n'}예: "내일 오후 3시에 회의"
                 </Text>
               )}
-              {liveText ? (
+              {voice.liveText ? (
                 liveParsed.hasDate || liveParsed.hasTime ? (
                   <View style={styles.detectRow}>
                     <Text style={styles.detectOk}>✓ {liveParsed.display}</Text>
@@ -1187,25 +1070,37 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, gap: 10,
   },
   searchRow: { flexDirection: 'row', gap: 8 },
-  searchInputSmall: {
-    flex: 2, backgroundColor: C.surfaceHigh, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10, color: C.text, fontSize: 15,
+  searchField: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surfaceHigh, borderRadius: 10, paddingHorizontal: 10,
   },
-  searchInputTiny: {
-    flex: 1, backgroundColor: C.surfaceHigh, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10, color: C.text, fontSize: 15, textAlign: 'center',
+  searchFieldLabel: { color: C.textSub, fontSize: 14, fontWeight: '600', marginRight: 6 },
+  searchInput: {
+    flex: 1, paddingVertical: 12, color: C.text, fontSize: 17, fontWeight: '600', textAlign: 'center',
   },
   searchInputKeyword: {
     backgroundColor: C.surfaceHigh, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10, color: C.text, fontSize: 15,
+    paddingHorizontal: 12, paddingVertical: 12, color: C.text, fontSize: 16,
   },
   searchBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   combineToggle: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 8, padding: 3 },
-  combineBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  combineBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
   combineBtnOn: { backgroundColor: C.accent },
-  combineBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
+  combineBtnText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
   combineBtnTextOn: { color: '#fff' },
-  searchResetText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
+  searchResetText: { color: C.textSub, fontSize: 14, fontWeight: '600' },
+  searchRunBtn: {
+    backgroundColor: C.accent, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center', marginTop: 2,
+  },
+  searchRunBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  searchExportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  searchExportLabel: { color: C.textSub, fontSize: 13, fontWeight: '600', marginRight: 2 },
+  searchExportBtn: {
+    flex: 1, backgroundColor: C.surfaceHigh, borderRadius: 9,
+    paddingVertical: 9, alignItems: 'center',
+  },
+  searchExportBtnText: { color: C.text, fontSize: 13, fontWeight: '600' },
 
   // 일정 카드
   card: {
@@ -1234,22 +1129,6 @@ const styles = StyleSheet.create({
   },
   cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
   cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
-  wordHighlight: { backgroundColor: C.accent, color: '#fff', borderRadius: 4 },
-  wordPlaying: { backgroundColor: C.red, color: '#fff', borderRadius: 4 },
-  cardWaveform: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 2,
-    height: 24, marginTop: 8,
-  },
-  cardWaveBar: { width: 3, borderRadius: 1.5, backgroundColor: C.surfaceHigh },
-  segControlRow: { marginTop: 8 },
-  rangeToggleBtn: {
-    alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 8, backgroundColor: C.surfaceHigh,
-  },
-  rangeToggleBtnOn: { backgroundColor: C.accent },
-  rangeToggleText: { color: C.textSub, fontSize: 11, fontWeight: '700' },
-  rangeToggleTextOn: { color: '#fff' },
-  segUnsupportedText: { color: C.textDim, fontSize: 11, lineHeight: 15 },
   cardPlayBtn: {
     width: 36, height: 36, marginLeft: 6,
     alignItems: 'center', justifyContent: 'center',

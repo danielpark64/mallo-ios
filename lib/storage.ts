@@ -7,6 +7,21 @@ export type TranscriptSegment = {
   endTimeMillis: number;    // 녹음 시작 기준 끝 시각(ms)
 };
 
+/**
+ * "추가" 항목 — 카드의 "＋ 추가"로 붙는 독립된 엔트리.
+ * 메인 메모의 부속 메모가 아니라 자기 녹음·전사·구간재생을 가진 별개 엔트리이며,
+ * 메인과 한 일정 아래 함께 표시·내보내기 된다.
+ */
+export type AppendEntry = {
+  id: string;
+  uri: string;            // 녹음 파일 경로 (텍스트로만 추가한 경우 빈 문자열)
+  durationSec: number;
+  transcript: string;     // STT 원문
+  content: string;        // 추가 내용
+  segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
+  createdAt: number;
+};
+
 export type ScheduleRecord = {
   id: string;
   uri: string;            // 녹음 파일 경로
@@ -20,6 +35,7 @@ export type ScheduleRecord = {
   notifIds?: string[];    // expo-notifications 식별자 배열 (main + +1분 + +2분 슬롯)
   alarmMode?: 'both' | 'sound' | 'vibe'; // 알람 방식
   segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
+  appends?: AppendEntry[]; // "＋ 추가"로 붙은 독립 엔트리들
   createdAt: number;      // 생성 시각(epoch ms)
 };
 
