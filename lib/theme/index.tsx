@@ -1,8 +1,9 @@
 // ─── 테마 Provider / 훅 ────────────────────────────────────────────────────────
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, useColorScheme, type ViewStyle } from 'react-native';
 import { dark, light, type Palette } from './palette';
 import { duration, font, radius, screenPad, shadow, space, tabularNums, typo, type TypoVariant } from './tokens';
+import { loadSettings, saveSettings, type ThemeOverride } from '../settings';
 
 export type Theme = {
   c: Palette;
@@ -38,15 +39,37 @@ const DARK_THEME = makeTheme('dark');
 
 const ThemeContext = createContext<Theme>(DARK_THEME);
 
+// 사용자가 설정에서 "라이트"/"다크"를 직접 고르면 시스템 설정과 무관하게 고정된다.
+// "시스템 설정"을 고르면 useColorScheme()을 따라간다.
+type OverrideCtx = { override: ThemeOverride; setOverride: (v: ThemeOverride) => void };
+const OverrideContext = createContext<OverrideCtx>({ override: 'system', setOverride: () => {} });
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const scheme = useColorScheme();
-  // 나중에 "시스템/라이트/다크" 수동 전환을 넣으려면 여기에 override state를 둔다
+  const systemScheme = useColorScheme();
+  const [override, setOverrideState] = useState<ThemeOverride>(() => loadSettings().themeOverride);
+
+  const setOverride = (v: ThemeOverride) => {
+    setOverrideState(v);
+    saveSettings({ themeOverride: v });
+  };
+
+  const scheme = override === 'system' ? systemScheme : override;
   const theme = scheme === 'light' ? LIGHT_THEME : DARK_THEME;
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+
+  return (
+    <OverrideContext.Provider value={{ override, setOverride }}>
+      <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
+    </OverrideContext.Provider>
+  );
 }
 
 export function useTheme(): Theme {
   return useContext(ThemeContext);
+}
+
+/** 설정 화면에서 라이트/다크/시스템설정을 고르는 데 쓴다 */
+export function useThemeOverride(): OverrideCtx {
+  return useContext(OverrideContext);
 }
 
 /**
@@ -60,5 +83,5 @@ export function useStyles<T>(factory: (t: Theme) => T): T {
 }
 
 export type AppTextColor = keyof Palette;
-export type { Palette, TypoVariant };
+export type { Palette, ThemeOverride, TypoVariant };
 export { light, dark };

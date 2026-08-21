@@ -56,6 +56,7 @@ import { ThemeProvider, useStyles, useTheme, type Theme } from './lib/theme';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from './lib/exportUtils';
 import { Calendar } from './components/Calendar';
 import { ScheduleDetail } from './components/ScheduleDetail';
+import { SettingsSheet } from './components/SettingsSheet';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
 import { SegmentedControl } from './components/ui/SegmentedControl';
 
@@ -534,6 +535,7 @@ function AppInner() {
   }, []);
 
   const [editorOpen, setEditorOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduleRecord | null>(null);
   const [appendMode, setAppendMode] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -866,6 +868,9 @@ function AppInner() {
         </View>
         <View style={styles.headerRight}>
           <Text style={styles.clockText}>{formatTime(currentTime)}</Text>
+          <TouchableOpacity style={styles.addCircleBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75}>
+            <Text style={styles.addCircleBtnText}>⚙</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
             <Text style={styles.addCircleBtnText}>＋</Text>
           </TouchableOpacity>
@@ -928,6 +933,9 @@ function AppInner() {
           <Text style={styles.fabIcon}>🎙</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── 설정 ── */}
+      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* ── 상세 보기 ── */}
       <ScheduleDetail
