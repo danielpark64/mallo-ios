@@ -33,6 +33,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withoutPushEntitlement",
       "expo-audio",
       "expo-speech-recognition",
       [
@@ -43,7 +44,19 @@
           ]
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Pretendard-Regular.otf",
+            "./assets/fonts/Pretendard-Medium.otf",
+            "./assets/fonts/Pretendard-SemiBold.otf",
+            "./assets/fonts/Pretendard-Bold.otf"
+          ]
+        }
+      ],
+      "expo-splash-screen"
     ]
   }
 }

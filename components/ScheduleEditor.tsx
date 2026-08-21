@@ -15,13 +15,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import { Calendar } from './Calendar';
 import { formatDayHeader } from '../lib/dateUtils';
-import { C } from '../lib/colors';
+import { useStyles, useTheme, type Theme } from '../lib/theme';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import { useVoiceRecorder } from '../lib/useVoiceRecorder';
 
@@ -61,6 +62,7 @@ function ScrollPicker({
   onChange: (v: number) => void;
   label: (v: number) => string;
 }) {
+  const pick           = useStyles(makePick);
   const flatRef        = useRef<FlatList>(null);
   const isScrolling    = useRef(false);
   const skipEffect     = useRef(false);
@@ -177,6 +179,8 @@ export function ScheduleEditor({
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const [content, setContent] = useState('');
   const [date, setDate]       = useState(new Date());
   const [hour, setHour]       = useState(9);   // 0~23
@@ -353,6 +357,7 @@ export function ScheduleEditor({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.screen}>
+        <StatusBar style="auto" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* 상단 네비게이션 */}
         <View style={styles.navBar}>
@@ -465,7 +470,7 @@ export function ScheduleEditor({
                 setContent(t);
               }}
               placeholder={appendMode ? '이어붙일 내용을 말하거나 입력하세요' : '할 일을 입력하세요'}
-              placeholderTextColor={C.textDim}
+              placeholderTextColor={t.c.textDim}
               multiline
               textAlignVertical="top"
             />
@@ -486,87 +491,87 @@ export function ScheduleEditor({
   );
 }
 
-const pick = StyleSheet.create({
+const makePick = (t: Theme) => StyleSheet.create({
   wrap:      { flex: 1, height: PICK_H * 3, overflow: 'hidden', position: 'relative' },
-  highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: C.surfaceHigh, borderRadius: 10 },
+  highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: t.c.surfaceAlt, borderRadius: 10 },
   item:      { height: PICK_H, justifyContent: 'center', alignItems: 'center' },
-  sel:       { fontSize: 24, color: C.text, fontWeight: '700' },
-  dim:       { fontSize: 15, color: C.textDim, fontWeight: '400' },
+  sel:       { fontSize: 24, color: t.c.text, fontWeight: '700' },
+  dim:       { fontSize: 15, color: t.c.textDim, fontWeight: '400' },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.c.bg },
 
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, height: 52,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    borderBottomWidth: 1, borderBottomColor: t.c.border,
   },
   navBtn: { paddingHorizontal: 10, paddingVertical: 8 },
-  navCancelText: { color: C.textSub, fontSize: 16, fontWeight: '600' },
-  navSaveText: { color: C.red, fontSize: 16, fontWeight: '700' },
-  navTitle: { position: 'absolute', left: 60, right: 60, textAlign: 'center', color: C.text, fontSize: 16, fontWeight: '700' },
+  navCancelText: { color: t.c.textSub, fontSize: 16, fontWeight: '600' },
+  navSaveText: { color: t.c.red, fontSize: 16, fontWeight: '700' },
+  navTitle: { position: 'absolute', left: 60, right: 60, textAlign: 'center', color: t.c.text, fontSize: 16, fontWeight: '700' },
   navRight: { flexDirection: 'row', alignItems: 'center' },
   navIconBtn: { paddingHorizontal: 10, paddingVertical: 8 },
   navDeleteIcon: { fontSize: 18 },
 
   section: { paddingHorizontal: 20, paddingBottom: 8 },
-  label: { color: C.accent, fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 8 },
+  label: { color: t.c.accent, fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 8 },
 
   dateBtn: {
-    backgroundColor: C.surface, borderRadius: 12,
+    backgroundColor: t.c.surface, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: t.c.border,
   },
-  dateBtnText:    { color: C.text, fontSize: 16, fontWeight: '500' },
-  dateBtnChevron: { color: C.accent, fontSize: 12 },
+  dateBtnText:    { color: t.c.text, fontSize: 16, fontWeight: '500' },
+  dateBtnChevron: { color: t.c.accent, fontSize: 12 },
   calBox:         { borderRadius: 12, marginTop: 8 },
 
   pickerRow: {
     flexDirection: 'row', alignItems: 'center', width: '100%',
-    backgroundColor: C.surface, borderRadius: 16, paddingHorizontal: 8,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: t.c.surface, borderRadius: 16, paddingHorizontal: 8,
+    borderWidth: 1, borderColor: t.c.border,
   },
   timePickerGroup: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  colon:       { color: C.text, fontSize: 20, fontWeight: '700', paddingHorizontal: 2 },
+  colon:       { color: t.c.text, fontSize: 20, fontWeight: '700', paddingHorizontal: 2 },
 
   alarmSide:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingLeft: 12, paddingVertical: 10, width: 130 },
   alarmTextCol: { alignItems: 'center', gap: 4 },
   alarmIconCol: { alignItems: 'center', gap: 6 },
-  meridiemText: { color: C.textSub, fontSize: 18, fontWeight: '700' },
-  timePreview:  { color: C.text, fontSize: 18, fontWeight: '700' },
+  meridiemText: { color: t.c.textSub, fontSize: 18, fontWeight: '700' },
+  timePreview:  { color: t.c.text, fontSize: 18, fontWeight: '700' },
   modeIconGroup: { flexDirection: 'row', gap: 6 },
-  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: C.surfaceHigh },
-  modeIconBtnOn: { backgroundColor: C.red },
+  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: t.c.surfaceAlt },
+  modeIconBtnOn: { backgroundColor: t.c.red },
   modeIconBell: { fontSize: 14 },
   modeIconVibe: { width: 16, height: 16, resizeMode: 'contain' },
 
   appendInfoRow: { paddingHorizontal: 20, paddingTop: 14 },
-  appendInfoText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
+  appendInfoText: { color: t.c.textSub, fontSize: 13, fontWeight: '600' },
   lockedBox: {
     marginHorizontal: 20, marginTop: 8, maxHeight: 140,
-    backgroundColor: C.surface, borderRadius: 14,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: t.c.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: t.c.border,
   },
-  lockedText: { color: C.textSub, fontSize: 15, lineHeight: 22 },
+  lockedText: { color: t.c.textSub, fontSize: 15, lineHeight: 22 },
 
   contentArea: { flex: 1, paddingHorizontal: 20, paddingBottom: 20 },
   contentLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sttHint: { color: C.red, fontSize: 12, marginTop: 14 },
-  appendCaptureHint: { color: C.accent, fontSize: 12, marginBottom: 8, lineHeight: 16 },
+  sttHint: { color: t.c.red, fontSize: 12, marginTop: 14 },
+  appendCaptureHint: { color: t.c.accent, fontSize: 12, marginBottom: 8, lineHeight: 16 },
   contentInputWrap: { flex: 1, position: 'relative' },
   contentInput: {
     flex: 1,
-    backgroundColor: C.surface, borderRadius: 16,
+    backgroundColor: t.c.surface, borderRadius: 16,
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 56,
-    color: C.text, fontSize: 17, lineHeight: 24,
-    borderWidth: 1, borderColor: C.border,
+    color: t.c.text, fontSize: 17, lineHeight: 24,
+    borderWidth: 1, borderColor: t.c.border,
   },
   micBtn: {
     position: 'absolute', right: 12, bottom: 12,
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: C.surfaceHigh,
+    backgroundColor: t.c.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
   micIcon: { fontSize: 20 },

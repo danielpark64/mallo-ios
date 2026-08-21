@@ -13,8 +13,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
-import { C } from '../lib/colors';
+import { useStyles, type Theme } from '../lib/theme';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from '../lib/exportUtils';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
@@ -62,6 +63,7 @@ function EntryBlock({
   onRouteChange: (r: AudioRoute) => void;
   activeStopperRef: PlaybackClaimRef;
 }) {
+  const s = useStyles(makeStyles);
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
   const [playing, setPlaying] = useState(false);
   const segEndRef = useRef<number | null>(null);
@@ -241,6 +243,7 @@ export function ScheduleDetail({
   onEdit: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
 }) {
+  const s = useStyles(makeStyles);
   const [route, setRoute] = useState<AudioRoute>('speaker');
   // 메인/추가 엔트리 중 하나만 동시에 재생되도록 하는 공유 스토퍼
   const activeStopperRef = useRef<(() => void) | null>(null);
@@ -277,6 +280,7 @@ export function ScheduleDetail({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.screen}>
+        <StatusBar style="auto" />
         {/* 상단 네비 */}
         <View style={s.navBar}>
           <TouchableOpacity style={s.navBtn} onPress={onClose}>
@@ -363,34 +367,34 @@ export function ScheduleDetail({
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.c.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, height: 52,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    borderBottomWidth: 1, borderBottomColor: t.c.border,
   },
   navBtn: { paddingHorizontal: 10, paddingVertical: 8 },
-  navCloseText: { color: C.textSub, fontSize: 16, fontWeight: '600' },
-  navEditText: { color: C.accent, fontSize: 16, fontWeight: '700' },
-  navTitle: { color: C.text, fontSize: 16, fontWeight: '700' },
+  navCloseText: { color: t.c.textSub, fontSize: 16, fontWeight: '600' },
+  navEditText: { color: t.c.accent, fontSize: 16, fontWeight: '700' },
+  navTitle: { color: t.c.text, fontSize: 16, fontWeight: '700' },
 
   body: { paddingHorizontal: 20, paddingBottom: 48 },
-  when: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 18 },
+  when: { color: t.c.text, fontSize: 20, fontWeight: '700', marginTop: 18 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   badgeIcon: { fontSize: 14 },
   badgeVibe: { width: 16, height: 16, resizeMode: 'contain' },
-  badgeText: { color: C.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },
+  badgeText: { color: t.c.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },
 
-  sectionLabel: { color: C.accent, fontSize: 13, fontWeight: '700', marginTop: 24, marginBottom: 10 },
-  contentText: { color: C.text, fontSize: 17, lineHeight: 26 },
-  noteText: { color: C.textSub, fontSize: 15, lineHeight: 23, marginBottom: 4 },
+  sectionLabel: { color: t.c.accent, fontSize: 13, fontWeight: '700', marginTop: 24, marginBottom: 10 },
+  contentText: { color: t.c.text, fontSize: 17, lineHeight: 26 },
+  noteText: { color: t.c.textSub, fontSize: 15, lineHeight: 23, marginBottom: 4 },
 
   entryBlock: {
-    backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: t.c.surface, borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: t.c.border,
   },
-  entryLabel: { color: C.textSub, fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  entryLabel: { color: t.c.textSub, fontSize: 12, fontWeight: '700', marginBottom: 8 },
 
   // 전체 문장이 자연스럽게 읽히도록 단어를 텍스트처럼 배치 (터치는 단어 단위)
   wordFlow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
@@ -399,43 +403,43 @@ const s = StyleSheet.create({
     paddingHorizontal: 3, paddingVertical: 4,
     marginRight: 4, marginBottom: 4,
   },
-  wordAnchor: { backgroundColor: C.accent },
-  wordPlaying: { backgroundColor: C.red },
-  wordText: { color: C.text, fontSize: 17, lineHeight: 25, fontWeight: '500' },
-  wordTextOn: { color: '#fff', fontWeight: '700' },
-  chipHint: { color: C.textDim, fontSize: 12, marginTop: 8 },
+  wordAnchor: { backgroundColor: t.c.accent },
+  wordPlaying: { backgroundColor: t.c.red },
+  wordText: { color: t.c.text, fontSize: 17, lineHeight: 25, fontWeight: '500' },
+  wordTextOn: { color: t.c.onAccent, fontWeight: '700' },
+  chipHint: { color: t.c.textDim, fontSize: 12, marginTop: 8 },
 
   playRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' },
   playBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: C.red, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: t.c.red, alignItems: 'center', justifyContent: 'center',
   },
-  playBtnIcon: { fontSize: 17, color: '#fff' },
-  routeToggle: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 10, padding: 3 },
+  playBtnIcon: { fontSize: 17, color: t.c.onAccent },
+  routeToggle: { flexDirection: 'row', backgroundColor: t.c.surfaceAlt, borderRadius: 10, padding: 3 },
   routeBtn: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
-  routeBtnOn: { backgroundColor: C.accent },
-  routeBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
-  routeBtnTextOn: { color: '#fff' },
+  routeBtnOn: { backgroundColor: t.c.accent },
+  routeBtnText: { color: t.c.textSub, fontSize: 12, fontWeight: '700' },
+  routeBtnTextOn: { color: t.c.onAccent },
   rangeBtn: {
     paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: C.surfaceHigh,
+    backgroundColor: t.c.surfaceAlt,
   },
-  rangeBtnOn: { backgroundColor: C.accent },
-  rangeBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
-  rangeBtnTextOn: { color: '#fff' },
-  unsupported: { color: C.textDim, fontSize: 12, marginTop: 10, lineHeight: 17 },
+  rangeBtnOn: { backgroundColor: t.c.accent },
+  rangeBtnText: { color: t.c.textSub, fontSize: 12, fontWeight: '700' },
+  rangeBtnTextOn: { color: t.c.onAccent },
+  unsupported: { color: t.c.textDim, fontSize: 12, marginTop: 10, lineHeight: 17 },
 
   exportRow: { flexDirection: 'row', gap: 10 },
   exportBtn: {
-    flex: 1, backgroundColor: C.surface, borderRadius: 12,
+    flex: 1, backgroundColor: t.c.surface, borderRadius: 12,
     paddingVertical: 13, alignItems: 'center',
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: t.c.border,
   },
-  exportBtnText: { color: C.text, fontSize: 15, fontWeight: '600' },
+  exportBtnText: { color: t.c.text, fontSize: 15, fontWeight: '600' },
 
   appendBtn: {
-    backgroundColor: C.accent, borderRadius: 14,
+    backgroundColor: t.c.accent, borderRadius: 14,
     paddingVertical: 15, alignItems: 'center', marginTop: 24,
   },
-  appendBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  appendBtnText: { color: t.c.onAccent, fontSize: 16, fontWeight: '700' },
 });

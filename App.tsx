@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 import {
@@ -51,7 +52,7 @@ import {
   resyncAlarms,
   scheduleAlarm,
 } from './lib/notifications';
-import { C } from './lib/colors';
+import { ThemeProvider, useStyles, useTheme, type Theme } from './lib/theme';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from './lib/exportUtils';
 import { Calendar } from './components/Calendar';
 import { ScheduleDetail } from './components/ScheduleDetail';
@@ -66,6 +67,7 @@ function formatDuration(sec: number) {
 // ─── 파형 ─────────────────────────────────────────────────────────────────────
 const BAR_COUNT = 30;
 function Waveform({ metering, isRecording }: { metering: number | undefined; isRecording: boolean }) {
+  const styles = useStyles(makeStyles);
   const animValues = useRef(
     Array.from({ length: BAR_COUNT }, () => new Animated.Value(0.15))
   ).current;
@@ -118,6 +120,8 @@ function ScheduleCard({
   onAppend: (r: ScheduleRecord) => void;
   showDate?: boolean;
 }) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
   const [playing, setPlaying] = useState(false);
 
@@ -170,7 +174,7 @@ function ScheduleCard({
     ? (item.content || '').split('\n• ').slice(1)
     : [];
 
-  const accentColor = mode === 'vibe' ? C.textSub : mode === 'both' ? C.accent : C.red;
+  const accentColor = mode === 'vibe' ? t.c.textSub : mode === 'both' ? t.c.accent : t.c.red;
 
   return (
     <TouchableOpacity
@@ -247,6 +251,8 @@ function AllSchedulesList({
 }) {
   type Section = { title: string; date: Date; data: ScheduleRecord[] };
 
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [yearStr, setYearStr] = useState('');
   const [monthStr, setMonthStr] = useState('');
@@ -355,7 +361,7 @@ function AllSchedulesList({
                 value={yearStr}
                 onChangeText={(t) => setYearStr(t.replace(/[^0-9]/g, ''))}
                 placeholder="26"
-                placeholderTextColor={C.textDim}
+                placeholderTextColor={t.c.textDim}
                 keyboardType="number-pad"
                 maxLength={2}
               />
@@ -367,7 +373,7 @@ function AllSchedulesList({
                 value={monthStr}
                 onChangeText={(t) => setMonthStr(t.replace(/[^0-9]/g, ''))}
                 placeholder="7"
-                placeholderTextColor={C.textDim}
+                placeholderTextColor={t.c.textDim}
                 keyboardType="number-pad"
                 maxLength={2}
               />
@@ -379,7 +385,7 @@ function AllSchedulesList({
                 value={dayStr}
                 onChangeText={(t) => setDayStr(t.replace(/[^0-9]/g, ''))}
                 placeholder="15"
-                placeholderTextColor={C.textDim}
+                placeholderTextColor={t.c.textDim}
                 keyboardType="number-pad"
                 maxLength={2}
               />
@@ -390,7 +396,7 @@ function AllSchedulesList({
             value={keyword}
             onChangeText={setKeyword}
             placeholder="키워드 (예: 회의)"
-            placeholderTextColor={C.textDim}
+            placeholderTextColor={t.c.textDim}
             returnKeyType="search"
             onSubmitEditing={runSearch}
           />
@@ -491,15 +497,24 @@ function AllSchedulesList({
 // ─── 메인 ─────────────────────────────────────────────────────────────────────
 // useSafeAreaInsets()는 SafeAreaProvider의 자손 컴포넌트에서만 호출 가능하므로,
 // Provider와 실제 컨텐츠를 분리한다.
+// GestureHandlerRootView는 최상단에 있어야 제스처가 동작한다.
+// ⚠️ RN Modal은 별도 뷰 계층이라 이 컨텍스트를 상속받지 못한다 —
+//    Modal 안에서 제스처를 쓰려면 그 Modal 내부에도 따로 감싸야 한다.
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppInner />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AppInner />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 function AppInner() {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const voice = useVoiceRecorder();
 
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
@@ -834,7 +849,7 @@ function AppInner() {
     // absolute 포지션 FAB가 SafeAreaView의 padding 안에서 이중으로 계산되어
     // 기기별로 안전영역을 못 미치게 잡히는 경우가 있어 명시적으로 처리
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
 
       {/* ── 헤더 ── */}
       <View style={styles.header}>
@@ -949,6 +964,7 @@ function AppInner() {
 
       {/* ── 녹음 오버레이 ── */}
       <Modal visible={showRecorder} animationType="slide" transparent onRequestClose={cancelRecording}>
+        <StatusBar style="light" />
         <View style={styles.overlay}>
           <View style={[styles.sheet, { paddingBottom: 44 + insets.bottom }]}>
             <View style={styles.sheetHandle} />
@@ -992,50 +1008,50 @@ function AppInner() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.c.bg },
 
   // 헤더
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10,
   },
-  appName: { color: C.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  nextLabel: { color: C.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
+  appName: { color: t.c.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  nextLabel: { color: t.c.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
+  clockText: { color: t.c.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
   addCircleBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.surfaceHigh,
+    backgroundColor: t.c.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  addCircleBtnText: { color: C.text, fontSize: 22, fontWeight: '300', lineHeight: 26 },
+  addCircleBtnText: { color: t.c.text, fontSize: 22, fontWeight: '300', lineHeight: 26 },
 
   // 탭 세그먼트
   segmentWrap: { paddingHorizontal: 20, paddingBottom: 10 },
   segment: {
     flexDirection: 'row',
-    backgroundColor: C.surface,
+    backgroundColor: t.c.surface,
     borderRadius: 12, padding: 4,
   },
   segTab: {
     flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center',
   },
-  segTabActive: { backgroundColor: C.surfaceHigh },
-  segTabText: { color: C.textSub, fontSize: 14, fontWeight: '600' },
-  segTabTextActive: { color: C.text },
+  segTabActive: { backgroundColor: t.c.surfaceAlt },
+  segTabText: { color: t.c.textSub, fontSize: 14, fontWeight: '600' },
+  segTabTextActive: { color: t.c.text },
 
   // 달력 탭
   dayHeader: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8,
   },
-  dayHeaderText: { color: C.text, fontSize: 17, fontWeight: '700' },
-  dayCount: { color: C.textSub, fontSize: 13, fontWeight: '500' },
+  dayHeaderText: { color: t.c.text, fontSize: 17, fontWeight: '700' },
+  dayCount: { color: t.c.textSub, fontSize: 13, fontWeight: '500' },
   dayList: { flex: 1 },
   dayListContent: { paddingHorizontal: 16, paddingBottom: 120 },
   emptyDay: { paddingTop: 48, alignItems: 'center' },
-  emptyDayText: { color: C.textDim, fontSize: 15 },
+  emptyDayText: { color: t.c.textDim, fontSize: 15 },
 
   // 전체 일정 탭
   allWrap: { flex: 1 },
@@ -1044,97 +1060,97 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingTop: 20, paddingBottom: 8,
   },
-  sectionHeaderText: { color: C.textSub, fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
-  sectionHeaderToday: { color: C.text, fontSize: 14 },
-  sectionHeaderPast: { color: C.textDim },
+  sectionHeaderText: { color: t.c.textSub, fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
+  sectionHeaderToday: { color: t.c.text, fontSize: 14 },
+  sectionHeaderPast: { color: t.c.textDim },
   todayChip: {
-    backgroundColor: C.accent, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+    backgroundColor: t.c.accent, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
   },
-  todayChipText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  todayChipText: { color: t.c.onAccent, fontSize: 11, fontWeight: '700' },
   emptyAll: { flex: 1, alignItems: 'center', paddingTop: 80 },
   emptyAllIcon: { fontSize: 40, marginBottom: 16 },
-  emptyAllText: { color: C.textSub, fontSize: 17, fontWeight: '600', marginBottom: 8 },
-  emptyAllSub: { color: C.textDim, fontSize: 14, textAlign: 'center' },
+  emptyAllText: { color: t.c.textSub, fontSize: 17, fontWeight: '600', marginBottom: 8 },
+  emptyAllSub: { color: t.c.textDim, fontSize: 14, textAlign: 'center' },
 
   // 조회 패널
   searchWrap: { marginBottom: 4, paddingHorizontal: 16, paddingTop: 4 },
   searchToggle: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: t.c.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1, borderColor: t.c.border,
   },
-  searchToggleText: { color: C.text, fontSize: 14, fontWeight: '600' },
-  searchToggleChevron: { color: C.textSub, fontSize: 11 },
+  searchToggleText: { color: t.c.text, fontSize: 14, fontWeight: '600' },
+  searchToggleChevron: { color: t.c.textSub, fontSize: 11 },
   searchPanel: {
-    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginTop: 6,
-    borderWidth: 1, borderColor: C.border, gap: 10,
+    backgroundColor: t.c.surface, borderRadius: 12, padding: 14, marginTop: 6,
+    borderWidth: 1, borderColor: t.c.border, gap: 10,
   },
   searchRow: { flexDirection: 'row', gap: 8 },
   searchField: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surfaceHigh, borderRadius: 10, paddingHorizontal: 10,
+    backgroundColor: t.c.surfaceAlt, borderRadius: 10, paddingHorizontal: 10,
   },
-  searchFieldLabel: { color: C.textSub, fontSize: 14, fontWeight: '600', marginRight: 6 },
+  searchFieldLabel: { color: t.c.textSub, fontSize: 14, fontWeight: '600', marginRight: 6 },
   searchInput: {
-    flex: 1, paddingVertical: 12, color: C.text, fontSize: 17, fontWeight: '600', textAlign: 'center',
+    flex: 1, paddingVertical: 12, color: t.c.text, fontSize: 17, fontWeight: '600', textAlign: 'center',
   },
   searchInputKeyword: {
-    backgroundColor: C.surfaceHigh, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 12, color: C.text, fontSize: 16,
+    backgroundColor: t.c.surfaceAlt, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 12, color: t.c.text, fontSize: 16,
   },
   searchBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  combineToggle: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 8, padding: 3 },
+  combineToggle: { flexDirection: 'row', backgroundColor: t.c.surfaceAlt, borderRadius: 8, padding: 3 },
   combineBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
-  combineBtnOn: { backgroundColor: C.accent },
-  combineBtnText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
-  combineBtnTextOn: { color: '#fff' },
-  searchResetText: { color: C.textSub, fontSize: 14, fontWeight: '600' },
+  combineBtnOn: { backgroundColor: t.c.accent },
+  combineBtnText: { color: t.c.textSub, fontSize: 13, fontWeight: '700' },
+  combineBtnTextOn: { color: t.c.onAccent },
+  searchResetText: { color: t.c.textSub, fontSize: 14, fontWeight: '600' },
   searchRunBtn: {
-    backgroundColor: C.accent, borderRadius: 12,
+    backgroundColor: t.c.accent, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center', marginTop: 2,
   },
-  searchRunBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  searchRunBtnText: { color: t.c.onAccent, fontSize: 16, fontWeight: '700' },
   searchExportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  searchExportLabel: { color: C.textSub, fontSize: 13, fontWeight: '600', marginRight: 2 },
+  searchExportLabel: { color: t.c.textSub, fontSize: 13, fontWeight: '600', marginRight: 2 },
   searchExportBtn: {
-    flex: 1, backgroundColor: C.surfaceHigh, borderRadius: 9,
+    flex: 1, backgroundColor: t.c.surfaceAlt, borderRadius: 9,
     paddingVertical: 9, alignItems: 'center',
   },
-  searchExportBtnText: { color: C.text, fontSize: 13, fontWeight: '600' },
+  searchExportBtnText: { color: t.c.text, fontSize: 13, fontWeight: '600' },
 
   // 일정 카드
   card: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: t.c.surface,
     borderRadius: 16, paddingVertical: 16, paddingHorizontal: 16,
     marginBottom: 8,
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: t.c.border,
   },
   cardPast: { opacity: 0.5 },
   cardTimeCol: { width: 68, justifyContent: 'center' },
   cardTime: { fontSize: 14, fontWeight: '700' },
-  cardTimePast: { color: C.textSub },
-  cardDateSub: { color: C.textSub, fontSize: 11, marginTop: 2 },
+  cardTimePast: { color: t.c.textSub },
+  cardDateSub: { color: t.c.textSub, fontSize: 11, marginTop: 2 },
   cardDivider: { width: 3, height: 36, borderRadius: 2, marginRight: 14 },
   cardBody: { flex: 1 },
-  cardTitle: { color: C.text, fontSize: 16, fontWeight: '500', lineHeight: 22 },
-  cardTitlePast: { color: C.textSub },
+  cardTitle: { color: t.c.text, fontSize: 16, fontWeight: '500', lineHeight: 22 },
+  cardTitlePast: { color: t.c.textSub },
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   cardBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   cardBadgeIcon: { fontSize: 12 },
   cardBadgeVibe: { width: 14, height: 14, resizeMode: 'contain', opacity: 0.75 },
   cardAppendBtn: {
     paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 8, backgroundColor: C.surfaceHigh,
+    borderRadius: 8, backgroundColor: t.c.surfaceAlt,
   },
-  cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
-  cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  cardAppendBtnText: { color: t.c.accent, fontSize: 12, fontWeight: '700' },
+  cardAppendedNote: { color: t.c.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
   cardPlayBtn: {
     width: 36, height: 36, marginLeft: 6,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: C.surfaceHigh, borderRadius: 18,
+    backgroundColor: t.c.surfaceAlt, borderRadius: 18,
   },
-  cardPlayIcon: { fontSize: 14, color: C.textSub },
+  cardPlayIcon: { fontSize: 14, color: t.c.textSub },
 
   // FAB
   fabWrap: {
@@ -1143,45 +1159,45 @@ const styles = StyleSheet.create({
   },
   fab: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: C.red,
+    backgroundColor: t.c.red,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: C.red, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
+    shadowColor: t.c.red, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
     elevation: 10,
   },
   fabIcon: { fontSize: 28 },
 
   // 녹음 오버레이
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: t.c.overlay, justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#13131F', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: t.c.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, alignItems: 'center',
   },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 18 },
-  sheetTitle: { color: C.red, fontSize: 15, fontWeight: '600', marginBottom: 16 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.c.border, marginBottom: 18 },
+  sheetTitle: { color: t.c.red, fontSize: 15, fontWeight: '600', marginBottom: 16 },
   waveform: { flexDirection: 'row', alignItems: 'center', height: 56, gap: 3, marginBottom: 16 },
-  bar: { width: 4, height: 48, borderRadius: 2, backgroundColor: C.red },
+  bar: { width: 4, height: 48, borderRadius: 2, backgroundColor: t.c.red },
   transcriptBox: {
-    backgroundColor: C.surface, borderRadius: 16, padding: 16, width: '100%',
+    backgroundColor: t.c.surface, borderRadius: 16, padding: 16, width: '100%',
     minHeight: 100, marginBottom: 16, justifyContent: 'center',
-    borderWidth: 1, borderColor: C.border,
+    borderWidth: 1, borderColor: t.c.border,
   },
-  transcriptText: { color: C.text, fontSize: 20, fontWeight: '500', lineHeight: 28 },
-  transcriptPlaceholder: { color: C.textDim, fontSize: 16, lineHeight: 24 },
-  detectRow: { marginTop: 12, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10 },
-  detectOk: { color: C.green, fontSize: 15, fontWeight: '700' },
-  detectContent: { color: C.textSub, fontSize: 14, marginTop: 4 },
-  detectWait: { color: C.textSub, fontSize: 13, marginTop: 12 },
-  timer: { color: C.red, fontSize: 26, fontWeight: '300', letterSpacing: 3, marginBottom: 20 },
+  transcriptText: { color: t.c.text, fontSize: 20, fontWeight: '500', lineHeight: 28 },
+  transcriptPlaceholder: { color: t.c.textDim, fontSize: 16, lineHeight: 24 },
+  detectRow: { marginTop: 12, borderTopWidth: 1, borderTopColor: t.c.border, paddingTop: 10 },
+  detectOk: { color: t.c.green, fontSize: 15, fontWeight: '700' },
+  detectContent: { color: t.c.textSub, fontSize: 14, marginTop: 4 },
+  detectWait: { color: t.c.textSub, fontSize: 13, marginTop: 12 },
+  timer: { color: t.c.red, fontSize: 26, fontWeight: '300', letterSpacing: 3, marginBottom: 20 },
   sheetBtns: { flexDirection: 'row', gap: 12, width: '100%' },
   cancelBtn: {
     flex: 1, height: 56, borderRadius: 16,
-    backgroundColor: C.surfaceHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: t.c.surfaceAlt, alignItems: 'center', justifyContent: 'center',
   },
-  cancelBtnText: { color: C.textSub, fontSize: 16, fontWeight: '600' },
+  cancelBtnText: { color: t.c.textSub, fontSize: 16, fontWeight: '600' },
   stopBtn: {
     flex: 2, height: 56, borderRadius: 16,
-    backgroundColor: C.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: t.c.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   stopBtnIcon: { fontSize: 18 },
-  stopBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  stopBtnText: { color: t.c.onAccent, fontSize: 16, fontWeight: '700' },
 });

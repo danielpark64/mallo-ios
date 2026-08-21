@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { dayKey, isSameDay, monthGrid, WEEKDAYS } from '../lib/dateUtils';
-import { C } from '../lib/colors';
+import { useStyles, type Theme } from '../lib/theme';
 
 export function Calendar({
   selectedDate,
@@ -12,6 +12,8 @@ export function Calendar({
   onSelectDate: (d: Date) => void;
   markedDays: Set<string>;
 }) {
+  const styles = useStyles(makeStyles);
+
   const [view, setView] = useState(() => ({
     year: selectedDate.getFullYear(),
     month: selectedDate.getMonth(),
@@ -106,9 +108,9 @@ export function Calendar({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   wrap: {
-    backgroundColor: C.surface,
+    backgroundColor: t.c.surface,
     marginHorizontal: 16,
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     marginBottom: 4,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: t.c.border,
   },
 
   head: {
@@ -124,13 +126,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   navBtn: { width: 44, height: 36, alignItems: 'center', justifyContent: 'center' },
-  navText: { color: C.textSub, fontSize: 26, fontWeight: '300' },
-  monthLabel: { color: C.text, fontSize: 17, fontWeight: '700' },
+  navText: { color: t.c.textSub, fontSize: 26, fontWeight: '300' },
+  monthLabel: { color: t.c.text, fontSize: 17, fontWeight: '700' },
 
   weekRow: { flexDirection: 'row', marginBottom: 2 },
-  weekday: { flex: 1, textAlign: 'center', color: C.textSub, fontSize: 12, fontWeight: '600' },
-  sun: { color: C.sun },
-  sat: { color: C.sat },
+  weekday: { flex: 1, textAlign: 'center', color: t.c.textSub, fontSize: 12, fontWeight: '600' },
+  sun: { color: t.c.sun },
+  sat: { color: t.c.sat },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 3 },
@@ -138,10 +140,10 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
   },
-  daySelected: { backgroundColor: C.accent },
-  dayToday: { borderWidth: 1.5, borderColor: C.accent },
-  dayText: { color: C.text, fontSize: 15, fontWeight: '400' },
-  dayTextSelected: { color: '#fff', fontWeight: '700' },
+  daySelected: { backgroundColor: t.c.accent },
+  dayToday: { borderWidth: 1.5, borderColor: t.c.accent },
+  dayText: { color: t.c.text, fontSize: 15, fontWeight: '400' },
+  dayTextSelected: { color: t.c.onAccent, fontWeight: '700' },
   dot: { width: 7, height: 7, borderRadius: 3.5, marginTop: 2, backgroundColor: 'transparent' },
-  dotOn: { backgroundColor: '#6FB2FF' },
+  dotOn: { backgroundColor: t.c.accent },
 });
