@@ -67,43 +67,49 @@ export function Calendar({
         ))}
       </View>
 
-      {/* 날짜 그리드 */}
+      {/* 날짜 그리드 — 7칸씩 명시적으로 행을 나눈다.
+          `width: 100/7 + '%'`(14.2857...%)를 flexWrap에 맡기면 Android에서
+          반올림 오차가 누적돼 토요일 칸이 다음 줄로 밀려 안 보이는 경우가 있었다. */}
       <View style={styles.grid}>
-        {cells.map((d, i) => {
-          if (!d) return <View key={`e${i}`} style={styles.cell} />;
-          const selected = isSameDay(d, selectedDate);
-          const isToday = isSameDay(d, today);
-          const marked = markedDays.has(dayKey(d));
-          const dow = d.getDay();
-          return (
-            <TouchableOpacity
-              key={dayKey(d)}
-              style={styles.cell}
-              onPress={() => onSelectDate(d)}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.dayCircle,
-                  selected && styles.daySelected,
-                  !selected && isToday && styles.dayToday,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.dayText,
-                    dow === 0 && styles.sun,
-                    dow === 6 && styles.sat,
-                    selected && styles.dayTextSelected,
-                  ]}
+        {Array.from({ length: cells.length / 7 }, (_, week) => (
+          <View key={week} style={styles.weekRowLine}>
+            {cells.slice(week * 7, week * 7 + 7).map((d, i) => {
+              if (!d) return <View key={`e${week}-${i}`} style={styles.cell} />;
+              const selected = isSameDay(d, selectedDate);
+              const isToday = isSameDay(d, today);
+              const marked = markedDays.has(dayKey(d));
+              const dow = d.getDay();
+              return (
+                <TouchableOpacity
+                  key={dayKey(d)}
+                  style={styles.cell}
+                  onPress={() => onSelectDate(d)}
+                  activeOpacity={0.7}
                 >
-                  {d.getDate()}
-                </Text>
-              </View>
-              <View style={[styles.dot, marked && !selected && styles.dotOn]} />
-            </TouchableOpacity>
-          );
-        })}
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      selected && styles.daySelected,
+                      !selected && isToday && styles.dayToday,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        dow === 0 && styles.sun,
+                        dow === 6 && styles.sat,
+                        selected && styles.dayTextSelected,
+                      ]}
+                    >
+                      {d.getDate()}
+                    </Text>
+                  </View>
+                  <View style={[styles.dot, marked && !selected && styles.dotOn]} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -135,8 +141,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sun: { color: t.c.sun },
   sat: { color: t.c.sat },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 3 },
+  grid: {},
+  weekRowLine: { flexDirection: 'row' },
+  cell: { flex: 1, alignItems: 'center', paddingVertical: 3 },
   dayCircle: {
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
