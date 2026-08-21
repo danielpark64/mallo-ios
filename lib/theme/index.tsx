@@ -2,7 +2,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { StyleSheet, useColorScheme, type ViewStyle } from 'react-native';
 import { dark, light, type Palette } from './palette';
-import { duration, font, radius, screenPad, shadow, space, tabularNums, typo } from './tokens';
+import { duration, font, radius, screenPad, shadow, space, tabularNums, typo, type TypoVariant } from './tokens';
 
 export type Theme = {
   c: Palette;
@@ -59,5 +59,6 @@ export function useStyles<T>(factory: (t: Theme) => T): T {
   return useMemo(() => factory(t), [t, factory]);
 }
 
-export type { Palette };
+export type AppTextColor = keyof Palette;
+export type { Palette, TypoVariant };
 export { light, dark };

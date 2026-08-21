@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppText as Text } from './ui/Text';
 import { dayKey, isSameDay, monthGrid, WEEKDAYS } from '../lib/dateUtils';
 import { useStyles, type Theme } from '../lib/theme';
 

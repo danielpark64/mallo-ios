@@ -9,11 +9,11 @@ import {
   ScrollView,
   SectionList,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text } from './components/ui/Text';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -57,6 +57,7 @@ import { copyRecords, exportRecordsPdf, exportRecordsTxt } from './lib/exportUti
 import { Calendar } from './components/Calendar';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
+import { SegmentedControl } from './components/ui/SegmentedControl';
 
 function formatDuration(sec: number) {
   const m = Math.floor(sec / 60);
@@ -873,26 +874,14 @@ function AppInner() {
 
       {/* ── 탭 세그먼트 ── */}
       <View style={styles.segmentWrap}>
-        <View style={styles.segment}>
-          <TouchableOpacity
-            style={[styles.segTab, activeTab === 'calendar' && styles.segTabActive]}
-            onPress={() => setActiveTab('calendar')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.segTabText, activeTab === 'calendar' && styles.segTabTextActive]}>
-              달력
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.segTab, activeTab === 'all' && styles.segTabActive]}
-            onPress={() => setActiveTab('all')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.segTabText, activeTab === 'all' && styles.segTabTextActive]}>
-              전체 일정
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedControl
+          options={[
+            { value: 'calendar', label: '달력' },
+            { value: 'all', label: '전체 일정' },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </View>
 
       {/* ── 컨텐츠 ── */}
@@ -1029,18 +1018,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   // 탭 세그먼트
   segmentWrap: { paddingHorizontal: 20, paddingBottom: 10 },
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: t.c.surface,
-    borderRadius: 12, padding: 4,
-  },
-  segTab: {
-    flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center',
-  },
-  segTabActive: { backgroundColor: t.c.surfaceAlt },
-  segTabText: { color: t.c.textSub, fontSize: 14, fontWeight: '600' },
-  segTabTextActive: { color: t.c.text },
-
   // 달력 탭
   dayHeader: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
