@@ -170,8 +170,13 @@ export function CollapsibleCalendar({
           <Text style={s.navText}>‹</Text>
         </TouchableOpacity>
         <View style={s.labelRow}>
-          <TouchableOpacity onPress={() => setYearPickerOpen(true)} activeOpacity={0.7}>
-            <Text style={s.monthLabel}>{monthView.year}년</Text>
+          <TouchableOpacity
+            onPress={() => setYearPickerOpen(true)}
+            activeOpacity={0.7}
+            style={s.yearBtn}
+          >
+            <Text style={s.yearBtnText}>{monthView.year}년</Text>
+            <Text style={s.yearBtnCaret}>▾</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={goToday} activeOpacity={0.7}>
             <Text style={s.monthLabel}>
@@ -262,6 +267,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   navText: { color: t.c.textSub, fontSize: 26, fontWeight: '300' },
   labelRow: { flexDirection: 'row', alignItems: 'center' },
   monthLabel: { color: t.c.text, fontSize: 17, fontWeight: '700' },
+  yearBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: t.c.surfaceAlt, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  yearBtnText: { color: t.c.text, fontSize: 17, fontWeight: '700' },
+  yearBtnCaret: { color: t.c.textDim, fontSize: 11, fontWeight: '700' },
   clip: { overflow: 'hidden' },
   handleRow: { alignItems: 'center', gap: 5, paddingTop: 10, paddingBottom: 2 },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: t.c.border },
