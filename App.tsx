@@ -34,7 +34,7 @@ import {
   formatDayHeader,
   formatTime,
   isSameDay,
-  schedulesOn,
+  schedulesInRange,
   startOfWeek,
 } from './lib/dateUtils';
 import { Chip } from './components/ui/Chip';
@@ -602,8 +602,8 @@ function AppInner() {
   const [editing, setEditing] = useState<ScheduleRecord | null>(null);
   const [appendMode, setAppendMode] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [calTapped, setCalTapped] = useState(false);
   const [activeTab, setActiveTab] = useState<'calendar' | 'all'>('calendar');
+  const [calRange, setCalRange] = useState<{ from: Date; to: Date } | null>(null);
 
   // 알림 응답 핸들러가 최신 records를 참조할 수 있도록 ref 유지
   const recordsRef = useRef<ScheduleRecord[]>([]);
@@ -655,12 +655,29 @@ function AppInner() {
 
   const liveParsed = useMemo(() => parseSchedule(voice.liveText), [voice.liveText]);
   const marked = useMemo(() => daysWithSchedules(records), [records]);
-  const dayList = useMemo(() => {
-    const all = schedulesOn(records, selectedDate);
-    if (calTapped || !isSameDay(selectedDate, new Date())) return all;
-    const now = Date.now();
-    return all.filter((r) => !r.hasTime || (r.scheduleAt ?? 0) >= now);
-  }, [records, selectedDate, calTapped, currentTime]);
+
+  // 달력에 보이는 주/월 전체 기간의 일정을 날짜·시간 순으로 묶어서 보여준다
+  type PeriodSection = { title: string; date: Date; data: ScheduleRecord[] };
+  const periodSections: PeriodSection[] = useMemo(() => {
+    if (!calRange) return [];
+    const items = schedulesInRange(records, calRange.from, calRange.to);
+    const groups = new Map<string, { date: Date; items: ScheduleRecord[] }>();
+    for (const r of items) {
+      const d = new Date(r.scheduleAt!);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!groups.has(key)) {
+        groups.set(key, { date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), items: [] });
+      }
+      groups.get(key)!.items.push(r);
+    }
+    return Array.from(groups.values())
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .map(({ date, items }) => ({ title: formatDayHeader(date), date, data: items }));
+  }, [records, calRange]);
+  const periodCount = useMemo(
+    () => periodSections.reduce((n, sec) => n + sec.data.length, 0),
+    [periodSections]
+  );
 
   const nextSchedule = useMemo(() => {
     const now = Date.now();
@@ -957,32 +974,52 @@ function AppInner() {
         <>
           <CollapsibleCalendar
             selectedDate={selectedDate}
-            onSelectDate={(d) => { setSelectedDate(d); setCalTapped(true); }}
+            onSelectDate={setSelectedDate}
             markedDays={marked}
+            onRangeChange={(from, to) => setCalRange({ from, to })}
           />
 
           <View style={styles.dayHeader}>
-            <Text style={styles.dayHeaderText}>{formatDayHeader(selectedDate)}</Text>
+            <Text style={styles.dayHeaderText}>이 기간 일정</Text>
             <Text style={styles.dayCount}>
-              {dayList.length > 0 ? `${dayList.length}건` : ''}
+              {periodCount > 0 ? `${periodCount}건` : ''}
             </Text>
           </View>
 
-          <ScrollView
-            style={styles.dayList}
-            contentContainerStyle={styles.dayListContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {dayList.length === 0 ? (
-              <View style={styles.emptyDay}>
-                <Text style={styles.emptyDayText}>이 날은 일정이 없어요</Text>
-              </View>
-            ) : (
-              dayList.map((item) => (
-                <ScheduleCard key={item.id} item={item} onPress={openDetail} onAppend={openAppend} />
-              ))
-            )}
-          </ScrollView>
+          {periodSections.length === 0 ? (
+            <View style={styles.emptyDay}>
+              <Text style={styles.emptyDayText}>이 기간엔 일정이 없어요</Text>
+            </View>
+          ) : (
+            // 재생 중 카드가 언마운트되면 재생 제어가 꼬이므로(activeCardStopper) 가상화 목록(FlatList/
+            // SectionList) 대신 ScrollView + map 유지 — 기간이 최대 한 달이라 항목 수도 감당 가능한 범위.
+            <ScrollView
+              style={styles.dayList}
+              contentContainerStyle={styles.dayListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {periodSections.map((section) => {
+                const isToday = isSameDay(section.date, currentTime);
+                return (
+                  <View key={section.title + section.date.getTime()}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={[styles.sectionHeaderText, isToday && styles.sectionHeaderToday]}>
+                        {section.title}
+                      </Text>
+                      {isToday && (
+                        <View style={styles.todayChip}>
+                          <Text style={styles.todayChipText}>오늘</Text>
+                        </View>
+                      )}
+                    </View>
+                    {section.data.map((item) => (
+                      <ScheduleCard key={item.id} item={item} onPress={openDetail} onAppend={openAppend} />
+                    ))}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
         </>
       ) : (
         <View style={styles.allWrap}>

@@ -29,10 +29,12 @@ export function CollapsibleCalendar({
   selectedDate,
   onSelectDate,
   markedDays,
+  onRangeChange,
 }: {
   selectedDate: Date;
   onSelectDate: (d: Date) => void;
   markedDays: Set<string>;
+  onRangeChange?: (from: Date, to: Date) => void;
 }) {
   const s = useStyles(makeStyles);
   const today = new Date();
@@ -61,6 +63,19 @@ export function CollapsibleCalendar({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  // 현재 화면에 보이는 기간(주/월)을 바깥에 알려 그 안의 일정 전부를 보여줄 수 있게 한다
+  useEffect(() => {
+    if (!onRangeChange) return;
+    if (expanded) {
+      const from = new Date(monthView.year, monthView.month, 1);
+      const to = new Date(monthView.year, monthView.month + 1, 0);
+      onRangeChange(from, to);
+    } else {
+      onRangeChange(weekAnchor, addDays(weekAnchor, 6));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, weekAnchor, monthView]);
 
   const rows = monthMatrix(monthView.year, monthView.month);
   const selectedRow = Math.max(0, weekIndexOf(monthView.year, monthView.month, weekAnchor));

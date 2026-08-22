@@ -30,6 +30,17 @@ export function schedulesOn(records: ScheduleRecord[], date: Date): ScheduleReco
     .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
 }
 
+/** [from, to] 기간(포함) 안의 일정 전부 (시각 순) — 날짜 미정 일정은 제외 */
+export function schedulesInRange(records: ScheduleRecord[], from: Date, to: Date): ScheduleRecord[] {
+  const fromMs = startOfDay(from).getTime();
+  const c = new Date(to);
+  c.setHours(23, 59, 59, 999);
+  const toMs = c.getTime();
+  return records
+    .filter((r) => r.scheduleAt != null && r.scheduleAt >= fromMs && r.scheduleAt <= toMs)
+    .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
+}
+
 /** 일정이 있는 날짜 키 집합 (달력 dot 표시용) */
 export function daysWithSchedules(records: ScheduleRecord[]): Set<string> {
   const s = new Set<string>();
