@@ -51,6 +51,61 @@ export function monthGrid(year: number, month: number): (Date | null)[] {
   return cells;
 }
 
+export function addDays(d: Date, n: number): Date {
+  const c = new Date(d);
+  c.setHours(12, 0, 0, 0); // DST/월말 경계에서 날짜가 밀리지 않도록 정오 기준으로 계산
+  c.setDate(c.getDate() + n);
+  return startOfDay(c);
+}
+
+export function addMonths(d: Date, n: number): Date {
+  const c = new Date(d);
+  c.setDate(1); // 말일(31일)에서 두 달 넘기면 날짜가 튀는 것 방지
+  c.setMonth(c.getMonth() + n);
+  return c;
+}
+
+/** 그 날이 속한 주의 일요일 */
+export function startOfWeek(d: Date): Date {
+  return addDays(startOfDay(d), -d.getDay());
+}
+
+export function isSameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/**
+ * 접이식 달력용 — 항상 6행 x 7열, 인접 월 날짜 포함, null 없음.
+ * (기존 monthGrid는 빈칸이 null이라 접이식 높이 계산에 못 쓴다.
+ *  monthGrid의 유일한 호출부인 구 Calendar.tsx가 폐기되므로 별도로 둔다.)
+ */
+export function monthMatrix(year: number, month: number): Date[][] {
+  const first = new Date(year, month, 1);
+  const start = addDays(startOfDay(first), -first.getDay());
+  const rows: Date[][] = [];
+  for (let w = 0; w < 6; w++) {
+    const row: Date[] = [];
+    for (let d = 0; d < 7; d++) row.push(addDays(start, w * 7 + d));
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** anchor가 속한 달의 monthMatrix 안에서 anchor가 몇 번째 행(0~5)인지. 없으면 -1 */
+export function weekIndexOf(year: number, month: number, anchor: Date): number {
+  const rows = monthMatrix(year, month);
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].some((d) => isSameDay(d, anchor))) return i;
+  }
+  return -1;
+}
+
+/** anchor가 속한 주 7일 (일요일 시작) */
+export function weekRow(anchor: Date): Date[] {
+  const start = startOfWeek(anchor);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
 export function formatTime(d: Date): string {
   const h = d.getHours();
   const m = d.getMinutes();

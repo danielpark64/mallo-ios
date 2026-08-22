@@ -54,7 +54,7 @@ import {
 } from './lib/notifications';
 import { ThemeProvider, useStyles, useTheme, type Theme } from './lib/theme';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from './lib/exportUtils';
-import { Calendar } from './components/Calendar';
+import { CollapsibleCalendar } from './components/calendar/CollapsibleCalendar';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { SettingsSheet } from './components/SettingsSheet';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
@@ -892,7 +892,7 @@ function AppInner() {
       {/* ── 컨텐츠 ── */}
       {activeTab === 'calendar' ? (
         <>
-          <Calendar
+          <CollapsibleCalendar
             selectedDate={selectedDate}
             onSelectDate={(d) => { setSelectedDate(d); setCalTapped(true); }}
             markedDays={marked}

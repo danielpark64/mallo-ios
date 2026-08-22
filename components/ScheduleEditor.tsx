@@ -20,7 +20,7 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
-import { Calendar } from './Calendar';
+import { MonthCalendar } from './calendar/MonthCalendar';
 import { formatDayHeader } from '../lib/dateUtils';
 import { useStyles, useTheme, type Theme } from '../lib/theme';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
@@ -400,7 +400,7 @@ export function ScheduleEditor({
               </TouchableOpacity>
               {showCal && (
                 <View style={styles.calBox}>
-                  <Calendar
+                  <MonthCalendar
                     selectedDate={date}
                     onSelectDate={(d) => { setDate(d); setShowCal(false); }}
                     markedDays={markedDays}
