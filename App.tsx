@@ -849,25 +849,25 @@ function AppInner() {
 
       {/* ── 헤더 ── */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <View style={styles.headerTopRow}>
           <Text style={styles.appName}>말로</Text>
-          {nextSchedule?.scheduleAt ? (
-            <Text style={styles.nextLabel} numberOfLines={1}>
-              다음 ·{' '}
-              {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
-              {formatTime(new Date(nextSchedule.scheduleAt))}
-            </Text>
-          ) : null}
+          <View style={styles.headerRight}>
+            <Text style={styles.clockText}>{formatTime(currentTime)}</Text>
+            <TouchableOpacity style={styles.addCircleBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75}>
+              <Text style={styles.addCircleBtnText}>⚙</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
+              <Text style={styles.addCircleBtnText}>＋</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.headerRight}>
-          <Text style={styles.clockText}>{formatTime(currentTime)}</Text>
-          <TouchableOpacity style={styles.addCircleBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75}>
-            <Text style={styles.addCircleBtnText}>⚙</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
-            <Text style={styles.addCircleBtnText}>＋</Text>
-          </TouchableOpacity>
-        </View>
+        {nextSchedule?.scheduleAt ? (
+          <Text style={styles.nextLabel} numberOfLines={1}>
+            다음 ·{' '}
+            {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
+            {formatTime(new Date(nextSchedule.scheduleAt))}
+          </Text>
+        ) : null}
       </View>
 
       {/* ── 탭 세그먼트 ── */}
@@ -1003,13 +1003,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   // 헤더
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10,
   },
-  headerLeft: { flex: 1, marginRight: 8 },
+  headerTopRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
   appName: { color: t.c.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  nextLabel: { color: t.c.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
+  nextLabel: { color: t.c.accent, fontSize: 12, fontWeight: '500', marginTop: 4 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   clockText: { color: t.c.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
   addCircleBtn: {
     width: 36, height: 36, borderRadius: 18,
