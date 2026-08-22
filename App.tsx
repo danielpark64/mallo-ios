@@ -22,6 +22,7 @@ import {
   AudioModule,
   setAudioModeAsync,
   useAudioPlayer,
+  useAudioPlayerStatus,
 } from 'expo-audio';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { StatusBar } from 'expo-status-bar';
@@ -125,12 +126,12 @@ function ScheduleCard({
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
-  const [playing, setPlaying] = useState(false);
+  const status = useAudioPlayerStatus(player);
+  const playing = status.playing;
 
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
     try { player.pause(); } catch {}
-    setPlaying(false);
   };
   const stableStop = useRef(() => stopSelfRef.current()).current;
 
@@ -146,7 +147,6 @@ function ScheduleCard({
   const toggle = () => {
     if (playing) {
       player.pause();
-      setPlaying(false);
     } else {
       claimPlayback();
       // 일시정지 중이면 이어서, 처음/끝이면 처음부터
@@ -155,15 +155,8 @@ function ScheduleCard({
         player.seekTo(0);
       }
       player.play();
-      setPlaying(true);
     }
   };
-
-  useEffect(() => {
-    if (player.duration > 0 && player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
-      setPlaying(false);
-    }
-  }, [player.currentTime]);
 
   const timeLabel = item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
   const title = item.content || item.transcript || '(내용 없음)';
@@ -856,7 +849,7 @@ function AppInner() {
 
       {/* ── 헤더 ── */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.appName}>말로</Text>
           {nextSchedule?.scheduleAt ? (
             <Text style={styles.nextLabel} numberOfLines={1}>
@@ -1013,9 +1006,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10,
   },
+  headerLeft: { flex: 1, marginRight: 8 },
   appName: { color: t.c.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
   nextLabel: { color: t.c.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
   clockText: { color: t.c.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
   addCircleBtn: {
     width: 36, height: 36, borderRadius: 18,

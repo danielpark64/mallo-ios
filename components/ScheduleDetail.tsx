@@ -14,7 +14,7 @@ import {
 import { AppText as Text } from './ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useStyles, type Theme } from '../lib/theme';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from '../lib/exportUtils';
@@ -65,7 +65,8 @@ function EntryBlock({
 }) {
   const s = useStyles(makeStyles);
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
-  const [playing, setPlaying] = useState(false);
+  const status = useAudioPlayerStatus(player);
+  const playing = status.playing;
   const segEndRef = useRef<number | null>(null);
   const [rangeMode, setRangeMode] = useState(false);
   const [rangeAnchor, setRangeAnchor] = useState<number | null>(null);
@@ -75,7 +76,6 @@ function EntryBlock({
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
     try { player.pause(); } catch {}
-    setPlaying(false);
     segEndRef.current = null;
   };
   const stableStop = useRef(() => stopSelfRef.current()).current;
@@ -96,13 +96,11 @@ function EntryBlock({
     segEndRef.current = endSec;
     player.seekTo(startSec);
     player.play();
-    setPlaying(true);
   };
 
   const toggle = () => {
     if (playing) {
       player.pause();
-      setPlaying(false);
       segEndRef.current = null;
       return;
     }
@@ -115,9 +113,6 @@ function EntryBlock({
     if (segEndRef.current != null && player.currentTime >= segEndRef.current) {
       player.pause();
       segEndRef.current = null;
-      setPlaying(false);
-    } else if (player.duration > 0 && player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
-      setPlaying(false);
     }
   }, [player.currentTime]);
 
