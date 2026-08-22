@@ -29,12 +29,16 @@ import { StatusBar } from 'expo-status-bar';
 
 import { parseSchedule, formatDisplay } from './lib/parseSchedule';
 import {
+  addDays,
   daysWithSchedules,
   formatDayHeader,
   formatTime,
   isSameDay,
   schedulesOn,
+  startOfWeek,
 } from './lib/dateUtils';
+import { Chip } from './components/ui/Chip';
+import { Sheet } from './components/ui/Sheet';
 import {
   deleteAudio,
   loadRecords,
@@ -248,16 +252,61 @@ function AllSchedulesList({
 
   const styles = useStyles(makeStyles);
   const t = useTheme();
-  const [searchOpen, setSearchOpen] = useState(false);
+
+  // 검색바 — 실시간(디바운스) 키워드 검색
+  const [keyword, setKeyword] = useState('');
+  const [debouncedKw, setDebouncedKw] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKw(keyword.trim()), 200);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  // 빠른 칩 — 오늘/이번 주/이번 달/올해
+  const [quickPreset, setQuickPreset] = useState<'today' | 'week' | 'month' | 'year' | null>(null);
+
+  // 기간▾ — 상세 조건(년/월/일 + AND/OR)은 필터 시트에 보존
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [yearStr, setYearStr] = useState('');
   const [monthStr, setMonthStr] = useState('');
   const [dayStr, setDayStr] = useState('');
-  const [keyword, setKeyword] = useState('');
   const [combine, setCombine] = useState<'AND' | 'OR'>('AND');
-  // 조회 버튼을 눌렀을 때만 실제 필터로 반영
-  const [applied, setApplied] = useState<{
-    y: number | null; m: number | null; d: number | null; kw: string; combine: 'AND' | 'OR';
+  const [customApplied, setCustomApplied] = useState<{
+    y: number | null; m: number | null; d: number | null; combine: 'AND' | 'OR';
   } | null>(null);
+
+  const selectQuick = (p: 'today' | 'week' | 'month' | 'year') => {
+    setCustomApplied(null);
+    setQuickPreset((cur) => (cur === p ? null : p));
+  };
+
+  const applied = useMemo(() => {
+    const kw = debouncedKw;
+    if (quickPreset) {
+      const now = new Date();
+      if (quickPreset === 'today') {
+        return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate(), kw, combine: 'AND' as const, range: null as { from: number; to: number } | null };
+      }
+      if (quickPreset === 'month') {
+        return { y: now.getFullYear(), m: now.getMonth() + 1, d: null, kw, combine: 'AND' as const, range: null as { from: number; to: number } | null };
+      }
+      if (quickPreset === 'year') {
+        return { y: now.getFullYear(), m: null, d: null, kw, combine: 'AND' as const, range: null as { from: number; to: number } | null };
+      }
+      // 이번 주 — y/m/d 동등비교로는 표현 불가해 range로 확장
+      const sow = startOfWeek(now);
+      const eow = addDays(sow, 6);
+      return {
+        y: null, m: null, d: null, kw, combine: 'AND' as const,
+        range: {
+          from: new Date(sow.getFullYear(), sow.getMonth(), sow.getDate()).getTime(),
+          to: new Date(eow.getFullYear(), eow.getMonth(), eow.getDate(), 23, 59, 59, 999).getTime(),
+        },
+      };
+    }
+    if (customApplied) return { ...customApplied, kw, range: null as { from: number; to: number } | null };
+    if (kw) return { y: null, m: null, d: null, kw, combine: 'AND' as const, range: null as { from: number; to: number } | null };
+    return null;
+  }, [quickPreset, customApplied, debouncedKw]);
 
   const activeFilters = useMemo(() => {
     const list: Array<(r: ScheduleRecord) => boolean> = [];
@@ -265,6 +314,7 @@ function AllSchedulesList({
     if (applied.y != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getFullYear() === applied.y);
     if (applied.m != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getMonth() + 1 === applied.m);
     if (applied.d != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getDate() === applied.d);
+    if (applied.range) list.push((r) => r.scheduleAt != null && r.scheduleAt >= applied.range!.from && r.scheduleAt <= applied.range!.to);
     if (applied.kw) list.push((r) => (r.content || r.transcript || '').includes(applied.kw));
     return list;
   }, [applied]);
@@ -277,7 +327,7 @@ function AllSchedulesList({
     );
   }, [records, activeFilters, applied]);
 
-  const runSearch = () => {
+  const runCustomSearch = () => {
     Keyboard.dismiss();
     const yRaw = parseInt(yearStr, 10);
     // 2자리 연도(예: 26) → 2026
@@ -286,18 +336,19 @@ function AllSchedulesList({
     const m = isNaN(mRaw) || mRaw < 1 || mRaw > 12 ? null : mRaw;
     const dRaw = parseInt(dayStr, 10);
     const d = isNaN(dRaw) || dRaw < 1 || dRaw > 31 ? null : dRaw;
-    const kw = keyword.trim();
-    // 조건이 하나도 없으면 전체 보기
-    if (y == null && m == null && d == null && !kw) {
-      setApplied(null);
-      return;
+    if (y == null && m == null && d == null) {
+      setCustomApplied(null);
+    } else {
+      setQuickPreset(null);
+      setCustomApplied({ y, m, d, combine });
     }
-    setApplied({ y, m, d, kw, combine });
+    setFilterSheetOpen(false);
   };
 
   const resetFilters = () => {
     setYearStr(''); setMonthStr(''); setDayStr(''); setKeyword('');
-    setApplied(null);
+    setQuickPreset(null);
+    setCustomApplied(null);
   };
 
   const sections: Section[] = useMemo(() => {
@@ -336,102 +387,121 @@ function AllSchedulesList({
 
   const searchPanel = (
     <View style={styles.searchWrap}>
-      <TouchableOpacity
-        style={styles.searchToggle}
-        onPress={() => setSearchOpen((s) => !s)}
-        activeOpacity={0.75}
-      >
-        <Text style={styles.searchToggleText}>
-          🔍 조회{hasActiveFilters ? ` · 결과 ${filteredRecords.length}건` : ''}
-        </Text>
-        <Text style={styles.searchToggleChevron}>{searchOpen ? '▲' : '▼'}</Text>
-      </TouchableOpacity>
-      {searchOpen && (
-        <View style={styles.searchPanel}>
-          <View style={styles.searchRow}>
-            <View style={styles.searchField}>
-              <Text style={styles.searchFieldLabel}>년</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={yearStr}
-                onChangeText={(t) => setYearStr(t.replace(/[^0-9]/g, ''))}
-                placeholder="26"
-                placeholderTextColor={t.c.textDim}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-            </View>
-            <View style={styles.searchField}>
-              <Text style={styles.searchFieldLabel}>월</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={monthStr}
-                onChangeText={(t) => setMonthStr(t.replace(/[^0-9]/g, ''))}
-                placeholder="7"
-                placeholderTextColor={t.c.textDim}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-            </View>
-            <View style={styles.searchField}>
-              <Text style={styles.searchFieldLabel}>일</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={dayStr}
-                onChangeText={(t) => setDayStr(t.replace(/[^0-9]/g, ''))}
-                placeholder="15"
-                placeholderTextColor={t.c.textDim}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-            </View>
-          </View>
-          <TextInput
-            style={styles.searchInputKeyword}
-            value={keyword}
-            onChangeText={setKeyword}
-            placeholder="키워드 (예: 회의)"
-            placeholderTextColor={t.c.textDim}
-            returnKeyType="search"
-            onSubmitEditing={runSearch}
-          />
-          <View style={styles.searchBottomRow}>
-            <View style={styles.combineToggle}>
-              <TouchableOpacity
-                style={[styles.combineBtn, combine === 'AND' && styles.combineBtnOn]}
-                onPress={() => setCombine('AND')}
-              >
-                <Text style={[styles.combineBtnText, combine === 'AND' && styles.combineBtnTextOn]}>모두 만족</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.combineBtn, combine === 'OR' && styles.combineBtnOn]}
-                onPress={() => setCombine('OR')}
-              >
-                <Text style={[styles.combineBtnText, combine === 'OR' && styles.combineBtnTextOn]}>하나라도</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={resetFilters} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.searchResetText}>초기화</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.searchRunBtn} onPress={runSearch} activeOpacity={0.85}>
-            <Text style={styles.searchRunBtnText}>조회하기</Text>
+      <View style={styles.searchBarRow}>
+        <Text style={styles.searchBarIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchBarInput}
+          value={keyword}
+          onChangeText={setKeyword}
+          placeholder="검색어로 찾기"
+          placeholderTextColor={t.c.textDim}
+          returnKeyType="search"
+        />
+        {keyword.length > 0 && (
+          <TouchableOpacity onPress={() => setKeyword('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.searchBarClear}>✕</Text>
           </TouchableOpacity>
-          {/* 결과 내보내기 */}
-          <View style={styles.searchExportRow}>
-            <Text style={styles.searchExportLabel}>결과 {filteredRecords.length}건:</Text>
-            <TouchableOpacity style={styles.searchExportBtn} onPress={() => copyRecords(filteredRecords)}>
-              <Text style={styles.searchExportBtnText}>복사</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsTxt(filteredRecords)}>
-              <Text style={styles.searchExportBtnText}>텍스트</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsPdf(filteredRecords)}>
-              <Text style={styles.searchExportBtnText}>PDF</Text>
-            </TouchableOpacity>
-          </View>
+        )}
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.quickChipRow}
+      >
+        <Chip label="오늘" selected={quickPreset === 'today'} onPress={() => selectQuick('today')} />
+        <Chip label="이번 주" selected={quickPreset === 'week'} onPress={() => selectQuick('week')} />
+        <Chip label="이번 달" selected={quickPreset === 'month'} onPress={() => selectQuick('month')} />
+        <Chip label="올해" selected={quickPreset === 'year'} onPress={() => selectQuick('year')} />
+        <Chip
+          label={customApplied ? '기간 ✓' : '기간▾'}
+          selected={!!customApplied}
+          onPress={() => setFilterSheetOpen(true)}
+        />
+        {hasActiveFilters && (
+          <Chip label="초기화" onPress={resetFilters} />
+        )}
+      </ScrollView>
+      {hasActiveFilters && (
+        <View style={styles.searchExportRow}>
+          <Text style={styles.searchExportLabel}>결과 {filteredRecords.length}건:</Text>
+          <TouchableOpacity style={styles.searchExportBtn} onPress={() => copyRecords(filteredRecords)}>
+            <Text style={styles.searchExportBtnText}>복사</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsTxt(filteredRecords)}>
+            <Text style={styles.searchExportBtnText}>텍스트</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsPdf(filteredRecords)}>
+            <Text style={styles.searchExportBtnText}>PDF</Text>
+          </TouchableOpacity>
         </View>
       )}
+
+      <Sheet visible={filterSheetOpen} onClose={() => setFilterSheetOpen(false)}>
+        <Text style={styles.filterSheetTitle}>기간 지정 조회</Text>
+        <View style={styles.searchRow}>
+          <View style={styles.searchField}>
+            <Text style={styles.searchFieldLabel}>년</Text>
+            <TextInput
+              style={styles.searchInput}
+              value={yearStr}
+              onChangeText={(v) => setYearStr(v.replace(/[^0-9]/g, ''))}
+              placeholder="26"
+              placeholderTextColor={t.c.textDim}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+          </View>
+          <View style={styles.searchField}>
+            <Text style={styles.searchFieldLabel}>월</Text>
+            <TextInput
+              style={styles.searchInput}
+              value={monthStr}
+              onChangeText={(v) => setMonthStr(v.replace(/[^0-9]/g, ''))}
+              placeholder="7"
+              placeholderTextColor={t.c.textDim}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+          </View>
+          <View style={styles.searchField}>
+            <Text style={styles.searchFieldLabel}>일</Text>
+            <TextInput
+              style={styles.searchInput}
+              value={dayStr}
+              onChangeText={(v) => setDayStr(v.replace(/[^0-9]/g, ''))}
+              placeholder="15"
+              placeholderTextColor={t.c.textDim}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+          </View>
+        </View>
+        <View style={styles.searchBottomRow}>
+          <View style={styles.combineToggle}>
+            <TouchableOpacity
+              style={[styles.combineBtn, combine === 'AND' && styles.combineBtnOn]}
+              onPress={() => setCombine('AND')}
+            >
+              <Text style={[styles.combineBtnText, combine === 'AND' && styles.combineBtnTextOn]}>모두 만족</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.combineBtn, combine === 'OR' && styles.combineBtnOn]}
+              onPress={() => setCombine('OR')}
+            >
+              <Text style={[styles.combineBtnText, combine === 'OR' && styles.combineBtnTextOn]}>하나라도</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={() => { setYearStr(''); setMonthStr(''); setDayStr(''); setCustomApplied(null); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.searchResetText}>초기화</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.searchRunBtn} onPress={runCustomSearch} activeOpacity={0.85}>
+          <Text style={styles.searchRunBtnText}>조회하기</Text>
+        </TouchableOpacity>
+      </Sheet>
     </View>
   );
 
@@ -459,7 +529,7 @@ function AllSchedulesList({
       sections={sections}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.allListContent}
-      stickySectionHeadersEnabled={false}
+      stickySectionHeadersEnabled={true}
       renderSectionHeader={({ section }) => {
         const isToday = isSameDay(section.date, today);
         const isPast = section.date.getTime() < todayMidnight;
@@ -958,10 +1028,16 @@ function AppInner() {
         <View style={styles.overlay}>
           <View style={[styles.sheet, { paddingBottom: 44 + insets.bottom }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>듣고 있어요</Text>
+            <Text style={styles.sheetTitle}>
+              {voice.sttReady ? '듣고 있어요' : '준비 중…'}
+            </Text>
             <Waveform metering={voice.recorderState.metering} isRecording={voice.recorderState.isRecording} />
             <View style={styles.transcriptBox}>
-              {voice.liveText ? (
+              {!voice.sttReady ? (
+                <Text style={styles.transcriptPlaceholder}>
+                  잠시만요, 인식 준비 중이에요…
+                </Text>
+              ) : voice.liveText ? (
                 <Text style={styles.transcriptText} numberOfLines={4}>{voice.liveText}</Text>
               ) : (
                 <Text style={styles.transcriptPlaceholder}>
@@ -1039,6 +1115,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingTop: 20, paddingBottom: 8,
+    backgroundColor: t.c.bg,
   },
   sectionHeaderText: { color: t.c.textSub, fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
   sectionHeaderToday: { color: t.c.text, fontSize: 14 },
@@ -1053,19 +1130,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyAllSub: { color: t.c.textDim, fontSize: 14, textAlign: 'center' },
 
   // 조회 패널
-  searchWrap: { marginBottom: 4, paddingHorizontal: 16, paddingTop: 4 },
-  searchToggle: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: t.c.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, borderColor: t.c.border,
+  searchWrap: { marginBottom: 4, paddingHorizontal: 16, paddingTop: 4, gap: 8 },
+  searchBarRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: t.c.surface, borderRadius: 12, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: t.c.border, gap: 8,
   },
-  searchToggleText: { color: t.c.text, fontSize: 14, fontWeight: '600' },
-  searchToggleChevron: { color: t.c.textSub, fontSize: 11 },
-  searchPanel: {
-    backgroundColor: t.c.surface, borderRadius: 12, padding: 14, marginTop: 6,
-    borderWidth: 1, borderColor: t.c.border, gap: 10,
-  },
-  searchRow: { flexDirection: 'row', gap: 8 },
+  searchBarIcon: { fontSize: 14 },
+  searchBarInput: { flex: 1, paddingVertical: 12, color: t.c.text, fontSize: 15 },
+  searchBarClear: { color: t.c.textDim, fontSize: 14, fontWeight: '700', paddingHorizontal: 2 },
+  quickChipRow: { flexDirection: 'row', gap: 8, paddingRight: 4 },
+  filterSheetTitle: { color: t.c.text, fontSize: 17, fontWeight: '700', marginBottom: 14 },
+  searchRow: { flexDirection: 'row', gap: 8, width: '100%' },
   searchField: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     backgroundColor: t.c.surfaceAlt, borderRadius: 10, paddingHorizontal: 10,
@@ -1074,11 +1150,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   searchInput: {
     flex: 1, paddingVertical: 12, color: t.c.text, fontSize: 17, fontWeight: '600', textAlign: 'center',
   },
-  searchInputKeyword: {
-    backgroundColor: t.c.surfaceAlt, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 12, color: t.c.text, fontSize: 16,
+  searchBottomRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', marginTop: 10,
   },
-  searchBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   combineToggle: { flexDirection: 'row', backgroundColor: t.c.surfaceAlt, borderRadius: 8, padding: 3 },
   combineBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
   combineBtnOn: { backgroundColor: t.c.accent },
@@ -1086,8 +1161,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   combineBtnTextOn: { color: t.c.onAccent },
   searchResetText: { color: t.c.textSub, fontSize: 14, fontWeight: '600' },
   searchRunBtn: {
-    backgroundColor: t.c.accent, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginTop: 2,
+    backgroundColor: t.c.accent, borderRadius: 12, width: '100%',
+    paddingVertical: 14, alignItems: 'center', marginTop: 16,
   },
   searchRunBtnText: { color: t.c.onAccent, fontSize: 16, fontWeight: '700' },
   searchExportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },

@@ -25,6 +25,7 @@ export function useVoiceRecorder() {
   const recorderState = useAudioRecorderState(recorder, 50);
 
   const [liveText, setLiveText] = useState('');
+  const [sttReady, setSttReady] = useState(false);
   const liveTextRef = useRef('');
   const liveSegmentsRef = useRef<TranscriptSegment[]>([]);
   // iOS STT는 중간에 세션이 끊겨 재시작됨 → 이전 세션 결과를 베이스로 누적
@@ -53,6 +54,12 @@ export function useVoiceRecorder() {
     }
   });
 
+  // 오디오 캡처가 실제로 시작된 시점 — 이 이벤트 전에는 말해도 인식되지 않는다.
+  useSpeechRecognitionEvent('audiostart', () => {
+    if (!sttActiveRef.current) return;
+    setSttReady(true);
+  });
+
   useSpeechRecognitionEvent('error', (e) => {
     const ignored = ['aborted', 'no-speech', 'audio-capture', 'network'];
     if (ignored.includes(e.error)) return;
@@ -74,16 +81,18 @@ export function useVoiceRecorder() {
 
   const startSTT = () => {
     sttActiveRef.current = true;
+    // 초반 고정 지연을 없애고 즉시 시도 — 앞부분 발화 유실의 주 원인이었음.
+    // 실패할 때만(엔진이 아직 준비 안 된 경우) 짧은 백오프로 재시도.
     const attempt = (n: number) => {
       if (!sttActiveRef.current) return;
       try {
         ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
       } catch {
-        if (n < 3) setTimeout(() => attempt(n + 1), 400);
+        if (n < 4) setTimeout(() => attempt(n + 1), 120);
       }
     };
-    setTimeout(() => attempt(0), 300);
+    attempt(0);
   };
 
   const start = async () => {
@@ -93,11 +102,13 @@ export function useVoiceRecorder() {
     sttBaseTextRef.current = '';
     sttBaseSegsRef.current = [];
     sttOffsetMsRef.current = 0;
+    setSttReady(false);
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
     await recorder.prepareToRecordAsync();
-    recorder.record();
     recordStartAtRef.current = Date.now();
+    // STT를 오디오 레코더보다 먼저 요청해 "듣기 시작" 지연을 최소화한다.
     startSTT();
+    recorder.record();
   };
 
   const cancel = async () => {
@@ -107,6 +118,7 @@ export function useVoiceRecorder() {
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
     setLiveText('');
     liveTextRef.current = '';
+    setSttReady(false);
   };
 
   const stop = async (): Promise<VoiceCaptureResult> => {
@@ -120,8 +132,9 @@ export function useVoiceRecorder() {
     const segments = [...liveSegmentsRef.current];
     setLiveText('');
     liveTextRef.current = '';
+    setSttReady(false);
     return { uri: uri ?? null, transcript, durationSec, segments };
   };
 
-  return { recorderState, liveText, start, stop, cancel };
+  return { recorderState, liveText, sttReady, start, stop, cancel };
 }
