@@ -106,10 +106,18 @@ export function CollapsibleCalendar({
     setWeekAnchor(wa);
     const label = addDays(wa, 4);
     setMonthView({ year: label.getFullYear(), month: label.getMonth() });
+    // 선택 요일(0~6)을 유지한 채 새 주로 이동 — 아래 목록도 그 요일 기준으로 갱신
+    const rawOffset = Math.round((selectedDate.getTime() - weekAnchor.getTime()) / 86400000);
+    const offset = Math.max(0, Math.min(6, rawOffset));
+    onSelectDate(addDays(wa, offset));
   };
   const shiftMonth = (delta: number) => {
     const next = addMonths(new Date(monthView.year, monthView.month, 1), delta);
     setMonthView({ year: next.getFullYear(), month: next.getMonth() });
+    // 선택된 날짜(일)를 유지한 채 새 달로 이동 — 달 길이가 짧으면 말일로 clamp
+    const daysInNext = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    const day = Math.min(selectedDate.getDate(), daysInNext);
+    onSelectDate(new Date(next.getFullYear(), next.getMonth(), day));
   };
 
   const goPrev = () => (expanded ? shiftMonth(-1) : shiftWeek(-1));
