@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  findNodeHandle,
   Image,
   Modal,
   Platform,
@@ -43,6 +44,11 @@ async function resetAudioIdle() {
 
 /** 상세 화면 안의 여러 EntryBlock(메인/추가) 중 하나만 동시에 재생되도록 하는 공유 스토퍼 */
 type PlaybackClaimRef = { current: (() => void) | null };
+/** 재생 중인 단어를 화면에 계속 보이게 스크롤하기 위해 상위 ScrollView와 공유하는 상태 */
+type ScrollFollowRef = {
+  scrollRef: { current: ScrollView | null };
+  layoutRef: { current: { y: number; height: number } };
+};
 
 /** 엔트리(메인 또는 추가) 하나의 재생/단어칩 구간재생 블록 — 각자 자기 오디오를 가진다 */
 function EntryBlock({
@@ -54,6 +60,7 @@ function EntryBlock({
   route,
   onRouteChange,
   activeStopperRef,
+  scrollFollow,
 }: {
   label: string;
   uri: string;
@@ -63,6 +70,7 @@ function EntryBlock({
   route: AudioRoute;
   onRouteChange: (r: AudioRoute) => void;
   activeStopperRef: PlaybackClaimRef;
+  scrollFollow: ScrollFollowRef;
 }) {
   const s = useStyles(makeStyles);
   const player = useAudioPlayer(resolveAudioUri(uri) || undefined, { updateInterval: 100 });
@@ -211,6 +219,32 @@ function EntryBlock({
     }
   }
 
+  const wordRefs = useRef<(View | null)[]>([]);
+  useEffect(() => {
+    if (activeIdx < 0) return;
+    const node = wordRefs.current[activeIdx];
+    const scroller = scrollFollow.scrollRef.current;
+    if (!node || !scroller) return;
+    const handle = findNodeHandle(scroller);
+    if (!handle) return;
+    node.measureLayout(
+      handle,
+      (_x, y, _w, h) => {
+        // 현재 화면에 이미 보이는 범위면 그대로 두고, 위/아래로 벗어날 때만 스크롤한다
+        // (매 단어마다 스크롤하면 계속 흔들려서 오히려 읽기 어려워진다).
+        const { y: scrollY, height: viewportH } = scrollFollow.layoutRef.current;
+        const margin = 100;
+        if (viewportH <= 0) return;
+        if (y < scrollY + margin) {
+          scroller.scrollTo({ y: Math.max(0, y - margin), animated: true });
+        } else if (y + h > scrollY + viewportH - margin) {
+          scroller.scrollTo({ y: y + h - viewportH + margin, animated: true });
+        }
+      },
+      () => {}
+    );
+  }, [activeIdx]);
+
   return (
     <View style={s.entryBlock}>
       <Text style={s.entryLabel}>{label}</Text>
@@ -221,6 +255,7 @@ function EntryBlock({
             {segments.map((seg, idx) => (
               <TouchableOpacity
                 key={idx}
+                ref={(el) => { wordRefs.current[idx] = el as unknown as View | null; }}
                 style={[
                   s.word,
                   rangeMode && rangeAnchor === idx && s.wordAnchor,
@@ -313,6 +348,10 @@ export function ScheduleDetail({
   const [route, setRoute] = useState<AudioRoute>('speaker');
   // 메인/추가 엔트리 중 하나만 동시에 재생되도록 하는 공유 스토퍼
   const activeStopperRef = useRef<(() => void) | null>(null);
+  // 재생 중인 단어가 화면 밖으로 나가면 자동으로 따라 스크롤하기 위한 공유 상태
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollLayoutRef = useRef({ y: 0, height: 0 });
+  const scrollFollow = useMemo(() => ({ scrollRef, layoutRef: scrollLayoutRef }), []);
 
   const content = record?.content || record?.transcript || '(내용 없음)';
   // 구버전 데이터 호환: 과거엔 추가 내용이 content 문자열에 '\n• '로 이어붙여 저장됨
@@ -359,7 +398,14 @@ export function ScheduleDetail({
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={s.body}
+          showsVerticalScrollIndicator={false}
+          onScroll={(e) => { scrollLayoutRef.current.y = e.nativeEvent.contentOffset.y; }}
+          onLayout={(e) => { scrollLayoutRef.current.height = e.nativeEvent.layout.height; }}
+          scrollEventThrottle={100}
+        >
           {/* 일시 */}
           <Text style={s.when}>{when}</Text>
           {mode ? (
@@ -385,6 +431,7 @@ export function ScheduleDetail({
             route={route}
             onRouteChange={switchRoute}
             activeStopperRef={activeStopperRef}
+            scrollFollow={scrollFollow}
           />
           {(record.appends ?? []).map((a, i) => (
             <EntryBlock
@@ -394,6 +441,7 @@ export function ScheduleDetail({
               content={a.content}
               transcript={a.transcript}
               activeStopperRef={activeStopperRef}
+              scrollFollow={scrollFollow}
               segments={a.segments ?? []}
               route={route}
               onRouteChange={switchRoute}
