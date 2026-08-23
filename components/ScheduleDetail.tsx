@@ -188,18 +188,28 @@ function EntryBlock({
 
   const currentMs = player.currentTime * 1000;
   // 이 녹음의 세그먼트에 실제 타임스탬프가 없는 경우(전부 0/0 — STT 중간 결과만 잡혔던
-  // 예전 녹음 등)가 있다. 그럴 때는 전체 재생 길이를 단어 수로 균등 분배해 "대략 지금
-  // 읽는 위치"를 보여준다 — 정확한 단어 경계는 아니지만 아예 안 뜨는 것보단 낫다.
+  // 예전 녹음 등)가 있다. 그럴 때는 단어를 균등한 시간으로 나누는 대신 글자수 비례로
+  // 나눠서 대략 지금 읽는 위치를 추정한다 — 짧은 단어는 빨리, 긴 단어는 느리게 지나가게
+  // 해서 순수 균등분배보다 실제 발화 속도에 더 가깝게 맞춘다(그래도 정확한 경계는 아님).
   const hasRealTimestamps = segments.some((seg) => seg.endTimeMillis > 0);
-  const activeIdx =
-    !hasSegments || !playing
-      ? -1
-      : hasRealTimestamps
-        ? segments.findIndex((seg) => currentMs >= seg.startTimeMillis && currentMs < seg.endTimeMillis)
-        : Math.min(
-            segments.length - 1,
-            Math.floor((player.currentTime / Math.max(player.duration, 0.01)) * segments.length)
-          );
+  let activeIdx = -1;
+  if (hasSegments && playing) {
+    if (hasRealTimestamps) {
+      activeIdx = segments.findIndex((seg) => currentMs >= seg.startTimeMillis && currentMs < seg.endTimeMillis);
+    } else {
+      const totalChars = segments.reduce((sum, seg) => sum + Math.max(seg.segment.length, 1), 0);
+      const progress = player.currentTime / Math.max(player.duration, 0.01);
+      let cumChars = 0;
+      for (let i = 0; i < segments.length; i++) {
+        cumChars += Math.max(segments[i].segment.length, 1);
+        if (progress <= cumChars / totalChars) {
+          activeIdx = i;
+          break;
+        }
+      }
+      if (activeIdx === -1) activeIdx = segments.length - 1;
+    }
+  }
 
   return (
     <View style={s.entryBlock}>
