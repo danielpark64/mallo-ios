@@ -34,6 +34,11 @@ export function useVoiceRecorder() {
   const recordStartAtRef = useRef(0);
   const sttOffsetMsRef = useRef(0);
   const sttActiveRef = useRef(false);
+  // stop()이 마지막(isFinal) 결과를 기다리는 동안 쓰는 대기 해제 콜백 — 대기 중이 아니면 null.
+  const sttStopWaiterRef = useRef<(() => void) | null>(null);
+  // stop()이 그 대기창(최대 800ms) 동안에는 sttActiveRef가 여전히 true라, 그 사이 'end'가
+  // 오면 기존 로직대로 STT를 재시작해버릴 수 있다 — stop() 중임을 별도로 표시해서 막는다.
+  const sttStoppingRef = useRef(false);
 
   useSpeechRecognitionEvent('result', (e) => {
     if (!sttActiveRef.current) return;
@@ -41,8 +46,12 @@ export function useVoiceRecorder() {
     const combined = sttBaseTextRef.current ? sttBaseTextRef.current.trimEnd() + ' ' + text : text;
     setLiveText(combined);
     liveTextRef.current = combined;
+    // 세그먼트(단어별) 타임스탬프는 isFinal 결과에만 제대로 채워져 있다 — 중간(interim)
+    // 결과는 세그먼트 자체는 와도 startTimeMillis/endTimeMillis가 전부 0으로 오는 경우가
+    // 많아, 이걸 그대로 쓰면 단어별 재생·재생중 하이라이트가 전부 조용히 깨진다(실측 확인:
+    // 저장된 세그먼트 19개 전부 0/0). 최종 결과가 올 때까지는 기존 세그먼트를 덮어쓰지 않는다.
     const segs = e.results[0]?.segments;
-    if (segs && segs.length) {
+    if (e.isFinal && segs && segs.length) {
       liveSegmentsRef.current = [
         ...sttBaseSegsRef.current,
         ...segs.map((seg) => ({
@@ -52,6 +61,7 @@ export function useVoiceRecorder() {
         })),
       ];
     }
+    if (e.isFinal) sttStopWaiterRef.current?.();
   });
 
   // 오디오 캡처가 실제로 시작된 시점 — 이 이벤트 전에는 말해도 인식되지 않는다.
@@ -70,8 +80,9 @@ export function useVoiceRecorder() {
     if (!sttActiveRef.current) return;
     sttBaseTextRef.current = liveTextRef.current;
     sttBaseSegsRef.current = liveSegmentsRef.current;
+    if (sttStoppingRef.current) return; // stop() 진행 중 — 재시작하지 않는다
     setTimeout(() => {
-      if (!sttActiveRef.current) return;
+      if (!sttActiveRef.current || sttStoppingRef.current) return;
       try {
         ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
@@ -102,6 +113,8 @@ export function useVoiceRecorder() {
     sttBaseTextRef.current = '';
     sttBaseSegsRef.current = [];
     sttOffsetMsRef.current = 0;
+    sttStopWaiterRef.current = null;
+    sttStoppingRef.current = false;
     setSttReady(false);
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
     await recorder.prepareToRecordAsync();
@@ -112,6 +125,7 @@ export function useVoiceRecorder() {
   };
 
   const cancel = async () => {
+    sttStoppingRef.current = true;
     sttActiveRef.current = false;
     try { ExpoSpeechRecognitionModule.abort(); } catch {}
     try { await recorder.stop(); } catch {}
@@ -122,9 +136,23 @@ export function useVoiceRecorder() {
   };
 
   const stop = async (): Promise<VoiceCaptureResult> => {
-    sttActiveRef.current = false;
+    sttStoppingRef.current = true;
     try { ExpoSpeechRecognitionModule.stop(); } catch {}
     await recorder.stop();
+
+    // stop()을 불러도 STT 엔진이 정확한 세그먼트 타임스탬프가 담긴 마지막(isFinal)
+    // 결과를 비동기로 조금 늦게 보내준다. sttActiveRef를 여기서 바로 끄면 위 result
+    // 핸들러가 그 결과를 무시해버리므로, 최대 800ms만 기다렸다가(isFinal이 오면 즉시,
+    // 안 오면 타임아웃으로) 그 다음에 끈다.
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 800);
+      sttStopWaiterRef.current = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+    sttStopWaiterRef.current = null;
+    sttActiveRef.current = false;
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
     const uri = recorder.uri;
     const transcript = liveTextRef.current.trim();

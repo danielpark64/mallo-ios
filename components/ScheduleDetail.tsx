@@ -187,10 +187,19 @@ function EntryBlock({
   };
 
   const currentMs = player.currentTime * 1000;
+  // 이 녹음의 세그먼트에 실제 타임스탬프가 없는 경우(전부 0/0 — STT 중간 결과만 잡혔던
+  // 예전 녹음 등)가 있다. 그럴 때는 전체 재생 길이를 단어 수로 균등 분배해 "대략 지금
+  // 읽는 위치"를 보여준다 — 정확한 단어 경계는 아니지만 아예 안 뜨는 것보단 낫다.
+  const hasRealTimestamps = segments.some((seg) => seg.endTimeMillis > 0);
   const activeIdx =
-    hasSegments && playing
-      ? segments.findIndex((seg) => currentMs >= seg.startTimeMillis && currentMs < seg.endTimeMillis)
-      : -1;
+    !hasSegments || !playing
+      ? -1
+      : hasRealTimestamps
+        ? segments.findIndex((seg) => currentMs >= seg.startTimeMillis && currentMs < seg.endTimeMillis)
+        : Math.min(
+            segments.length - 1,
+            Math.floor((player.currentTime / Math.max(player.duration, 0.01)) * segments.length)
+          );
 
   return (
     <View style={s.entryBlock}>
