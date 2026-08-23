@@ -108,8 +108,8 @@ export function CollapsibleCalendar({
   const haptic = () => Haptics.selectionAsync();
 
   const pan = Gesture.Pan()
-    .activeOffsetY([-8, 8])
-    .failOffsetX([-16, 16])
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-12, 12])
     .onBegin(() => {
       startProgress.value = progress.value;
     })
@@ -139,32 +139,57 @@ export function CollapsibleCalendar({
     // 선택된 날짜(일)를 유지한 채 새 달로 이동 — 달 길이가 짧으면 말일로 clamp
     const daysInNext = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
     const day = Math.min(selectedDate.getDate(), daysInNext);
-    onSelectDate(new Date(next.getFullYear(), next.getMonth(), day));
+    const newSelected = new Date(next.getFullYear(), next.getMonth(), day);
+    // weekAnchor를 먼저 맞춰둬야 아래 "바깥에서 selectedDate 바뀜" 동기화 effect가
+    // 목요일 기준으로 소속 달을 다시 계산해 방금 바꾼 monthView를 되돌리지 않는다.
+    // (월말/월초 근처 날짜에서 그 주의 목요일이 다른 달에 속해 되돌아가던 버그)
+    setWeekAnchor(startOfWeek(newSelected));
+    onSelectDate(newSelected);
   };
 
   const goPrev = () => (expanded ? shiftMonth(-1) : shiftWeek(-1));
   const goNext = () => (expanded ? shiftMonth(1) : shiftWeek(1));
 
   const CARD_W = 350; // 슬라이드 아웃/인 거리 계산용 대략치 — 정확한 폭 불필요, 화면 밖으로만 나가면 됨
+  const navLock = useSharedValue(false); // 애니메이션 도중 다음 스와이프가 겹쳐 인식돼 두 페이지씩 넘어가는 것 방지
+  // 워클릿 콜백을 2단 이상 중첩하면(worklet 안에서 또 worklet 콜백) 일부 기기에서 콜백이
+  // 아예 안 불려 navLock이 영영 안 풀리는 문제가 있었음(플립에서 재현) — 데이터 교체·정착
+  // 애니메이션은 JS 스레드 함수로 빼서 중첩을 1단으로 줄임.
+  const doNavSwap = (dir: 1 | -1) => {
+    if (dir === 1) goNext(); else goPrev();
+    swipeX.value = dir === 1 ? CARD_W : -CARD_W;
+    swipeX.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) }, (finished) => {
+      'worklet';
+      if (finished) navLock.value = false;
+    });
+    // 콜백이 어떤 이유로든 안 불려도 잠금이 영영 안 풀리는 일은 없게 하는 안전장치
+    setTimeout(() => { navLock.value = false; }, 400);
+  };
+  // onEnd 첫 콜백조차 안 불리는 최악의 경우까지 대비한 이중 안전장치
+  const scheduleUnlockSafety = () => {
+    setTimeout(() => { navLock.value = false; }, 700);
+  };
   const swipe = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-16, 16])
+    .failOffsetY([-14, 14])
     .onUpdate((e) => {
+      if (navLock.value) return;
       // 손가락을 따라 살짝 저항감 있게 움직여서 "밀고 있다"는 게 실제로 보이게 한다
       swipeX.value = e.translationX * 0.6;
     })
     .onEnd((e) => {
+      if (navLock.value) return;
       const goingNext = e.translationX < -40;
       const goingPrev = e.translationX > 40;
       if (goingNext || goingPrev) {
+        navLock.value = true;
         runOnJS(haptic)();
+        runOnJS(scheduleUnlockSafety)();
         const exitTo = goingNext ? -CARD_W : CARD_W;
         swipeX.value = withTiming(exitTo, { duration: 140 }, (finished) => {
           'worklet';
-          if (!finished) return;
-          runOnJS(goingNext ? goNext : goPrev)();
-          swipeX.value = goingNext ? CARD_W : -CARD_W;
-          swipeX.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
+          if (finished) runOnJS(doNavSwap)(goingNext ? 1 : -1);
+          else navLock.value = false;
         });
       } else {
         swipeX.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
