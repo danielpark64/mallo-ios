@@ -163,10 +163,10 @@ export function CollapsibleCalendar({
           if (!finished) return;
           runOnJS(goingNext ? goNext : goPrev)();
           swipeX.value = goingNext ? CARD_W : -CARD_W;
-          swipeX.value = withSpring(0, { damping: 22, stiffness: 260 });
+          swipeX.value = withSpring(0, { damping: 25, stiffness: 260 });
         });
       } else {
-        swipeX.value = withSpring(0, { damping: 22, stiffness: 260 });
+        swipeX.value = withSpring(0, { damping: 25, stiffness: 260 });
       }
     });
   const gesture = Gesture.Race(pan, swipe);
