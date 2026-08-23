@@ -7,6 +7,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { AppText as Text } from '../ui/Text';
@@ -80,11 +81,16 @@ export function CollapsibleCalendar({
   const rows = monthMatrix(monthView.year, monthView.month);
   const selectedRow = Math.max(0, weekIndexOf(monthView.year, monthView.month, weekAnchor));
 
+  const swipeX = useSharedValue(0);
+
   const gridStyle = useAnimatedStyle(() => ({
     height: WEEK_H + (MONTH_H - WEEK_H) * progress.value,
   }));
   const rowsStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -selectedRow * CELL_H * (1 - progress.value) }],
+    transform: [
+      { translateY: -selectedRow * CELL_H * (1 - progress.value) },
+      { translateX: swipeX.value },
+    ],
   }));
 
   const snapTo = (goExpand: boolean) => {
@@ -138,16 +144,29 @@ export function CollapsibleCalendar({
   const goPrev = () => (expanded ? shiftMonth(-1) : shiftWeek(-1));
   const goNext = () => (expanded ? shiftMonth(1) : shiftWeek(1));
 
+  const CARD_W = 350; // 슬라이드 아웃/인 거리 계산용 대략치 — 정확한 폭 불필요, 화면 밖으로만 나가면 됨
   const swipe = Gesture.Pan()
     .activeOffsetX([-20, 20])
     .failOffsetY([-10, 10])
+    .onUpdate((e) => {
+      // 손가락을 따라 살짝 저항감 있게 움직여서 "밀고 있다"는 게 실제로 보이게 한다
+      swipeX.value = e.translationX * 0.6;
+    })
     .onEnd((e) => {
-      if (e.translationX < -40) {
+      const goingNext = e.translationX < -40;
+      const goingPrev = e.translationX > 40;
+      if (goingNext || goingPrev) {
         runOnJS(haptic)();
-        runOnJS(goNext)();
-      } else if (e.translationX > 40) {
-        runOnJS(haptic)();
-        runOnJS(goPrev)();
+        const exitTo = goingNext ? -CARD_W : CARD_W;
+        swipeX.value = withTiming(exitTo, { duration: 140 }, (finished) => {
+          'worklet';
+          if (!finished) return;
+          runOnJS(goingNext ? goNext : goPrev)();
+          swipeX.value = goingNext ? CARD_W : -CARD_W;
+          swipeX.value = withSpring(0, { damping: 22, stiffness: 260 });
+        });
+      } else {
+        swipeX.value = withSpring(0, { damping: 22, stiffness: 260 });
       }
     });
   const gesture = Gesture.Race(pan, swipe);
