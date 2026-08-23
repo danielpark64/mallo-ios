@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { AppText as Text } from './ui/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useStyles, type Theme } from '../lib/theme';
@@ -91,11 +91,15 @@ function EntryBlock({
   };
 
   const playFrom = async (startSec: number, endSec: number | null) => {
-    claimPlayback();
-    await applyRoute(route);
-    segEndRef.current = endSec;
-    player.seekTo(startSec);
-    player.play();
+    try {
+      claimPlayback();
+      await applyRoute(route);
+      segEndRef.current = endSec;
+      player.seekTo(startSec);
+      player.play();
+    } catch (e) {
+      console.warn('구간 재생 실패:', e);
+    }
   };
 
   const toggle = () => {
@@ -116,7 +120,17 @@ function EntryBlock({
     }
   }, [player.currentTime]);
 
+  // iOS에서는 onLongPress가 발동한 같은 터치에 대해 onPress도 한 번 더 불리는 경우가
+  // 있어(RN 크로스플랫폼 특성), 롱프레스로 범위선택을 막 시작하자마자 그 즉시 같은 칩의
+  // onPress가 겹쳐 들어와 범위가 스스로 취소되던 버그가 있었다 — 롱프레스 직후 첫 onPress
+  // 한 번은 그 "겹침 이벤트"로 간주하고 무시한다.
+  const suppressNextPressRef = useRef(false);
+
   const onChipPress = (idx: number) => {
+    if (suppressNextPressRef.current) {
+      suppressNextPressRef.current = false;
+      return;
+    }
     if (rangeMode) {
       if (rangeAnchor === null) {
         setRangeAnchor(idx);
@@ -133,6 +147,7 @@ function EntryBlock({
   };
 
   const onChipLongPress = (idx: number) => {
+    suppressNextPressRef.current = true;
     setRangeMode(true);
     setRangeAnchor(idx);
   };
@@ -239,6 +254,7 @@ export function ScheduleDetail({
   onAppend: (r: ScheduleRecord) => void;
 }) {
   const s = useStyles(makeStyles);
+  const insets = useSafeAreaInsets();
   const [route, setRoute] = useState<AudioRoute>('speaker');
   // 메인/추가 엔트리 중 하나만 동시에 재생되도록 하는 공유 스토퍼
   const activeStopperRef = useRef<(() => void) | null>(null);
@@ -274,10 +290,11 @@ export function ScheduleDetail({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={s.screen}>
+      <SafeAreaView style={s.screen} edges={['left', 'right', 'bottom']}>
         <StatusBar style="auto" />
-        {/* 상단 네비 */}
-        <View style={s.navBar}>
+        {/* 상단 네비 — Modal 안에서는 SafeAreaView의 top 자동 인셋이 가끔 안 먹어서(특히
+            중첩 Modal 상황) insets.top을 직접 적용해 확실하게 보장한다 */}
+        <View style={[s.navBar, { paddingTop: insets.top }]}>
           <TouchableOpacity style={s.navBtn} onPress={onClose}>
             <Text style={s.navCloseText}>닫기</Text>
           </TouchableOpacity>
@@ -366,7 +383,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: t.c.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, height: 52,
+    paddingHorizontal: 12, minHeight: 52,
     borderBottomWidth: 1, borderBottomColor: t.c.border,
   },
   navBtn: { paddingHorizontal: 10, paddingVertical: 8 },

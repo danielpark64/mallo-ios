@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { AppText as Text } from './ui/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import {
   ExpoSpeechRecognitionModule,
@@ -181,6 +181,7 @@ export function ScheduleEditor({
 }) {
   const styles = useStyles(makeStyles);
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const [content, setContent] = useState('');
   const [date, setDate]       = useState(new Date());
   const [hour, setHour]       = useState(9);   // 0~23
@@ -356,11 +357,12 @@ export function ScheduleEditor({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
         <StatusBar style="auto" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        {/* 상단 네비게이션 */}
-        <View style={styles.navBar}>
+        {/* 상단 네비게이션 — Modal 안에서는 SafeAreaView의 top 자동 인셋이 가끔 안 먹어서
+            insets.top을 직접 적용한다 */}
+        <View style={[styles.navBar, { paddingTop: insets.top }]}>
           <TouchableOpacity style={styles.navBtn} onPress={onClose}>
             <Text style={styles.navCancelText}>취소</Text>
           </TouchableOpacity>
@@ -504,7 +506,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, height: 52,
+    paddingHorizontal: 12, minHeight: 52,
     borderBottomWidth: 1, borderBottomColor: t.c.border,
   },
   navBtn: { paddingHorizontal: 10, paddingVertical: 8 },
