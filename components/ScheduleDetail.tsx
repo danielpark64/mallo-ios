@@ -4,7 +4,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  findNodeHandle,
   Image,
   Modal,
   Platform,
@@ -44,9 +43,14 @@ async function resetAudioIdle() {
 
 /** 상세 화면 안의 여러 EntryBlock(메인/추가) 중 하나만 동시에 재생되도록 하는 공유 스토퍼 */
 type PlaybackClaimRef = { current: (() => void) | null };
-/** 재생 중인 단어를 화면에 계속 보이게 스크롤하기 위해 상위 ScrollView와 공유하는 상태 */
+/** 재생 중인 단어를 화면에 계속 보이게 스크롤하기 위해 상위 ScrollView와 공유하는 상태.
+ * measureLayout은 ScrollView 자체를 기준으로 재면 "현재 스크롤된 뷰포트" 기준 좌표가
+ * 나와서(스크롤할 때마다 값이 달라짐) 목표 위치 계산이 어긋난다 — ScrollView 안의
+ * 고정된 콘텐츠 래퍼 View(contentRef, 스크롤과 무관하게 항상 같은 좌표계)를 기준으로
+ * 재야 절대 위치가 나온다. */
 type ScrollFollowRef = {
   scrollRef: { current: ScrollView | null };
+  contentRef: { current: View | null };
   layoutRef: { current: { y: number; height: number } };
 };
 
@@ -203,7 +207,17 @@ function EntryBlock({
   let activeIdx = -1;
   if (hasSegments && playing) {
     if (hasRealTimestamps) {
-      activeIdx = segments.findIndex((seg) => currentMs >= seg.startTimeMillis && currentMs < seg.endTimeMillis);
+      // 실제 타임스탬프는 발음 경계 때문에 단어와 단어 사이에 미세한 공백이 있다 —
+      // currentMs가 [start,end) 범위에 딱 안 걸리는 그 공백 순간에는 findIndex가
+      // 계속 -1을 반환해 재생 내내 하이라이트가 거의 안 뜨는 문제가 있었다(84초·141
+      // 단어 실제 녹음으로 직접 확인). "지금까지 시작된 마지막 단어"를 찾는 방식으로
+      // 바꿔 공백 구간에도 방금 말한 단어가 계속 하이라이트되게 한다.
+      for (let i = segments.length - 1; i >= 0; i--) {
+        if (currentMs >= segments[i].startTimeMillis) {
+          activeIdx = i;
+          break;
+        }
+      }
     } else {
       const totalChars = segments.reduce((sum, seg) => sum + Math.max(seg.segment.length, 1), 0);
       const progress = player.currentTime / Math.max(player.duration, 0.01);
@@ -219,30 +233,38 @@ function EntryBlock({
     }
   }
 
+  // 단어칩 하나하나를 measureLayout으로 재는 대신(TouchableOpacity가 내부적으로
+  // Animated 래퍼라 measureLayout이 조용히 안 먹는 RN 버전이 있다), wordFlow
+  // 컨테이너 하나만 콘텐츠 기준으로 재고, 각 단어의 컨테이너 내부 상대위치는
+  // onLayout(항상 확실히 발생)으로 따로 기록해 더한다.
+  // measureLayout(구식 브릿지 콜백 API)이 이 프로젝트의 New Architecture(Fabric)
+  // 설정에서는 콜백 자체가 아예 안 불려서(실측: activeIdx는 정상 갱신되는데 콜백은
+  // 영원히 무응답) 스크롤이 전혀 안 걸렸다. 화면 절대좌표를 주는 measure()로 바꿔서
+  // 우회한다 — 단어칩과 ScrollView 각각의 화면상 pageY를 재서 차이를 구하면 measureLayout
+  // 없이도 같은 값(콘텐츠 기준 절대 y)을 얻을 수 있다.
   const wordRefs = useRef<(View | null)[]>([]);
   useEffect(() => {
     if (activeIdx < 0) return;
-    const node = wordRefs.current[activeIdx];
+    const wordNode = wordRefs.current[activeIdx];
     const scroller = scrollFollow.scrollRef.current;
-    if (!node || !scroller) return;
-    const handle = findNodeHandle(scroller);
-    if (!handle) return;
-    node.measureLayout(
-      handle,
-      (_x, y, _w, h) => {
-        // 현재 화면에 이미 보이는 범위면 그대로 두고, 위/아래로 벗어날 때만 스크롤한다
-        // (매 단어마다 스크롤하면 계속 흔들려서 오히려 읽기 어려워진다).
+    if (!wordNode || !scroller) return;
+    wordNode.measure((_x, _y, _w, h, _pageX, pageY) => {
+      const scrollerAny = scroller as unknown as { measure: (cb: (x: number, y: number, w: number, h: number, pageX: number, pageY: number) => void) => void };
+      if (typeof scrollerAny.measure !== 'function') return;
+      scrollerAny.measure((_x2, _y2, _w2, _h2, _spX, scrollPageY) => {
         const { y: scrollY, height: viewportH } = scrollFollow.layoutRef.current;
+        const contentY = scrollY + (pageY - scrollPageY);
         const margin = 100;
         if (viewportH <= 0) return;
-        if (y < scrollY + margin) {
-          scroller.scrollTo({ y: Math.max(0, y - margin), animated: true });
-        } else if (y + h > scrollY + viewportH - margin) {
-          scroller.scrollTo({ y: y + h - viewportH + margin, animated: true });
+        // 현재 화면에 이미 보이는 범위면 그대로 두고, 위/아래로 벗어날 때만 스크롤한다
+        // (매 단어마다 스크롤하면 계속 흔들려서 오히려 읽기 어려워진다).
+        if (contentY < scrollY + margin) {
+          scroller.scrollTo({ y: Math.max(0, contentY - margin), animated: true });
+        } else if (contentY + h > scrollY + viewportH - margin) {
+          scroller.scrollTo({ y: contentY + h - viewportH + margin, animated: true });
         }
-      },
-      () => {}
-    );
+      });
+    });
   }, [activeIdx]);
 
   return (
@@ -348,10 +370,14 @@ export function ScheduleDetail({
   const [route, setRoute] = useState<AudioRoute>('speaker');
   // 메인/추가 엔트리 중 하나만 동시에 재생되도록 하는 공유 스토퍼
   const activeStopperRef = useRef<(() => void) | null>(null);
-  // 재생 중인 단어가 화면 밖으로 나가면 자동으로 따라 스크롤하기 위한 공유 상태
+  // 재생 중인 단어가 화면 밖으로 나가면 자동으로 따라 스크롤하기 위한 공유 상태.
+  // contentRef는 ScrollView 안의 콘텐츠 래퍼(스크롤과 무관하게 항상 같은 좌표계) —
+  // measureLayout을 ScrollView 자체 기준으로 재면 "현재 보이는 뷰포트" 기준이 되어
+  // 스크롤할 때마다 값이 바뀌므로 반드시 이 안쪽 래퍼를 기준으로 재야 한다.
   const scrollRef = useRef<ScrollView>(null);
+  const contentRef = useRef<View>(null);
   const scrollLayoutRef = useRef({ y: 0, height: 0 });
-  const scrollFollow = useMemo(() => ({ scrollRef, layoutRef: scrollLayoutRef }), []);
+  const scrollFollow = useMemo(() => ({ scrollRef, contentRef, layoutRef: scrollLayoutRef }), []);
 
   const content = record?.content || record?.transcript || '(내용 없음)';
   // 구버전 데이터 호환: 과거엔 추가 내용이 content 문자열에 '\n• '로 이어붙여 저장됨
@@ -400,12 +426,12 @@ export function ScheduleDetail({
 
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={s.body}
           showsVerticalScrollIndicator={false}
           onScroll={(e) => { scrollLayoutRef.current.y = e.nativeEvent.contentOffset.y; }}
           onLayout={(e) => { scrollLayoutRef.current.height = e.nativeEvent.layout.height; }}
           scrollEventThrottle={100}
         >
+        <View ref={contentRef} style={s.body}>
           {/* 일시 */}
           <Text style={s.when}>{when}</Text>
           {mode ? (
@@ -476,6 +502,7 @@ export function ScheduleDetail({
           <TouchableOpacity style={s.appendBtn} onPress={() => onAppend(record)} activeOpacity={0.85}>
             <Text style={s.appendBtnText}>＋ 내용 추가</Text>
           </TouchableOpacity>
+        </View>
         </ScrollView>
       </SafeAreaView>
     </Modal>
