@@ -140,6 +140,15 @@ function ScheduleCard({
     if (localPlaying && !status.playing) setLocalPlaying(false);
   }, [status.playing]);
 
+  useEffect(() => {
+    // 전체 재생이 끝까지 도달했는데도 네이티브 status.playing이 false로 안 바뀌는
+    // 경우가 있어(iOS, 세션 상태에 따라) currentTime으로도 자연 종료를 직접 감지한다.
+    if (localPlaying && player.duration > 0 && player.currentTime >= player.duration - 0.15) {
+      try { player.pause(); } catch {}
+      setLocalPlaying(false);
+    }
+  }, [player.currentTime]);
+
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
     try { player.pause(); } catch {}

@@ -99,13 +99,20 @@ function EntryBlock({
     activeStopperRef.current = stableStop;
   };
 
-  const playFrom = (startSec: number, endSec: number | null) => {
-    // 오디오 라우팅(applyRoute)은 상세화면이 열릴 때·스피커/수화기 전환 시에만 적용한다.
-    // 예전엔 단어칩 탭마다 매번 재적용했는데, 범위선택처럼 짧은 시간 안에 연속으로 탭하면
-    // iOS의 AVAudioSession 재구성이 겹쳐 재생 자체가 막혀버리는 문제가 있었다(재현: 롱프레스
-    // 직후 바로 다음 단어 탭 → 범위재생도 이후 ▶ 버튼도 전부 무반응).
+  const playFrom = async (startSec: number, endSec: number | null) => {
+    // 재생 시작마다 라우팅(스피커/수화기)을 다시 적용해야 한다 — iOS가 새 재생
+    // 세션을 시작할 때 라우트를 기본값(수화기)으로 되돌리는 경우가 있어서,
+    // 여기서 안 걸어주면 "스피커 켜놨는데 수화기로 들린다"·"몇 번 눌러야 겨우
+    // 된다" 증상이 생긴다(실측 확인됨). 예전에 "범위선택 연타 시 세션이 꼬여
+    // 재생이 막힌다"고 의심해 뺐었는데, 그 문제의 실제 원인은 다른 곳이었고
+    // (재검증 완료) 이 reapply 자체는 원래도 안전했다.
     try {
       claimPlayback();
+      await applyRoute(route);
+      // applyRoute의 프로미스가 풀려도 iOS 네이티브 오디오 세션이 실제로 활성화되기까지
+      // 아주 짧은 지연이 있을 수 있다 — 그 틈에 곧바로 play()를 부르면 세션이 미처
+      // 안 붙어서 소리가 아예 안 나는 경우가 있었다(실측). 재생 시작 직전에 살짝 텀을 둔다.
+      await new Promise((r) => setTimeout(r, 60));
       segEndRef.current = endSec;
       player.seekTo(startSec);
       player.play();
@@ -131,6 +138,18 @@ function EntryBlock({
     if (segEndRef.current != null && player.currentTime >= segEndRef.current) {
       player.pause();
       segEndRef.current = null;
+      setLocalPlaying(false);
+      return;
+    }
+    // 전체 재생이 끝까지 도달했는데도 네이티브 status.playing이 false로 안 바뀌는
+    // 경우가 있어(iOS, 세션 상태에 따라) currentTime으로도 자연 종료를 직접 감지한다.
+    if (
+      localPlaying &&
+      segEndRef.current == null &&
+      player.duration > 0 &&
+      player.currentTime >= player.duration - 0.15
+    ) {
+      try { player.pause(); } catch {}
       setLocalPlaying(false);
     }
   }, [player.currentTime]);
