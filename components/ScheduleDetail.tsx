@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -245,7 +246,9 @@ function EntryBlock({
           </View>
           {!hasSegments && (
             <Text style={s.unsupported}>
-              이 기기는 OS 버전으로 인해 부분별 녹음 재생을 사용할 수 없습니다
+              {Platform.OS === 'android'
+                ? '이 기기는 OS 버전으로 인해 부분별 녹음 재생을 사용할 수 없습니다 (Android 14 이상 필요)'
+                : '이 녹음에는 단어별 재생 정보가 없어요 (예전 녹음이거나 인식이 불완전했을 수 있어요)'}
             </Text>
           )}
         </>
