@@ -19,7 +19,7 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { useStyles, type Theme } from '../lib/theme';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from '../lib/exportUtils';
-import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
+import { resolveAudioUri, type ScheduleRecord, type TranscriptSegment } from '../lib/storage';
 
 type AudioRoute = 'speaker' | 'earpiece';
 
@@ -30,7 +30,7 @@ async function applyRoute(route: AudioRoute) {
     allowsRecording: true,
     playsInSilentMode: true,
     shouldRouteThroughEarpiece: route === 'earpiece',
-  }).catch(() => {});
+  }).catch((e) => console.warn('오디오 라우팅 적용 실패:', route, String(e)));
 }
 
 async function resetAudioIdle() {
@@ -65,7 +65,7 @@ function EntryBlock({
   activeStopperRef: PlaybackClaimRef;
 }) {
   const s = useStyles(makeStyles);
-  const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
+  const player = useAudioPlayer(resolveAudioUri(uri) || undefined, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
   // 아이콘/하이라이트는 탭한 즉시 로컬 상태로 반응시키고(네이티브 상태 이벤트 지연·누락에
   // 안 흔들리게), 자연 종료만 네이티브 status.playing을 지켜보다가 따라간다.
@@ -118,7 +118,7 @@ function EntryBlock({
       player.play();
       setLocalPlaying(true);
     } catch (e) {
-      console.warn('구간 재생 실패:', e);
+      console.warn('구간 재생 실패:', String(e));
     }
   };
 

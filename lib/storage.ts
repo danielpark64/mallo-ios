@@ -80,10 +80,25 @@ export function persistAudio(srcUri: string, id: string): string {
   return dest.uri;
 }
 
+// iOS는 앱을 재설치할 때마다 컨테이너 경로(UUID)가 통째로 바뀐다 — records.json에
+// 절대경로(file://.../Documents/mallo/xxx.m4a)를 그대로 저장해두면 재설치 후 그 경로가
+// 통째로 사라져 파일이 멀쩡히 남아있어도 재생이 전부 조용히 실패한다(실측 확인:
+// 소리도 안 나고 재생 상태도 안 풀림). 저장된 uri의 파일명만 취해 현재 컨테이너의
+// mallo 폴더로 매번 다시 조립해서 이 문제를 피한다 — 기존 절대경로 데이터도 파일명은
+// 그대로라 별도 마이그레이션 없이 복구된다.
+export function resolveAudioUri(uri: string): string {
+  if (!uri) return '';
+  const name = uri.split('/').pop();
+  if (!name) return '';
+  return new File(DB_DIR, name).uri;
+}
+
 /** 녹음 파일 삭제 */
 export function deleteAudio(uri: string) {
   try {
-    const f = new File(uri);
+    const resolved = resolveAudioUri(uri);
+    if (!resolved) return;
+    const f = new File(resolved);
     if (f.exists) f.delete();
   } catch {}
 }
