@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -163,10 +164,10 @@ export function CollapsibleCalendar({
           if (!finished) return;
           runOnJS(goingNext ? goNext : goPrev)();
           swipeX.value = goingNext ? CARD_W : -CARD_W;
-          swipeX.value = withSpring(0, { damping: 25, stiffness: 260 });
+          swipeX.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
         });
       } else {
-        swipeX.value = withSpring(0, { damping: 25, stiffness: 260 });
+        swipeX.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
       }
     });
   const gesture = Gesture.Race(pan, swipe);
