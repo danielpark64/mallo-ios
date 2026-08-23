@@ -131,11 +131,19 @@ function ScheduleCard({
   const t = useTheme();
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
-  const playing = status.playing;
+  // 아이콘은 우리가 탭한 즉시 로컬 상태로 바로 반응시키고(네이티브 상태 이벤트 지연/누락에
+  // 안 흔들리게), 재생이 자연 종료되는 것만 네이티브 status.playing을 지켜보다가 따라간다.
+  const [localPlaying, setLocalPlaying] = useState(false);
+  const playing = localPlaying;
+
+  useEffect(() => {
+    if (localPlaying && !status.playing) setLocalPlaying(false);
+  }, [status.playing]);
 
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
     try { player.pause(); } catch {}
+    setLocalPlaying(false);
   };
   const stableStop = useRef(() => stopSelfRef.current()).current;
 
@@ -151,6 +159,7 @@ function ScheduleCard({
   const toggle = () => {
     if (playing) {
       player.pause();
+      setLocalPlaying(false);
     } else {
       claimPlayback();
       // 일시정지 중이면 이어서, 처음/끝이면 처음부터
@@ -159,6 +168,7 @@ function ScheduleCard({
         player.seekTo(0);
       }
       player.play();
+      setLocalPlaying(true);
     }
   };
 

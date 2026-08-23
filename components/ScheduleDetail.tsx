@@ -66,17 +66,25 @@ function EntryBlock({
   const s = useStyles(makeStyles);
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
-  const playing = status.playing;
+  // 아이콘/하이라이트는 탭한 즉시 로컬 상태로 반응시키고(네이티브 상태 이벤트 지연·누락에
+  // 안 흔들리게), 자연 종료만 네이티브 status.playing을 지켜보다가 따라간다.
+  const [localPlaying, setLocalPlaying] = useState(false);
+  const playing = localPlaying;
   const segEndRef = useRef<number | null>(null);
   const [rangeMode, setRangeMode] = useState(false);
   const [rangeAnchor, setRangeAnchor] = useState<number | null>(null);
   const hasSegments = segments.length > 0;
   const text = content || transcript || '(내용 없음)';
 
+  useEffect(() => {
+    if (localPlaying && !status.playing) setLocalPlaying(false);
+  }, [status.playing]);
+
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
     try { player.pause(); } catch {}
     segEndRef.current = null;
+    setLocalPlaying(false);
   };
   const stableStop = useRef(() => stopSelfRef.current()).current;
 
@@ -90,13 +98,17 @@ function EntryBlock({
     activeStopperRef.current = stableStop;
   };
 
-  const playFrom = async (startSec: number, endSec: number | null) => {
+  const playFrom = (startSec: number, endSec: number | null) => {
+    // 오디오 라우팅(applyRoute)은 상세화면이 열릴 때·스피커/수화기 전환 시에만 적용한다.
+    // 예전엔 단어칩 탭마다 매번 재적용했는데, 범위선택처럼 짧은 시간 안에 연속으로 탭하면
+    // iOS의 AVAudioSession 재구성이 겹쳐 재생 자체가 막혀버리는 문제가 있었다(재현: 롱프레스
+    // 직후 바로 다음 단어 탭 → 범위재생도 이후 ▶ 버튼도 전부 무반응).
     try {
       claimPlayback();
-      await applyRoute(route);
       segEndRef.current = endSec;
       player.seekTo(startSec);
       player.play();
+      setLocalPlaying(true);
     } catch (e) {
       console.warn('구간 재생 실패:', e);
     }
@@ -106,6 +118,7 @@ function EntryBlock({
     if (playing) {
       player.pause();
       segEndRef.current = null;
+      setLocalPlaying(false);
       return;
     }
     const atEnd = player.duration > 0 && player.currentTime >= player.duration - 0.1;
@@ -117,6 +130,7 @@ function EntryBlock({
     if (segEndRef.current != null && player.currentTime >= segEndRef.current) {
       player.pause();
       segEndRef.current = null;
+      setLocalPlaying(false);
     }
   }, [player.currentTime]);
 
