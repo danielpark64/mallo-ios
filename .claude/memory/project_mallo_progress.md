@@ -22,6 +22,7 @@
 - records.json 쓰기 중 크래시 대비 백업/복구
 - jest-expo 도입: `npm test` 59개 (파서/저장/알림/달력/카드재생/구간재생). ScheduleCard를 components/로 분리
 - 수정 내역·순서도·실기기 체크리스트: docs/REVIEW_2026-10-09.md
+- 실기기 검증(2026-10-09, Galaxy A32·Android 13 Release): 카드 재생 1-a~d·달력 4-a~c·파서 3-a~c·Android 채널 5·재시작 6·권한 7 전부 ✅. 상세 구간재생 2-a~c는 Android(API 33/31) 단어 타임스탬프 미지원이라 iOS 확인 필요. 발견: Android 정확 알람 권한 없어 알림이 ~1분45초 늦게 옴, 문장 사이 쉼 뒤 STT 두 번째 문장 누락. Xcode 27 빌드용 expo-modules-jsi 56.0.14 업데이트(package-lock).
 
 다음 후보:
 (a) 규칙 파서 → Claude API 구조화(자유 말투/의도 추출) — 4단계 마무리
