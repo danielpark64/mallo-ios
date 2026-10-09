@@ -7,7 +7,7 @@
 - [x] **1. 녹음/재생** — expo-audio로 녹음, 파일 저장, 재생. 실시간 파형. lib/useVoiceRecorder.ts로 공통화(메인 FAB + 편집기 "추가" 녹음 공유).
 - [x] **2. 저장 구조 + 일정 화면** — lib/storage.ts (expo-file-system JSON, records.json + records.bak.json 백업). 달력 탭 + 전체 일정 탭(조회/필터/내보내기). ※sqlite 대신 파일 JSON 채택.
 - [x] **3. STT 채택** — 내장 expo-speech-recognition ko-KR 실시간. iOS 세션 끊김 자동 재시작 + 단어별 타임스탬프(segments) 저장 → 상세 화면 구간재생.
-- [~] **4. 텍스트 구조화** — lib/parseSchedule.ts 규칙 파서 (lib/_test_parse.ts 회귀 테스트 `npm run test:parse`). ※LLM(Claude API) 고도화는 미착수.
+- [~] **4. 텍스트 구조화** — lib/parseSchedule.ts 규칙 파서 (lib/__tests__/parseSchedule.test.ts 회귀 테스트). ※LLM(Claude API) 고도화는 미착수.
 - [x] **5. 키 매칭 분기** — 같은 시각 ±5분에 기존 일정 있으면 "추가로 붙이기 / 새 일정" 선택. 추가는 appends[] 독립 엔트리(자기 녹음·전사·구간재생 보유).
 - [x] **6. 메모장 화면** — components/ScheduleDetail.tsx(상세·구간재생·내보내기) + ScheduleEditor.tsx(수정/삭제/추가모드, 24시간 스크롤 피커, 에디터 내 STT).
 - [x] **7. 음성 삭제 + 미리보기** — 문장 끝 "…삭제해줘/지워줘" → 해당 날짜 일정 미리보기 Alert 후 확인 삭제. ※같은 날 여러 건이면 첫 건만 대상(선택 UI 없음).
@@ -20,6 +20,8 @@
 - 달력이 바깥 selectedDate 변경(저장 후 이동)을 따라가지 않던 문제
 - Android 알림 채널 미등록(커스텀 알람음·중요도 미적용) 보완
 - records.json 쓰기 중 크래시 대비 백업/복구
+- jest-expo 도입: `npm test` 59개 (파서/저장/알림/달력/카드재생/구간재생). ScheduleCard를 components/로 분리
+- 수정 내역·순서도·실기기 체크리스트: docs/REVIEW_2026-10-09.md
 
 다음 후보:
 (a) 규칙 파서 → Claude API 구조화(자유 말투/의도 추출) — 4단계 마무리

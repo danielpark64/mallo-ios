@@ -1,0 +1,183 @@
+// ─── 일정 카드 (달력 탭 / 전체 일정 탭 공용) ──────────────────────────────────────
+import { useEffect, useRef, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { C } from '../lib/colors';
+import { formatTime } from '../lib/dateUtils';
+import type { ScheduleRecord } from '../lib/storage';
+
+// 동시 재생 방지: 새 카드가 재생을 시작하면 이전 카드를 멈춤
+let activeCardStopper: (() => void) | null = null;
+
+export function ScheduleCard({
+  item,
+  onPress,
+  onAppend,
+  showDate = false,
+}: {
+  item: ScheduleRecord;
+  onPress: (r: ScheduleRecord) => void;
+  onAppend: (r: ScheduleRecord) => void;
+  showDate?: boolean;
+}) {
+  const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
+  // useAudioPlayer()가 돌려주는 player 객체의 currentTime/playing은 리렌더를 일으키지 않는
+  // 네이티브 getter라 useEffect 의존성으로 쓸 수 없다 → 상태 구독 훅으로 반응형 값 사용
+  const status = useAudioPlayerStatus(player);
+  const [playing, setPlaying] = useState(false);
+  // 재생 시작 직후엔 status가 아직 이전 재생(끝 지점)의 값이라 "끝남"으로 오판할 수 있음 → 잠깐 무시
+  const playStartedAtRef = useRef(0);
+
+  const stopSelfRef = useRef<() => void>(() => {});
+  stopSelfRef.current = () => {
+    try { player.pause(); } catch {}
+    setPlaying(false);
+  };
+  const stableStop = useRef(() => stopSelfRef.current()).current;
+
+  const claimPlayback = () => {
+    if (activeCardStopper && activeCardStopper !== stableStop) activeCardStopper();
+    activeCardStopper = stableStop;
+  };
+
+  useEffect(() => () => {
+    if (activeCardStopper === stableStop) activeCardStopper = null;
+  }, []);
+
+  const toggle = () => {
+    if (playing) {
+      player.pause();
+      setPlaying(false);
+    } else {
+      claimPlayback();
+      // 일시정지 중이면 이어서, 처음/끝이면 처음부터
+      const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
+      if (status.currentTime <= 0 || atEnd || !(status.duration > 0)) {
+        player.seekTo(0);
+      }
+      playStartedAtRef.current = Date.now();
+      player.play();
+      setPlaying(true);
+    }
+  };
+
+  // 재생이 끝나면 ▶ 아이콘으로 복귀 (이전엔 리렌더가 없어 ⏸ 상태로 남아 있었음)
+  useEffect(() => {
+    if (!playing) return;
+    if (Date.now() - playStartedAtRef.current < 300) return;
+    const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
+    if (status.didJustFinish || atEnd) setPlaying(false);
+  }, [status.didJustFinish, status.currentTime, status.duration, playing]);
+
+  const timeLabel = item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
+  const title = item.content || item.transcript || '(내용 없음)';
+  // 메모는 아래 별도 줄로 표시하므로 제목에서는 본문만 (중복 표시 방지)
+  const mainTitle = title.split('\n• ')[0];
+  const mode = (item as any).alarmMode as 'sound' | 'vibe' | 'both' | undefined;
+  const isPast = item.scheduleAt != null && item.scheduleAt < Date.now();
+  // 구버전 데이터 호환용 — 새 데이터는 appends[]를 사용
+  const appendedNotes = (item.content || '').includes('\n• ')
+    ? (item.content || '').split('\n• ').slice(1)
+    : [];
+
+  const accentColor = mode === 'vibe' ? C.textSub : mode === 'both' ? C.accent : C.red;
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, isPast && styles.cardPast]}
+      onPress={() => onPress(item)}
+      activeOpacity={0.72}
+    >
+      <View style={styles.cardTimeCol}>
+        <Text style={[styles.cardTime, isPast ? styles.cardTimePast : { color: accentColor }]}>
+          {timeLabel}
+        </Text>
+        {showDate && item.scheduleAt ? (
+          <Text style={styles.cardDateSub}>
+            {new Date(item.scheduleAt).getMonth() + 1}월 {new Date(item.scheduleAt).getDate()}일
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={[styles.cardDivider, { backgroundColor: accentColor }]} />
+
+      <View style={styles.cardBody}>
+        <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]}>{mainTitle}</Text>
+        {appendedNotes.map((note, i) => (
+          <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
+        ))}
+        {item.appends && item.appends.length > 0 && (
+          <Text style={styles.cardAppendedNote}>🎙 추가 {item.appends.length}건</Text>
+        )}
+
+        <View style={styles.cardBottomRow}>
+          {mode ? (
+            <View style={styles.cardBadgeRow}>
+              {mode !== 'vibe' && <Text style={styles.cardBadgeIcon}>🔔</Text>}
+              {mode !== 'sound' && (
+                <Image
+                  source={require('../assets/vibrate_icon.png')}
+                  style={styles.cardBadgeVibe}
+                />
+              )}
+            </View>
+          ) : <View />}
+          <TouchableOpacity
+            style={styles.cardAppendBtn}
+            onPress={() => onAppend(item)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Text style={styles.cardAppendBtnText}>＋ 추가</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {item.uri ? (
+        <TouchableOpacity
+          style={styles.cardPlayBtn}
+          onPress={toggle}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.cardPlayIcon}>{playing ? '⏸' : '▶'}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surface,
+    borderRadius: 16, paddingVertical: 16, paddingHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1, borderColor: C.border,
+  },
+  cardPast: { opacity: 0.5 },
+  cardTimeCol: { width: 68, justifyContent: 'center' },
+  cardTime: { fontSize: 14, fontWeight: '700' },
+  cardTimePast: { color: C.textSub },
+  cardDateSub: { color: C.textSub, fontSize: 11, marginTop: 2 },
+  cardDivider: { width: 3, height: 36, borderRadius: 2, marginRight: 14 },
+  cardBody: { flex: 1 },
+  cardTitle: { color: C.text, fontSize: 16, fontWeight: '500', lineHeight: 22 },
+  cardTitlePast: { color: C.textSub },
+  cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  cardBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardBadgeIcon: { fontSize: 12 },
+  cardBadgeVibe: { width: 14, height: 14, resizeMode: 'contain', opacity: 0.75 },
+  cardAppendBtn: {
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 8, backgroundColor: C.surfaceHigh,
+  },
+  cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
+  cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  cardPlayBtn: {
+    width: 36, height: 36, marginLeft: 6,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceHigh, borderRadius: 18,
+  },
+  cardPlayIcon: { fontSize: 14, color: C.textSub },
+
+});
