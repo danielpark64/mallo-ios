@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { dayKey, isSameDay, monthGrid, WEEKDAYS } from '../lib/dateUtils';
 import { C } from '../lib/colors';
@@ -16,6 +16,14 @@ export function Calendar({
     year: selectedDate.getFullYear(),
     month: selectedDate.getMonth(),
   }));
+
+  // 바깥에서 selectedDate가 다른 달로 바뀌면(일정 저장 후 이동, 녹음 후 오늘로 복귀 등)
+  // 달력도 그 달을 보여주도록 동기화. 사용자가 직접 넘긴 달은 selectedDate가 그대로라 유지된다.
+  useEffect(() => {
+    const y = selectedDate.getFullYear();
+    const m = selectedDate.getMonth();
+    setView((v) => (v.year === y && v.month === m ? v : { year: y, month: m }));
+  }, [selectedDate]);
 
   const today = new Date();
   const cells = monthGrid(view.year, view.month);

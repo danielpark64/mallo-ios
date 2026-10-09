@@ -41,6 +41,8 @@ export type ScheduleRecord = {
 
 const DB_DIR = new Directory(Paths.document, 'mallo');
 const DB_FILE = new File(DB_DIR, 'records.json');
+// 직전 정상 저장본. write() 도중 앱이 죽어 records.json이 깨지면 이걸로 복구한다.
+const BAK_FILE = new File(DB_DIR, 'records.bak.json');
 
 function ensureDir() {
   try {
@@ -48,22 +50,40 @@ function ensureDir() {
   } catch {}
 }
 
-export function loadRecords(): ScheduleRecord[] {
+function readRecordsFile(f: File): ScheduleRecord[] | null {
   try {
-    if (!DB_FILE.exists) return [];
-    const raw = DB_FILE.textSync();
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr as ScheduleRecord[];
-  } catch (e) {
-    console.warn('records 로드 실패:', e);
-    return [];
+    if (!f.exists) return null;
+    const arr = JSON.parse(f.textSync());
+    return Array.isArray(arr) ? (arr as ScheduleRecord[]) : null;
+  } catch {
+    return null;
   }
+}
+
+export function loadRecords(): ScheduleRecord[] {
+  const main = readRecordsFile(DB_FILE);
+  if (main) return main;
+  // 본 파일이 없거나(최초 실행) 깨진 경우 → 백업 시도
+  const bak = readRecordsFile(BAK_FILE);
+  if (bak) {
+    console.warn('records.json 손상 → 백업본으로 복구');
+    return bak;
+  }
+  return [];
 }
 
 export function saveRecords(records: ScheduleRecord[]) {
   try {
     ensureDir();
+    // 덮어쓰기 전에 직전 정상본을 백업으로 남긴다 (쓰기 중 크래시 대비)
+    if (DB_FILE.exists) {
+      try {
+        if (BAK_FILE.exists) BAK_FILE.delete();
+        DB_FILE.copySync(BAK_FILE);
+      } catch (e) {
+        console.warn('records 백업 실패:', e);
+      }
+    }
     if (!DB_FILE.exists) DB_FILE.create();
     DB_FILE.write(JSON.stringify(records));
   } catch (e) {

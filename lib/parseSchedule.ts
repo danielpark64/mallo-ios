@@ -39,6 +39,13 @@ function startOfDay(d: Date): Date {
   return c;
 }
 
+/** "N월 N일"이 실제 존재하는 날짜인지 (윤년 2월 29일은 허용) */
+function isValidMonthDay(month: number, date: number): boolean {
+  if (month < 1 || month > 12 || date < 1) return false;
+  const maxDays = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  return date <= maxDays;
+}
+
 // ─── 메인 파서 ────────────────────────────────────────────────────────────────
 export function parseSchedule(input: string, base: Date = new Date()): ParsedSchedule {
   const text = (input ?? '').trim();
@@ -60,7 +67,8 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
   if (relAfter) {
     const n = parseInt(relAfter[1], 10);
     const unit = relAfter[2];
-    const result = new Date(base);
+    // "N일 후"는 시간 정보가 없으므로 자정 기준 날짜로 (기준 시각이 scheduleAt에 남지 않도록)
+    const result = unit === '일' ? startOfDay(base) : new Date(base);
     if (unit === '분') result.setMinutes(result.getMinutes() + n);
     else if (unit === '시간') result.setHours(result.getHours() + n);
     else if (unit === '일') result.setDate(result.getDate() + n);
@@ -126,17 +134,22 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
 
   // 4) "N월 N일" (절대 날짜) — 상대 날짜보다 우선
   const md = text.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-  if (md) {
+  const mdValid = md ? isValidMonthDay(parseInt(md[1], 10), parseInt(md[2], 10)) : false;
+  if (md && mdValid) {
     const month = parseInt(md[1], 10) - 1;
     const date = parseInt(md[2], 10);
-    const d = startOfDay(base);
-    d.setMonth(month, date);
-    // 이미 지난 날짜면 내년으로
-    if (d.getTime() < startOfDay(base).getTime()) d.setFullYear(d.getFullYear() + 1);
+    // 이미 지난 날짜면 다음 해로. 2월 29일은 평년에 3월 1일로 넘어가므로
+    // 실제 그 날짜가 존재하는(getMonth가 일치하는) 가장 가까운 해를 고른다 (최대 4년 탐색)
+    const todayMs = startOfDay(base).getTime();
+    let d = new Date(base.getFullYear(), month, date);
+    for (let y = base.getFullYear(); y <= base.getFullYear() + 4; y++) {
+      const cand = new Date(y, month, date);
+      if (cand.getMonth() === month && cand.getTime() >= todayMs) { d = cand; break; }
+    }
     day = d;
     hasDate = true;
     mark(md[0]);
-  } else {
+  } else if (!md) {
     // "N일" 단독 (이번 달 그 날짜) — 문장 첫머리("15일에 회의")도 인식
     const dayOnly = text.match(/(?<![월\d])(?:^|\s)(\d{1,2})\s*일(?!\s*(후|뒤|이따|있다가))/);
     if (dayOnly) {
@@ -154,26 +167,31 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
 
   // 5) 오전/오후/시간대 키워드
   let meridiem: 'am' | 'pm' | null = null;
+  let merWord: string | null = null;
+  let merIndex = -1;
   const mer = text.match(/오전|오후|새벽|아침|점심|낮|저녁|밤|정오|자정/);
   if (mer) {
     const w = mer[0];
+    merWord = w;
+    merIndex = mer.index ?? -1;
     if (/오전|새벽|아침/.test(w)) meridiem = 'am';
     else if (/오후|점심|낮|저녁|밤/.test(w)) meridiem = 'pm';
-    if (w === '정오') { hour = 12; minute = 0; hasTime = true; meridiemKnown = true; }
-    if (w === '자정') { hour = 0; minute = 0; hasTime = true; meridiemKnown = true; }
+    if (w === '정오') { hour = 12; minute = 0; hasTime = true; meridiemKnown = true; mark(w); }
+    if (w === '자정') { hour = 0; minute = 0; hasTime = true; meridiemKnown = true; mark(w); }
     if (meridiem) meridiemKnown = true;
-    mark(w);
   }
 
   // 6) 시각: "N시 (N분)" — 숫자/한글 둘 다
+  let hourIndex = -1;
   if (hour === null) {
-    // 숫자 시
+    // 숫자 시 (0~24시만 인정 — "25시" 같은 오인식은 무시)
     const hm = text.match(/(\d{1,2})\s*시\s*(?:(\d{1,2})\s*분|(반))?/);
-    if (hm) {
+    if (hm && parseInt(hm[1], 10) <= 24) {
       hour = parseInt(hm[1], 10);
-      if (hm[2]) minute = parseInt(hm[2], 10);
+      if (hm[2]) minute = Math.min(59, parseInt(hm[2], 10));
       else if (hm[3]) minute = 30; // "반"
       hasTime = true;
+      hourIndex = hm.index ?? -1;
       mark(hm[0]);
     } else {
       // 한글 고유어 시 ("세시", "열두시")
@@ -184,8 +202,9 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
         if (nm) {
           hour = NATIVE_HOUR[k];
           if (nm[1] === '반') minute = 30;
-          else if (nm[1]) minute = parseInt(nm[1], 10);
+          else if (nm[1]) minute = Math.min(59, parseInt(nm[1], 10));
           hasTime = true;
+          hourIndex = nm.index ?? -1;
           mark(nm[0]);
           break;
         }
@@ -193,10 +212,22 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
     }
   }
 
+  // 오전/오후 단어를 내용에서 제거할지 결정
+  // - "오전/오후"는 시각이 있을 때 항상 제거
+  // - "아침/점심/저녁/밤/새벽/낮"은 시각 **앞**에 올 때만 시간 수식어로 보고 제거
+  //   ("저녁 7시 운동" → "운동", "19시 저녁 식사" → "저녁 식사", "열두시 점심" → "점심")
+  // - 시각이 아예 없으면 내용으로 남긴다 ("금요일 저녁에 영화" → "저녁에 영화")
+  if (merWord && merWord !== '정오' && merWord !== '자정' && hour !== null) {
+    const isPlain = /오전|오후/.test(merWord);
+    if (isPlain || (hourIndex >= 0 && merIndex < hourIndex)) mark(merWord);
+  }
+
   // 7) 오전/오후 보정
   if (hour !== null) {
     if (meridiem === 'pm' && hour < 12) hour += 12;
     else if (meridiem === 'am' && hour === 12) hour = 0;
+    // "밤 12시" = 자정(다음 날 0시). setHours(24)로 날짜가 자연스럽게 넘어간다
+    else if (merWord === '밤' && hour === 12) hour = 24;
     // 오전/오후 미명시 + 1~7시 → 보통 오후를 의미 ("3시에 회의" = 15시)
     else if (!meridiemKnown && hour >= 1 && hour <= 7) hour += 12;
   }

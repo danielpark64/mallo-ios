@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { C } from '../lib/colors';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords, exportRecordsPdf, exportRecordsTxt } from '../lib/exportUtils';
@@ -63,8 +63,13 @@ function EntryBlock({
   activeStopperRef: PlaybackClaimRef;
 }) {
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
+  // player.currentTime은 리렌더를 일으키지 않는 네이티브 getter → 구간 종료 감지/단어 하이라이트가
+  // 동작하지 않았음. 상태 구독 훅으로 100ms마다 갱신되는 반응형 값을 쓴다.
+  const status = useAudioPlayerStatus(player);
   const [playing, setPlaying] = useState(false);
   const segEndRef = useRef<number | null>(null);
+  // 재생 시작 직후엔 status가 아직 이전 재생(끝 지점)의 값이라 "끝남"으로 오판할 수 있음 → 잠깐 무시
+  const playStartedAtRef = useRef(0);
   const [rangeMode, setRangeMode] = useState(false);
   const [rangeAnchor, setRangeAnchor] = useState<number | null>(null);
   const hasSegments = segments.length > 0;
@@ -93,6 +98,7 @@ function EntryBlock({
     await applyRoute(route);
     segEndRef.current = endSec;
     player.seekTo(startSec);
+    playStartedAtRef.current = Date.now();
     player.play();
     setPlaying(true);
   };
@@ -104,20 +110,24 @@ function EntryBlock({
       segEndRef.current = null;
       return;
     }
-    const atEnd = player.duration > 0 && player.currentTime >= player.duration - 0.1;
-    const start = player.currentTime > 0 && !atEnd ? player.currentTime : 0;
+    const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
+    const start = status.currentTime > 0 && !atEnd ? status.currentTime : 0;
     playFrom(start, null);
   };
 
   useEffect(() => {
-    if (segEndRef.current != null && player.currentTime >= segEndRef.current) {
+    if (!playing) return;
+    if (Date.now() - playStartedAtRef.current < 300) return;
+    if (segEndRef.current != null && status.currentTime >= segEndRef.current) {
+      // 선택한 단어/구간의 끝에 도달 → 정지
       player.pause();
       segEndRef.current = null;
       setPlaying(false);
-    } else if (player.duration > 0 && player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
+    } else if (status.didJustFinish || (status.duration > 0 && status.currentTime >= status.duration - 0.1)) {
+      segEndRef.current = null;
       setPlaying(false);
     }
-  }, [player.currentTime]);
+  }, [status.currentTime, status.didJustFinish, status.duration, playing]);
 
   const onChipPress = (idx: number) => {
     if (rangeMode) {
@@ -140,7 +150,7 @@ function EntryBlock({
     setRangeAnchor(idx);
   };
 
-  const currentMs = player.currentTime * 1000;
+  const currentMs = status.currentTime * 1000;
   const activeIdx =
     hasSegments && playing
       ? segments.findIndex((seg) => currentMs >= seg.startTimeMillis && currentMs < seg.endTimeMillis)

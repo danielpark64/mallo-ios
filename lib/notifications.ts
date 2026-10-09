@@ -21,6 +21,52 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
+export type AlarmMode = 'both' | 'sound' | 'vibe';
+
+// Android: 소리/진동은 알림 개별 설정이 아니라 "채널"에 묶이고, 채널은 한 번 만들면 설정이 고정된다.
+// 모드별로 채널을 따로 두고 예약 시 channelId로 고른다. (채널 없이 예약하면 기본 채널로 가서
+// 커스텀 알람음·최대 중요도가 적용되지 않는다.) iOS에서는 no-op.
+const ANDROID_CHANNEL: Record<AlarmMode, string> = {
+  both: 'alarm_both',
+  sound: 'alarm_sound',
+  vibe: 'alarm_vibe',
+};
+
+export async function registerAndroidChannels() {
+  if (Platform.OS !== 'android') return;
+  const common = {
+    importance: Notifications.AndroidImportance.MAX,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    bypassDnd: true,
+    audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM },
+  };
+  try {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL.both, {
+      ...common,
+      name: '일정 알람 (소리+진동)',
+      sound: 'alarm_long.wav',
+      enableVibrate: true,
+      vibrationPattern: [0, 500, 300, 500],
+    });
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL.sound, {
+      ...common,
+      name: '일정 알람 (소리)',
+      sound: 'alarm_long.wav',
+      enableVibrate: false,
+      vibrationPattern: null,
+    });
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL.vibe, {
+      ...common,
+      name: '일정 알람 (진동)',
+      sound: null,
+      enableVibrate: true,
+      vibrationPattern: [0, 500, 300, 500],
+    });
+  } catch (e) {
+    console.warn('알림 채널 등록 실패:', e);
+  }
+}
+
 export async function registerNotificationCategories() {
   await Notifications.setNotificationCategoryAsync(
     'alarm',
@@ -41,7 +87,7 @@ export async function registerNotificationCategories() {
   );
 }
 
-const SOUND = Platform.OS === 'ios' ? 'alarm_long.wav' : 'alarm_long.wav';
+const SOUND = 'alarm_long.wav';
 
 /**
  * 지정 시각에 알람 예약 (main + +1분 + +2분 반복 슬롯).
@@ -51,7 +97,7 @@ export async function scheduleAlarm(
   recordId: string,
   content: string,
   at: Date,
-  mode: 'both' | 'sound' | 'vibe' = 'both'
+  mode: AlarmMode = 'both'
 ): Promise<string[]> {
   if (at.getTime() <= Date.now()) return [];
 
@@ -76,6 +122,8 @@ export async function scheduleAlarm(
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: fireAt,
+          // Android: 모드별 채널로 소리/진동 결정 (iOS는 무시됨)
+          channelId: ANDROID_CHANNEL[mode],
         },
       });
       ids.push(id);
@@ -117,7 +165,7 @@ export async function resyncAlarms(
     transcript: string;
     scheduleAt: number | null;
     hasTime: boolean;
-    alarmMode?: 'both' | 'sound' | 'vibe';
+    alarmMode?: AlarmMode;
   }>
 ): Promise<void> {
   try {

@@ -21,6 +21,7 @@ import {
   AudioModule,
   setAudioModeAsync,
   useAudioPlayer,
+  useAudioPlayerStatus,
 } from 'expo-audio';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { StatusBar } from 'expo-status-bar';
@@ -46,6 +47,7 @@ import * as Notifications from 'expo-notifications';
 import {
   cancelAlarm,
   cancelAlarmByRecordId,
+  registerAndroidChannels,
   registerNotificationCategories,
   requestNotificationPermission,
   resyncAlarms,
@@ -119,7 +121,12 @@ function ScheduleCard({
   showDate?: boolean;
 }) {
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
+  // useAudioPlayer()가 돌려주는 player 객체의 currentTime/playing은 리렌더를 일으키지 않는
+  // 네이티브 getter라 useEffect 의존성으로 쓸 수 없다 → 상태 구독 훅으로 반응형 값 사용
+  const status = useAudioPlayerStatus(player);
   const [playing, setPlaying] = useState(false);
+  // 재생 시작 직후엔 status가 아직 이전 재생(끝 지점)의 값이라 "끝남"으로 오판할 수 있음 → 잠깐 무시
+  const playStartedAtRef = useRef(0);
 
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
@@ -144,20 +151,23 @@ function ScheduleCard({
     } else {
       claimPlayback();
       // 일시정지 중이면 이어서, 처음/끝이면 처음부터
-      const atEnd = player.duration > 0 && player.currentTime >= player.duration - 0.1;
-      if (player.currentTime <= 0 || atEnd || !(player.duration > 0)) {
+      const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
+      if (status.currentTime <= 0 || atEnd || !(status.duration > 0)) {
         player.seekTo(0);
       }
+      playStartedAtRef.current = Date.now();
       player.play();
       setPlaying(true);
     }
   };
 
+  // 재생이 끝나면 ▶ 아이콘으로 복귀 (이전엔 리렌더가 없어 ⏸ 상태로 남아 있었음)
   useEffect(() => {
-    if (player.duration > 0 && player.currentTime > 0 && player.currentTime >= player.duration - 0.1) {
-      setPlaying(false);
-    }
-  }, [player.currentTime]);
+    if (!playing) return;
+    if (Date.now() - playStartedAtRef.current < 300) return;
+    const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
+    if (status.didJustFinish || atEnd) setPlaying(false);
+  }, [status.didJustFinish, status.currentTime, status.duration, playing]);
 
   const timeLabel = item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
   const title = item.content || item.transcript || '(내용 없음)';
@@ -538,6 +548,7 @@ function AppInner() {
       const audio = await AudioModule.requestRecordingPermissionsAsync();
       const speech = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       await requestNotificationPermission();
+      await registerAndroidChannels(); // Android 전용(모드별 소리/진동 채널), iOS는 no-op
       await registerNotificationCategories();
       // 삭제된 일정의 잔여 알림 정리 + iOS 64개 제한 대응 재등록
       await resyncAlarms(recs);
@@ -619,7 +630,10 @@ function AppInner() {
       return new Date(n.getFullYear(), n.getMonth(), n.getDate());
     })();
 
-    if (!uri) return;
+    if (!uri) {
+      Alert.alert('녹음 실패', '녹음 파일이 만들어지지 않았어요. 다시 시도해주세요.');
+      return;
+    }
     if (!transcript) {
       Alert.alert('인식 실패', '음성이 인식되지 않았어요. 다시 시도해주세요.');
       return;
