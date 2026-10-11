@@ -5,6 +5,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { C } from '../lib/colors';
 import { formatTime } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
+import { MicIcon } from './MicIcon';
 
 // 동시 재생 방지: 새 카드가 재생을 시작하면 이전 카드를 멈춤
 let activeCardStopper: (() => void) | null = null;
@@ -102,12 +103,18 @@ export function ScheduleCard({
       <View style={[styles.cardDivider, { backgroundColor: accentColor }]} />
 
       <View style={styles.cardBody}>
-        <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]}>{mainTitle}</Text>
+        {/* 내용은 2줄로 요약해 보여준다 — 긴 녹음도 카드 높이가 일정하고, 전문은 상세에서 */}
+        <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]} numberOfLines={2} ellipsizeMode="tail">
+          {mainTitle}
+        </Text>
         {appendedNotes.map((note, i) => (
           <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
         ))}
         {item.appends && item.appends.length > 0 && (
-          <Text style={styles.cardAppendedNote}>🎙 추가 {item.appends.length}건</Text>
+          <View style={styles.cardAppendRow}>
+            <MicIcon size={12} color={C.textSub} />
+            <Text style={styles.cardAppendedNote}>추가 {item.appends.length}건</Text>
+          </View>
         )}
 
         <View style={styles.cardBottomRow}>
@@ -173,6 +180,7 @@ const styles = StyleSheet.create({
   },
   cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
   cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  cardAppendRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   cardPlayBtn: {
     width: 36, height: 36, marginLeft: 6,
     alignItems: 'center', justifyContent: 'center',

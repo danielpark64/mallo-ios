@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -22,12 +22,30 @@ import { StatusBar } from 'expo-status-bar';
 
 import { parseSchedule, formatDisplay } from './lib/parseSchedule';
 import {
+  dayKey,
   daysWithSchedules,
+  endOfMonth,
+  endOfWeek,
   formatDayHeader,
+  formatMonthLabel,
   formatTime,
+  formatWeekLabel,
+  groupByDay,
   isSameDay,
-  schedulesOn,
+  schedulesBetween,
+  startOfMonth,
+  startOfWeek,
+  type DaySection,
 } from './lib/dateUtils';
+import { loadPrefs, savePrefs, type CalendarMode } from './lib/prefs';
+import {
+  EMPTY_FILTER,
+  describePeriod,
+  filterRecords,
+  isFilterActive,
+  type PeriodPreset,
+  type RecordFilter,
+} from './lib/filterRecords';
 import {
   deleteAudio,
   loadRecords,
@@ -48,8 +66,11 @@ import {
   scheduleAlarm,
 } from './lib/notifications';
 import { C } from './lib/colors';
-import { copyRecords, exportRecordsPdf, exportRecordsTxt } from './lib/exportUtils';
-import { Calendar } from './components/Calendar';
+import { copyRecords } from './lib/exportUtils';
+import { Calendar, type DateRange } from './components/Calendar';
+import { ExportPreview, type ExportKind } from './components/ExportPreview';
+import { FilterSheet } from './components/FilterSheet';
+import { MicIcon } from './components/MicIcon';
 import { ScheduleCard } from './components/ScheduleCard';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
@@ -101,6 +122,7 @@ function Waveform({ metering, isRecording }: { metering: number | undefined; isR
 }
 
 // ─── 전체 일정 탭 ──────────────────────────────────────────────────────────────
+// 검색창 + 기간 칩(전체/오늘/이번 주/이번 달/직접 선택)으로 바로 걸러진다. "조회하기" 버튼 없음.
 function AllSchedulesList({
   records,
   onPress,
@@ -110,245 +132,162 @@ function AllSchedulesList({
   onPress: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
 }) {
-  type Section = { title: string; date: Date; data: ScheduleRecord[] };
+  const [filter, setFilter] = useState<RecordFilter>(EMPTY_FILTER);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [preview, setPreview] = useState<ExportKind | null>(null);
 
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [yearStr, setYearStr] = useState('');
-  const [monthStr, setMonthStr] = useState('');
-  const [dayStr, setDayStr] = useState('');
-  const [keyword, setKeyword] = useState('');
-  const [combine, setCombine] = useState<'AND' | 'OR'>('AND');
-  // 조회 버튼을 눌렀을 때만 실제 필터로 반영
-  const [applied, setApplied] = useState<{
-    y: number | null; m: number | null; d: number | null; kw: string; combine: 'AND' | 'OR';
-  } | null>(null);
+  const filtered = useMemo(() => filterRecords(records, filter), [records, filter]);
+  const sections = useMemo(() => groupByDay(filtered), [filtered]);
+  // 복사/내보내기는 화면과 같은 순서(날짜순, 날짜 미정은 맨 뒤)로
+  const exportList = useMemo(() => sections.flatMap((sec) => sec.data), [sections]);
+  const active = isFilterActive(filter);
 
-  const activeFilters = useMemo(() => {
-    const list: Array<(r: ScheduleRecord) => boolean> = [];
-    if (!applied) return list;
-    if (applied.y != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getFullYear() === applied.y);
-    if (applied.m != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getMonth() + 1 === applied.m);
-    if (applied.d != null) list.push((r) => r.scheduleAt != null && new Date(r.scheduleAt).getDate() === applied.d);
-    if (applied.kw) list.push((r) => (r.content || r.transcript || '').includes(applied.kw));
-    return list;
-  }, [applied]);
+  // 직접 선택 휠의 연도 후보: 일정이 있는 해 ± 1년 (올해 포함)
+  const yearChoices = useMemo(() => {
+    const now = new Date().getFullYear();
+    const ys = records.filter((r) => r.scheduleAt != null).map((r) => new Date(r.scheduleAt!).getFullYear());
+    const min = Math.min(now, ...ys) - 1;
+    const max = Math.max(now, ...ys) + 1;
+    return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  }, [records]);
 
-  const filteredRecords = useMemo(() => {
-    if (activeFilters.length === 0) return records;
-    const mode = applied?.combine ?? 'AND';
-    return records.filter((r) =>
-      mode === 'AND' ? activeFilters.every((f) => f(r)) : activeFilters.some((f) => f(r))
-    );
-  }, [records, activeFilters, applied]);
-
-  const runSearch = () => {
+  const choosePreset = (p: PeriodPreset) => {
     Keyboard.dismiss();
-    const yRaw = parseInt(yearStr, 10);
-    // 2자리 연도(예: 26) → 2026
-    const y = isNaN(yRaw) ? null : yRaw < 100 ? 2000 + yRaw : yRaw;
-    const mRaw = parseInt(monthStr, 10);
-    const m = isNaN(mRaw) || mRaw < 1 || mRaw > 12 ? null : mRaw;
-    const dRaw = parseInt(dayStr, 10);
-    const d = isNaN(dRaw) || dRaw < 1 || dRaw > 31 ? null : dRaw;
-    const kw = keyword.trim();
-    // 조건이 하나도 없으면 전체 보기
-    if (y == null && m == null && d == null && !kw) {
-      setApplied(null);
-      return;
-    }
-    setApplied({ y, m, d, kw, combine });
+    if (p === 'custom') { setSheetOpen(true); return; }
+    setFilter((f) => ({ ...f, preset: p }));
   };
 
-  const resetFilters = () => {
-    setYearStr(''); setMonthStr(''); setDayStr(''); setKeyword('');
-    setApplied(null);
-  };
-
-  const sections: Section[] = useMemo(() => {
-    const withDate = [...filteredRecords]
-      .filter((r) => r.scheduleAt != null)
-      .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
-
-    const groups = new Map<string, { date: Date; items: ScheduleRecord[] }>();
-    for (const r of withDate) {
-      const d = new Date(r.scheduleAt!);
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      if (!groups.has(key))
-        groups.set(key, {
-          date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
-          items: [],
-        });
-      groups.get(key)!.items.push(r);
-    }
-
-    const result: Section[] = Array.from(groups.values()).map(({ date, items }) => ({
-      title: formatDayHeader(date),
-      date,
-      data: items,
-    }));
-
-    const undated = filteredRecords.filter((r) => r.scheduleAt == null);
-    if (undated.length > 0) {
-      result.push({ title: '날짜 미정', date: new Date(0), data: undated });
-    }
-    return result;
-  }, [filteredRecords]);
+  const chips: { key: PeriodPreset; label: string }[] = [
+    { key: 'all', label: '전체' },
+    { key: 'today', label: '오늘' },
+    { key: 'week', label: '이번 주' },
+    { key: 'month', label: '이번 달' },
+    { key: 'custom', label: filter.preset === 'custom' ? `${describePeriod(filter)} ▾` : '기간 선택 ▾' },
+  ];
 
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const hasActiveFilters = activeFilters.length > 0;
 
-  const searchPanel = (
-    <View style={styles.searchWrap}>
-      <TouchableOpacity
-        style={styles.searchToggle}
-        onPress={() => setSearchOpen((s) => !s)}
-        activeOpacity={0.75}
-      >
-        <Text style={styles.searchToggleText}>
-          🔍 조회{hasActiveFilters ? ` · 결과 ${filteredRecords.length}건` : ''}
-        </Text>
-        <Text style={styles.searchToggleChevron}>{searchOpen ? '▲' : '▼'}</Text>
-      </TouchableOpacity>
-      {searchOpen && (
-        <View style={styles.searchPanel}>
-          <View style={styles.searchRow}>
-            <View style={styles.searchField}>
-              <Text style={styles.searchFieldLabel}>년</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={yearStr}
-                onChangeText={(t) => setYearStr(t.replace(/[^0-9]/g, ''))}
-                placeholder="26"
-                placeholderTextColor={C.textDim}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-            </View>
-            <View style={styles.searchField}>
-              <Text style={styles.searchFieldLabel}>월</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={monthStr}
-                onChangeText={(t) => setMonthStr(t.replace(/[^0-9]/g, ''))}
-                placeholder="7"
-                placeholderTextColor={C.textDim}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-            </View>
-            <View style={styles.searchField}>
-              <Text style={styles.searchFieldLabel}>일</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={dayStr}
-                onChangeText={(t) => setDayStr(t.replace(/[^0-9]/g, ''))}
-                placeholder="15"
-                placeholderTextColor={C.textDim}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-            </View>
-          </View>
-          <TextInput
-            style={styles.searchInputKeyword}
-            value={keyword}
-            onChangeText={setKeyword}
-            placeholder="키워드 (예: 회의)"
-            placeholderTextColor={C.textDim}
-            returnKeyType="search"
-            onSubmitEditing={runSearch}
-          />
-          <View style={styles.searchBottomRow}>
-            <View style={styles.combineToggle}>
-              <TouchableOpacity
-                style={[styles.combineBtn, combine === 'AND' && styles.combineBtnOn]}
-                onPress={() => setCombine('AND')}
-              >
-                <Text style={[styles.combineBtnText, combine === 'AND' && styles.combineBtnTextOn]}>모두 만족</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.combineBtn, combine === 'OR' && styles.combineBtnOn]}
-                onPress={() => setCombine('OR')}
-              >
-                <Text style={[styles.combineBtnText, combine === 'OR' && styles.combineBtnTextOn]}>하나라도</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={resetFilters} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.searchResetText}>초기화</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.searchRunBtn} onPress={runSearch} activeOpacity={0.85}>
-            <Text style={styles.searchRunBtnText}>조회하기</Text>
+  const header = (
+    <View style={styles.filterWrap}>
+      <View style={styles.searchBar}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          value={filter.keyword}
+          onChangeText={(t) => setFilter((f) => ({ ...f, keyword: t }))}
+          placeholder="내용으로 찾기"
+          placeholderTextColor={C.textDim}
+          returnKeyType="search"
+          accessibilityLabel="일정 검색"
+        />
+        {filter.keyword ? (
+          <TouchableOpacity
+            onPress={() => setFilter((f) => ({ ...f, keyword: '' }))}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="검색어 지우기"
+          >
+            <Text style={styles.searchClear}>✕</Text>
           </TouchableOpacity>
-          {/* 결과 내보내기 */}
-          <View style={styles.searchExportRow}>
-            <Text style={styles.searchExportLabel}>결과 {filteredRecords.length}건:</Text>
-            <TouchableOpacity style={styles.searchExportBtn} onPress={() => copyRecords(filteredRecords)}>
-              <Text style={styles.searchExportBtnText}>복사</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsTxt(filteredRecords)}>
-              <Text style={styles.searchExportBtnText}>텍스트</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.searchExportBtn} onPress={() => exportRecordsPdf(filteredRecords)}>
-              <Text style={styles.searchExportBtnText}>PDF</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-    </View>
-  );
+        ) : null}
+      </View>
 
-  if (sections.length === 0) {
-    return (
-      <View style={{ flex: 1 }}>
-        {searchPanel}
-        <View style={styles.emptyAll}>
-          <Text style={styles.emptyAllIcon}>📅</Text>
-          <Text style={styles.emptyAllText}>
-            {hasActiveFilters ? '조건에 맞는 일정이 없어요' : '등록된 일정이 없어요'}
-          </Text>
-          {!hasActiveFilters && (
-            <Text style={styles.emptyAllSub}>🎙 버튼으로 음성으로 바로 추가해보세요</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+        keyboardShouldPersistTaps="handled"
+      >
+        {chips.map((c) => {
+          const on = filter.preset === c.key;
+          return (
+            <TouchableOpacity
+              key={c.key}
+              style={[styles.chip, on && styles.chipOn]}
+              onPress={() => choosePreset(c.key)}
+              activeOpacity={0.8}
+              accessibilityState={{ selected: on }}
+            >
+              <Text style={[styles.chipText, on && styles.chipTextOn]}>{c.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.resultRow}>
+        <Text style={styles.resultText}>{active ? `결과 ${filtered.length}건` : `전체 ${filtered.length}건`}</Text>
+        <View style={styles.resultActions}>
+          {active && (
+            <TouchableOpacity onPress={() => setFilter(EMPTY_FILTER)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.resultReset}>초기화</Text>
+            </TouchableOpacity>
+          )}
+          {filtered.length > 0 && (
+            <>
+              <TouchableOpacity style={styles.resultBtn} onPress={() => copyRecords(exportList)}>
+                <Text style={styles.resultBtnText}>복사</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.resultBtn} onPress={() => setPreview('txt')}>
+                <Text style={styles.resultBtnText}>텍스트</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.resultBtn} onPress={() => setPreview('pdf')}>
+                <Text style={styles.resultBtnText}>PDF</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }}>
-      {searchPanel}
       <SectionList
-      sections={sections}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.allListContent}
-      stickySectionHeadersEnabled={false}
-      renderSectionHeader={({ section }) => {
-        const isToday = isSameDay(section.date, today);
-        const isPast = section.date.getTime() < todayMidnight;
-        return (
-          <View style={styles.sectionHeader}>
-            <Text
-              style={[
-                styles.sectionHeaderText,
-                isToday && styles.sectionHeaderToday,
-                isPast && styles.sectionHeaderPast,
-              ]}
-            >
-              {section.title}
-            </Text>
-            {isToday && (
-              <View style={styles.todayChip}>
-                <Text style={styles.todayChipText}>오늘</Text>
-              </View>
-            )}
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.allListContent}
+        stickySectionHeadersEnabled={false}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <View style={styles.emptyAll}>
+            <Text style={styles.emptyAllIcon}>📅</Text>
+            <Text style={styles.emptyAllText}>{active ? '조건에 맞는 일정이 없어요' : '등록된 일정이 없어요'}</Text>
+            {!active && <Text style={styles.emptyAllSub}>아래 마이크 버튼으로 말해서 바로 추가해보세요</Text>}
           </View>
-        );
-      }}
-      renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} />}
-      SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
+        }
+        renderSectionHeader={({ section }) => {
+          const isToday = isSameDay(section.date, today);
+          const isPast = section.date.getTime() < todayMidnight;
+          return (
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionHeaderText, isToday && styles.sectionHeaderToday, isPast && styles.sectionHeaderPast]}>
+                {section.title}
+              </Text>
+              {isToday && (
+                <View style={styles.todayChip}>
+                  <Text style={styles.todayChipText}>오늘</Text>
+                </View>
+              )}
+            </View>
+          );
+        }}
+        renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} />}
+        SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
       />
+
+      <FilterSheet
+        visible={sheetOpen}
+        value={filter}
+        yearChoices={yearChoices}
+        onApply={(v) => {
+          const anySet = v.year != null || v.month != null || v.day != null;
+          setFilter((f) => ({ ...f, ...v, preset: anySet ? 'custom' : 'all' }));
+          setSheetOpen(false);
+        }}
+        onClose={() => setSheetOpen(false)}
+      />
+      <ExportPreview visible={preview != null} kind={preview ?? 'txt'} records={exportList} onClose={() => setPreview(null)} />
     </View>
   );
 }
@@ -386,8 +325,20 @@ function AppInner() {
   const [editing, setEditing] = useState<ScheduleRecord | null>(null);
   const [appendMode, setAppendMode] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [calTapped, setCalTapped] = useState(false);
   const [activeTab, setActiveTab] = useState<'calendar' | 'all'>('calendar');
+  // 달력 보기(월/주)는 사용자가 고른 값을 저장해 다음 실행에도 유지
+  const [calendarMode, setCalendarMode] = useState<CalendarMode>(() => loadPrefs().calendarMode);
+  // 첫 렌더부터 목록이 채워지도록 초기 기간을 미리 계산 (Calendar가 곧 같은 값을 통지한다)
+  const [visibleRange, setVisibleRange] = useState<DateRange>(() => {
+    const n = new Date();
+    const t = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    return loadPrefs().calendarMode === 'week'
+      ? { start: startOfWeek(t), end: endOfWeek(t) }
+      : { start: startOfMonth(t), end: endOfMonth(t) };
+  });
+  const periodListRef = useRef<SectionList<ScheduleRecord, DaySection>>(null);
+  // scrollToLocation이 아직 렌더 안 된 섹션 때문에 실패하면 대략 위치로 옮긴 뒤 한 번 더 시도
+  const pendingScrollRef = useRef<number | null>(null);
 
   // 알림 응답 핸들러가 최신 records를 참조할 수 있도록 ref 유지
   const recordsRef = useRef<ScheduleRecord[]>([]);
@@ -440,12 +391,45 @@ function AppInner() {
 
   const liveParsed = useMemo(() => parseSchedule(voice.liveText), [voice.liveText]);
   const marked = useMemo(() => daysWithSchedules(records), [records]);
-  const dayList = useMemo(() => {
-    const all = schedulesOn(records, selectedDate);
-    if (calTapped || !isSameDay(selectedDate, new Date())) return all;
-    const now = Date.now();
-    return all.filter((r) => !r.hasTime || (r.scheduleAt ?? 0) >= now);
-  }, [records, selectedDate, calTapped, currentTime]);
+  // 달력에 보이는 달/주의 일정 전부를 날짜별로 묶어 아래 목록에 보여준다
+  const periodSections = useMemo(
+    () => groupByDay(schedulesBetween(records, visibleRange.start, visibleRange.end)),
+    [records, visibleRange],
+  );
+  const periodCount = periodSections.reduce((n, sec) => n + sec.data.length, 0);
+  const periodLabel =
+    calendarMode === 'week'
+      ? formatWeekLabel(visibleRange.start)
+      : formatMonthLabel(visibleRange.start.getFullYear(), visibleRange.start.getMonth());
+
+  const handleCalendarMode = (m: CalendarMode) => {
+    setCalendarMode(m);
+    savePrefs({ calendarMode: m });
+  };
+
+  const scrollToSection = useCallback((idx: number) => {
+    pendingScrollRef.current = idx;
+    try {
+      periodListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, viewOffset: 8, animated: true });
+    } catch {}
+  }, []);
+
+  // 달력에서 날짜를 누르면 그 날짜(없으면 그 다음 날짜)의 묶음으로 목록을 스크롤.
+  // 보이는 기간 밖 날짜("오늘로" 등)는 기간이 바뀌며 목록이 통째로 교체되므로 맨 위로만 올린다.
+  const handleSelectDate = useCallback((d: Date) => {
+    setSelectedDate(d);
+    const t = d.getTime();
+    if (t < visibleRange.start.getTime() || t > visibleRange.end.getTime() + 86_400_000) {
+      pendingScrollRef.current = null;
+      try { periodListRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, viewOffset: 9999, animated: false }); } catch {}
+      return;
+    }
+    const key = dayKey(d);
+    let idx = periodSections.findIndex((sec) => sec.key === key);
+    if (idx < 0) idx = periodSections.findIndex((sec) => sec.date.getTime() >= t);
+    if (idx < 0) return;
+    scrollToSection(idx);
+  }, [periodSections, visibleRange, scrollToSection]);
 
   const nextSchedule = useMemo(() => {
     const now = Date.now();
@@ -751,36 +735,65 @@ function AppInner() {
 
       {/* ── 컨텐츠 ── */}
       {activeTab === 'calendar' ? (
-        <>
-          <Calendar
-            selectedDate={selectedDate}
-            onSelectDate={(d) => { setSelectedDate(d); setCalTapped(true); }}
-            markedDays={marked}
-          />
-
-          <View style={styles.dayHeader}>
-            <Text style={styles.dayHeaderText}>{formatDayHeader(selectedDate)}</Text>
-            <Text style={styles.dayCount}>
-              {dayList.length > 0 ? `${dayList.length}건` : ''}
-            </Text>
-          </View>
-
-          <ScrollView
-            style={styles.dayList}
-            contentContainerStyle={styles.dayListContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {dayList.length === 0 ? (
-              <View style={styles.emptyDay}>
-                <Text style={styles.emptyDayText}>이 날은 일정이 없어요</Text>
+        <SectionList
+          ref={periodListRef}
+          sections={periodSections}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.dayListContent}
+          stickySectionHeadersEnabled={false}
+          showsVerticalScrollIndicator={false}
+          onScrollToIndexFailed={(info) => {
+            // 아직 렌더되지 않은 섹션 → 평균 높이로 근처까지 옮긴 뒤 다시 시도
+            const idx = pendingScrollRef.current;
+            try {
+              periodListRef.current?.getScrollResponder()?.scrollTo({ y: info.averageItemLength * info.index, animated: false });
+            } catch {}
+            if (idx == null) return;
+            setTimeout(() => {
+              try { periodListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, viewOffset: 8, animated: true }); } catch {}
+              pendingScrollRef.current = null;
+            }, 120);
+          }}
+          ListHeaderComponent={
+            <>
+              <Calendar
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDate}
+                markedDays={marked}
+                mode={calendarMode}
+                onModeChange={handleCalendarMode}
+                onVisibleRangeChange={setVisibleRange}
+              />
+              <View style={styles.dayHeader}>
+                <Text style={styles.dayHeaderText}>{periodLabel} 일정</Text>
+                <Text style={styles.dayCount}>{periodCount > 0 ? `${periodCount}건` : ''}</Text>
               </View>
-            ) : (
-              dayList.map((item) => (
-                <ScheduleCard key={item.id} item={item} onPress={openDetail} onAppend={openAppend} />
-              ))
-            )}
-          </ScrollView>
-        </>
+            </>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyDay}>
+              <Text style={styles.emptyDayText}>{calendarMode === 'week' ? '이 주에는 일정이 없어요' : '이 달에는 일정이 없어요'}</Text>
+            </View>
+          }
+          renderSectionHeader={({ section }) => {
+            const isSelected = section.key === dayKey(selectedDate);
+            const isToday = isSameDay(section.date, new Date());
+            return (
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionHeaderText, (isSelected || isToday) && styles.sectionHeaderToday]}>
+                  {section.title}
+                </Text>
+                {isToday && (
+                  <View style={styles.todayChip}>
+                    <Text style={styles.todayChipText}>오늘</Text>
+                  </View>
+                )}
+              </View>
+            );
+          }}
+          renderItem={({ item }) => <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} />}
+          SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
+        />
       ) : (
         <View style={styles.allWrap}>
           <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} />
@@ -790,7 +803,7 @@ function AppInner() {
       {/* ── 녹음 FAB ── */}
       <View style={[styles.fabWrap, { paddingBottom: 36 + insets.bottom }]}>
         <TouchableOpacity style={styles.fab} onPress={startRecording} activeOpacity={0.85}>
-          <Text style={styles.fabIcon}>🎙</Text>
+          <MicIcon size={30} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -925,51 +938,30 @@ const styles = StyleSheet.create({
   emptyAllText: { color: C.textSub, fontSize: 17, fontWeight: '600', marginBottom: 8 },
   emptyAllSub: { color: C.textDim, fontSize: 14, textAlign: 'center' },
 
-  // 조회 패널
-  searchWrap: { marginBottom: 4, paddingHorizontal: 16, paddingTop: 4 },
-  searchToggle: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+  // 전체 일정: 검색창 · 기간 칩 · 결과 행
+  filterWrap: { paddingTop: 4, paddingBottom: 2 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 14, height: 48,
     borderWidth: 1, borderColor: C.border,
   },
-  searchToggleText: { color: C.text, fontSize: 14, fontWeight: '600' },
-  searchToggleChevron: { color: C.textSub, fontSize: 11 },
-  searchPanel: {
-    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginTop: 6,
-    borderWidth: 1, borderColor: C.border, gap: 10,
+  searchIcon: { fontSize: 15 },
+  searchInput: { flex: 1, color: C.text, fontSize: 16, paddingVertical: 0 },
+  searchClear: { color: C.textSub, fontSize: 15, fontWeight: '700', paddingHorizontal: 4 },
+  chipRow: { flexDirection: 'row', gap: 8, paddingVertical: 10 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
   },
-  searchRow: { flexDirection: 'row', gap: 8 },
-  searchField: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surfaceHigh, borderRadius: 10, paddingHorizontal: 10,
-  },
-  searchFieldLabel: { color: C.textSub, fontSize: 14, fontWeight: '600', marginRight: 6 },
-  searchInput: {
-    flex: 1, paddingVertical: 12, color: C.text, fontSize: 17, fontWeight: '600', textAlign: 'center',
-  },
-  searchInputKeyword: {
-    backgroundColor: C.surfaceHigh, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 12, color: C.text, fontSize: 16,
-  },
-  searchBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  combineToggle: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 8, padding: 3 },
-  combineBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
-  combineBtnOn: { backgroundColor: C.accent },
-  combineBtnText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
-  combineBtnTextOn: { color: '#fff' },
-  searchResetText: { color: C.textSub, fontSize: 14, fontWeight: '600' },
-  searchRunBtn: {
-    backgroundColor: C.accent, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginTop: 2,
-  },
-  searchRunBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  searchExportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  searchExportLabel: { color: C.textSub, fontSize: 13, fontWeight: '600', marginRight: 2 },
-  searchExportBtn: {
-    flex: 1, backgroundColor: C.surfaceHigh, borderRadius: 9,
-    paddingVertical: 9, alignItems: 'center',
-  },
-  searchExportBtnText: { color: C.text, fontSize: 13, fontWeight: '600' },
+  chipOn: { backgroundColor: C.accent, borderColor: C.accent },
+  chipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
+  chipTextOn: { color: '#fff' },
+  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2, paddingBottom: 2 },
+  resultText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
+  resultActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  resultReset: { color: C.accent, fontSize: 13, fontWeight: '700', marginRight: 6 },
+  resultBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: C.surfaceHigh },
+  resultBtnText: { color: C.text, fontSize: 12, fontWeight: '600' },
 
   // FAB
   fabWrap: {
@@ -983,7 +975,6 @@ const styles = StyleSheet.create({
     shadowColor: C.red, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
     elevation: 10,
   },
-  fabIcon: { fontSize: 28 },
 
   // 녹음 오버레이
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },

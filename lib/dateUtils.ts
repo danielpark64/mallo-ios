@@ -62,3 +62,71 @@ export function formatTime(d: Date): string {
 export function formatDayHeader(d: Date): string {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
 }
+
+/** n일 뒤(음수면 앞) 자정 */
+export function addDays(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+}
+
+/** 그 주의 일요일 자정 (주 시작 = 일요일) */
+export function startOfWeek(d: Date): Date {
+  const s = startOfDay(d);
+  return addDays(s, -s.getDay());
+}
+
+export function endOfWeek(d: Date): Date {
+  return addDays(startOfWeek(d), 6);
+}
+
+export function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+export function endOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+/** 기간(양 끝 날짜 포함) 안의 일정, 시각순 */
+export function schedulesBetween(records: ScheduleRecord[], start: Date, end: Date): ScheduleRecord[] {
+  const s = startOfDay(start).getTime();
+  const e = addDays(startOfDay(end), 1).getTime();
+  return records
+    .filter((r) => r.scheduleAt != null && r.scheduleAt >= s && r.scheduleAt < e)
+    .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
+}
+
+export function formatMonthLabel(year: number, month: number): string {
+  return `${year}년 ${month + 1}월`;
+}
+
+/** "10월 12일 – 18일", 달이 바뀌면 "10월 29일 – 11월 4일" */
+export function formatWeekLabel(weekStart: Date): string {
+  const s = startOfWeek(weekStart);
+  const e = addDays(s, 6);
+  const sameMonth = s.getMonth() === e.getMonth();
+  return sameMonth
+    ? `${s.getMonth() + 1}월 ${s.getDate()}일 – ${e.getDate()}일`
+    : `${s.getMonth() + 1}월 ${s.getDate()}일 – ${e.getMonth() + 1}월 ${e.getDate()}일`;
+}
+
+/** 날짜별 섹션 — 전체 일정 탭·달력 기간 목록 공용. 날짜 미정은 맨 뒤 */
+export type DaySection = { key: string; title: string; date: Date; data: ScheduleRecord[] };
+
+export function groupByDay(records: ScheduleRecord[]): DaySection[] {
+  const dated = records
+    .filter((r) => r.scheduleAt != null)
+    .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
+  const groups = new Map<string, DaySection>();
+  for (const r of dated) {
+    const d = new Date(r.scheduleAt!);
+    const key = dayKey(d);
+    if (!groups.has(key)) {
+      groups.set(key, { key, title: formatDayHeader(d), date: startOfDay(d), data: [] });
+    }
+    groups.get(key)!.data.push(r);
+  }
+  const result = Array.from(groups.values());
+  const undated = records.filter((r) => r.scheduleAt == null);
+  if (undated.length) result.push({ key: 'undated', title: '날짜 미정', date: new Date(0), data: undated });
+  return result;
+}

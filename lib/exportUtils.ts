@@ -31,22 +31,33 @@ export function recordsToText(records: ScheduleRecord[]): string {
   return [header, '', ...records.map((r) => recordToText(r)), ''].join('\n\n');
 }
 
+/** 문서(PDF/미리보기) 한 행 — 일시 · 본문 · 추가 메모 */
+export type DocRow = { when: string; main: string; notes: string[] };
+
+export function recordRows(records: ScheduleRecord[]): DocRow[] {
+  return records.map((r) => {
+    const when =
+      r.scheduleAt != null
+        ? `${formatDayHeader(new Date(r.scheduleAt))}${r.hasTime ? ' ' + formatTime(new Date(r.scheduleAt)) : ''}`
+        : '날짜 미정';
+    const [main, ...legacyNotes] = (r.content || r.transcript || '(내용 없음)').split('\n• ');
+    const notes = [...legacyNotes, ...(r.appends ?? []).map((a) => a.content || a.transcript)];
+    return { when, main, notes };
+  });
+}
+
+/** 문서 제목 줄 — "2026년 10월 12일 기준 · 3건" */
+export function docSubtitle(count: number, now: Date = new Date()): string {
+  return `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 기준 · ${count}건`;
+}
+
 /** 여러 건 → PDF용 HTML */
-function recordsToHtml(records: ScheduleRecord[]): string {
+export function recordsToHtml(records: ScheduleRecord[]): string {
   const now = new Date();
-  const rows = records
-    .map((r) => {
-      const when =
-        r.scheduleAt != null
-          ? `${formatDayHeader(new Date(r.scheduleAt))}${r.hasTime ? ' ' + formatTime(new Date(r.scheduleAt)) : ''}`
-          : '날짜 미정';
-      const [main, ...legacyNotes] = (r.content || r.transcript || '(내용 없음)').split('\n• ');
-      const extra = [
-        ...legacyNotes,
-        ...(r.appends ?? []).map((a) => a.content || a.transcript),
-      ];
-      const notesHtml = extra.length
-        ? `<ul>${extra.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
+  const rows = recordRows(records)
+    .map(({ when, main, notes }) => {
+      const notesHtml = notes.length
+        ? `<ul>${notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
         : '';
       return `<tr><td class="when">${escapeHtml(when)}</td><td>${escapeHtml(main)}${notesHtml}</td></tr>`;
     })
@@ -61,7 +72,7 @@ function recordsToHtml(records: ScheduleRecord[]): string {
     ul { margin: 6px 0 0 0; padding-left: 18px; color: #555; }
   </style></head><body>
     <h1>말로 일정</h1>
-    <div class="sub">${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 기준 · ${records.length}건</div>
+    <div class="sub">${docSubtitle(records.length, now)}</div>
     <table>${rows}</table>
   </body></html>`;
 }
