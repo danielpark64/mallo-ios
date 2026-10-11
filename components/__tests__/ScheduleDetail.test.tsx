@@ -1,14 +1,17 @@
-// 상세 화면 단어 구간재생: 단어 탭 → 그 구간만 재생하고 끝에서 정지, 범위선택
-import { fireEvent, render } from '@testing-library/react-native';
+// 상세 화면 단어 구간재생: 단어 탭 → 그 구간만 재생하고 끝에서 정지,
+// 길게 누른 채 끌기 → 범위선택 후 재생, 선택 바(다시 듣기/해제), 선택 중 스크롤 잠금
+import type React from 'react';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ScheduleRecord } from '../../lib/storage';
 
 const mockPlayer = { play: jest.fn(), pause: jest.fn(), seekTo: jest.fn() };
 let mockStatus = { currentTime: 0, duration: 3, playing: false, didJustFinish: false };
 
+const mockSetAudioMode = jest.fn(async () => {});
 jest.mock('expo-audio', () => ({
   useAudioPlayer: () => mockPlayer,
   useAudioPlayerStatus: () => mockStatus,
-  setAudioModeAsync: jest.fn(async () => {}),
+  setAudioModeAsync: (...args: unknown[]) => mockSetAudioMode(...(args as [])),
 }));
 jest.mock('../../lib/exportUtils', () => ({
   copyRecords: jest.fn(), exportRecordsTxt: jest.fn(), exportRecordsPdf: jest.fn(),
@@ -31,7 +34,80 @@ const record: ScheduleRecord = {
 const ui = () => (
   <ScheduleDetail visible record={record} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />
 );
-const flush = () => new Promise((r) => setTimeout(r, 0));
+
+// 칩 4개를 한 줄에 가로로 배치한 것으로 가정 (x: 0, 44, 88, 132 / 폭 40 / 높이 25)
+const CHIP_X = [0, 44, 88, 132];
+const chipCenter = (idx: number) => ({ x: CHIP_X[idx] + 20, y: 12 });
+
+/** PanResponder가 읽는 touchHistory까지 포함한 합성 터치 이벤트 */
+let touchStart = { x: 0, y: 0, t: 0 };
+let touchPrev = { x: 0, y: 0, t: 0 };
+const touchEvt = (x: number, y: number, t: number) => {
+  const e = {
+    nativeEvent: { pageX: x, pageY: y, locationX: x, locationY: y, timestamp: t, identifier: 1, touches: [], changedTouches: [] },
+    touchHistory: {
+      numberActiveTouches: 1,
+      indexOfSingleActiveTouch: 0,
+      mostRecentTimeStamp: t,
+      touchBank: [{
+        touchActive: true,
+        startPageX: touchStart.x, startPageY: touchStart.y, startTimeStamp: touchStart.t,
+        currentPageX: x, currentPageY: y, currentTimeStamp: t,
+        previousPageX: touchPrev.x, previousPageY: touchPrev.y, previousTimeStamp: touchPrev.t,
+      }],
+    },
+  };
+  touchPrev = { x, y, t };
+  return e;
+};
+
+type Q = Awaited<ReturnType<typeof render>>;
+/** playFrom은 applyRoute(await) 뒤에 play/setPlaying을 호출하므로 마이크로태스크를 넉넉히 비운다 */
+const flushMicro = async () => { await new Promise((r) => setTimeout(r, 0)); };
+/** 길게 누르기 판정 타이머를 즉시 실행시킨다 — grant 직전에 호출. (가짜 타이머는 RNTL 14의 비동기 render/act와 충돌) */
+const pressImmediately = () =>
+  jest.spyOn(globalThis, 'setTimeout').mockImplementationOnce(((fn: () => void) => { fn(); return 0; }) as never);
+// RNTL 14의 fireEvent/act는 비동기 — await 없이 부르면 act 범위가 열린 채 다음 테스트로 넘어가 렌더가 빈다.
+const layoutChips = async (q: Q) => {
+  for (let idx = 0; idx < CHIP_X.length; idx++) {
+    await fireEvent(q.getByTestId(`chip-${idx}`), 'layout', { nativeEvent: { layout: { x: CHIP_X[idx], y: 0, width: 40, height: 25 } } });
+  }
+};
+const grantAt = async (q: Q, idx: number, t = 1000) => {
+  const { x, y } = chipCenter(idx);
+  touchStart = { x, y, t };
+  touchPrev = { x, y, t };
+  await fireEvent(q.getByTestId('wordFlow'), 'responderGrant', touchEvt(x, y, t));
+};
+const moveTo = async (q: Q, idx: number, t: number) => {
+  const { x, y } = chipCenter(idx);
+  await fireEvent(q.getByTestId('wordFlow'), 'responderMove', touchEvt(x, y, t));
+};
+const release = async (q: Q, t: number) => {
+  await fireEvent(q.getByTestId('wordFlow'), 'responderRelease', touchEvt(touchPrev.x, touchPrev.y, t));
+};
+
+// fireEvent/rerender는 RNTL이 이미 act로 감싼다 — 바깥에서 또 act로 감싸면(중첩) 커밋이 늦어지므로 감싸지 않는다.
+/** 탭: 누르고 바로 떼기 */
+const tap = async (q: Q, idx: number) => {
+  await grantAt(q, idx);
+  await release(q, 1050);
+  await flushMicro();
+};
+/** 길게 누른 채 끌어서 범위선택 후 떼기 */
+const longPressDrag = async (q: Q, from: number, to: number) => {
+  pressImmediately();
+  await grantAt(q, from);
+  await moveTo(q, to, 1500);
+  await release(q, 1600);
+  await flushMicro();
+};
+
+const rerenderWith = async (q: Q, status: typeof mockStatus, nowOffset: number, el: () => React.ReactElement = ui) => {
+  (Date.now as jest.Mock).mockReturnValue(1_000_000 + nowOffset);
+  mockStatus = status;
+  await q.rerender(el());
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -40,60 +116,271 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-describe('ScheduleDetail 구간재생', () => {
-  test('단어를 누르면 그 단어 시작점으로 이동해 재생한다', async () => {
-    const { getByText } = await render(ui());
-    await fireEvent.press(getByText('세시'));
-    await flush();
+describe('ScheduleDetail 단어 탭 재생', () => {
+  test('단어를 탭하면 그 단어 시작점으로 이동해 재생한다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await tap(q, 2);
     expect(mockPlayer.seekTo).toHaveBeenCalledWith(1.1);
     expect(mockPlayer.play).toHaveBeenCalledTimes(1);
   });
 
   test('단어 끝 시각에 도달하면 자동으로 정지한다', async () => {
-    const { getByText, rerender } = await render(ui());
-    await fireEvent.press(getByText('세시'));
-    await flush();
-    // 진행 중(끝 전): 정지 안 함
-    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 400);
-    mockStatus = { currentTime: 1.3, duration: 3, playing: true, didJustFinish: false };
-    await rerender(ui());
+    const q = await render(ui());
+    await layoutChips(q);
+    await tap(q, 2);
+    await rerenderWith(q, { currentTime: 1.3, duration: 3, playing: true, didJustFinish: false }, 400);
     expect(mockPlayer.pause).not.toHaveBeenCalled();
-    // 끝(1.6s) 도달
-    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 700);
-    mockStatus = { currentTime: 1.62, duration: 3, playing: true, didJustFinish: false };
-    await rerender(ui());
+    await rerenderWith(q, { currentTime: 1.62, duration: 3, playing: true, didJustFinish: false }, 700);
     expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
-    expect(getByText('▶')).toBeTruthy();
+    expect(q.getByText('▶')).toBeTruthy();
   });
 
-  test('재생 중인 단어가 하이라이트된다', async () => {
-    const { getByText, rerender } = await render(ui());
-    await fireEvent.press(getByText('내일'));
-    await flush();
-    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 400);
-    mockStatus = { currentTime: 0.3, duration: 3, playing: true, didJustFinish: false };
-    await rerender(ui());
-    const playingStyle = getByText('내일').props.style;
-    const idleStyle = getByText('회의').props.style;
-    expect(JSON.stringify(playingStyle)).toContain('"fontWeight":"700"');
-    expect(JSON.stringify(idleStyle)).not.toContain('"fontWeight":"700"');
+  test('재생 중인 단어가 하이라이트되고, 단어 사이 공백에서도 직전 단어가 유지된다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await tap(q, 0);
+    await rerenderWith(q, { currentTime: 0.3, duration: 3, playing: true, didJustFinish: false }, 400);
+    expect(JSON.stringify(q.getByText('내일').props.style)).toContain('"fontWeight":"700"');
+    expect(JSON.stringify(q.getByText('회의').props.style)).not.toContain('"fontWeight":"700"');
   });
 
-  test('길게 누른 뒤 다른 단어를 누르면 두 단어 사이 범위를 재생하고 범위 끝에서 정지한다', async () => {
-    const { getByText, rerender } = await render(ui());
-    await fireEvent(getByText('오후'), 'longPress');
-    await fireEvent.press(getByText('회의'));
-    await flush();
-    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0.6); // 오후 시작
-    // 중간 단어(세시) 구간 지나는 중엔 정지하지 않음
-    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 400);
-    mockStatus = { currentTime: 1.3, duration: 3, playing: true, didJustFinish: false };
-    await rerender(ui());
+  test('범위 재생 중 단어 사이 공백(0.5~0.6s)에서도 직전 단어 하이라이트가 유지된다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 0, 1); // 내일~오후
+    await rerenderWith(q, { currentTime: 0.55, duration: 3, playing: true, didJustFinish: false }, 650);
     expect(mockPlayer.pause).not.toHaveBeenCalled();
-    // 범위 끝(회의 끝 2.3s) 도달 → 정지
-    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 900);
-    mockStatus = { currentTime: 2.31, duration: 3, playing: true, didJustFinish: false };
-    await rerender(ui());
+    expect(JSON.stringify(q.getByText('내일').props.style)).toContain('"fontWeight":"700"');
+    expect(JSON.stringify(q.getByText('세시').props.style)).not.toContain('"fontWeight":"700"');
+  });
+
+  test('길게 누르기 전에 손가락이 많이 움직이면(스크롤) 재생하지 않는다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await grantAt(q, 1);
+    await fireEvent(q.getByTestId('wordFlow'), 'responderMove', touchEvt(chipCenter(1).x, 60, 1100)); // 아래로 48px → 타이머 취소
+    await release(q, 1600);
+    await flushMicro();
+    expect(mockPlayer.play).not.toHaveBeenCalled();
+    expect(q.queryByText(/다시 듣기/)).toBeNull();
+  });
+});
+
+describe('ScheduleDetail 전체 재생·오디오 경로', () => {
+  test('플레이어가 duration을 0으로 보고해도 저장된 녹음 길이(durationSec) 기준으로 끝에서 멈춘다', async () => {
+    mockStatus = { currentTime: 0, duration: 0, playing: false, didJustFinish: false };
+    const q = await render(ui());
+    await fireEvent.press(q.getByText('▶'));
+    await flushMicro();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0);
+    const stuck = { currentTime: 0, duration: 0, playing: false, didJustFinish: false };
+    await rerenderWith(q, stuck, 1500); // 1.5s < 3s
+    expect(q.getByText('⏸')).toBeTruthy();
+    await rerenderWith(q, stuck, 3300); // 시계 3.3s(-0.3 = 3.0) ≥ durationSec 3 - 0.1 → 종료
+    expect(q.getByText('▶')).toBeTruthy();
+  });
+
+  test('끝 근처에서 멈춘 상태로 ▶를 누르면 이어 재생이 아니라 처음부터 재생한다', async () => {
+    mockStatus = { currentTime: 2.7, duration: 3, playing: false, didJustFinish: false }; // 마지막 단어 듣고 멈춘 상태
+    const q = await render(ui());
+    await fireEvent.press(q.getByText('▶'));
+    await flushMicro();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0);
+  });
+
+  test('중간에서 멈춘 상태로 ▶를 누르면 그 지점부터 이어 재생한다', async () => {
+    mockStatus = { currentTime: 1.2, duration: 3, playing: false, didJustFinish: false };
+    const q = await render(ui());
+    await fireEvent.press(q.getByText('▶'));
+    await flushMicro();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(1.2);
+  });
+
+  test('스피커 모드는 재생 전용 세션(allowsRecording=false), 수화기를 고르면 녹음용 세션+수화기 라우팅', async () => {
+    const q = await render(ui());
+    await flushMicro();
+    // 열릴 때 스피커 모드 적용
+    expect(mockSetAudioMode).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowsRecording: false, shouldRouteThroughEarpiece: false }),
+    );
+    await fireEvent.press(q.getByText('📞 수화기'));
+    await flushMicro();
+    expect(mockSetAudioMode).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowsRecording: true, shouldRouteThroughEarpiece: true }),
+    );
+    await fireEvent.press(q.getByText('🔊 스피커'));
+    await flushMicro();
+    expect(mockSetAudioMode).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowsRecording: false, shouldRouteThroughEarpiece: false }),
+    );
+  });
+});
+
+describe('ScheduleDetail 단어 시각이 없는 녹음(iOS 인식기 미제공) 호환', () => {
+  const degenerateRecord: ScheduleRecord = {
+    ...record, durationSec: 4,
+    segments: record.segments!.map((seg) => ({ ...seg, startTimeMillis: 303, endTimeMillis: 303 })),
+  };
+  const ui2 = () => (
+    <ScheduleDetail visible record={degenerateRecord} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />
+  );
+  test('모든 단어가 같은 시각이면 녹음 길이에 글자 수 비례로 배분해 단어 탭이 그 구간을 재생한다', async () => {
+    mockStatus = { currentTime: 0, duration: 0, playing: false, didJustFinish: false }; // 플레이어 duration 미제공 → durationSec 4 사용
+    const q = await render(ui2());
+    await layoutChips(q);
+    await tap(q, 2); // 내일·오후·세시·회의 각 2글자 → 1초씩. 세시 = 2.0~3.0
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(2);
+    await rerenderWith(q, { currentTime: 0, duration: 0, playing: false, didJustFinish: false }, 500, ui2); // 시계 2.5s
+    expect(JSON.stringify(q.getByTestId('chip-2').props.style)).toContain('"backgroundColor":"#F06A6A"');
+    await rerenderWith(q, { currentTime: 0, duration: 0, playing: false, didJustFinish: false }, 1050, ui2); // 3.05s ≥ 3.0 → 정지
     expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ScheduleDetail 재생 시작 직후 stale status 무시', () => {
+  test('직전에 2.0s에서 멈춘 상태로 그보다 앞 단어(세시 1.1~1.6)를 탭해도 즉시 정지하지 않는다', async () => {
+    mockStatus = { currentTime: 2.0, duration: 3, playing: false, didJustFinish: false };
+    const q = await render(ui());
+    await layoutChips(q);
+    await tap(q, 2);
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(1.1);
+    expect(mockPlayer.pause).not.toHaveBeenCalled();
+    expect(q.getByText('⏸')).toBeTruthy();
+    // 새 status 이벤트가 오면 그때부터 판정
+    await rerenderWith(q, { currentTime: 1.3, duration: 3, playing: true, didJustFinish: false }, 250);
+    expect(mockPlayer.pause).not.toHaveBeenCalled();
+    await rerenderWith(q, { currentTime: 1.62, duration: 3, playing: true, didJustFinish: false }, 600);
+    expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
+  });
+
+  test('전체 재생이 끝난 뒤(didJustFinish가 남은 status) 단어를 탭해도 바로 ▶로 돌아가지 않는다', async () => {
+    mockStatus = { currentTime: 3, duration: 3, playing: false, didJustFinish: true };
+    const q = await render(ui());
+    await layoutChips(q);
+    await tap(q, 0);
+    expect(q.getByText('⏸')).toBeTruthy();
+    await rerenderWith(q, { currentTime: 0.2, duration: 3, playing: true, didJustFinish: false }, 300);
+    expect(q.getByText('⏸')).toBeTruthy();
+  });
+
+  test('전체 재생 중 단어를 길게 누르면 재생을 멈추고 선택을 시작한다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await fireEvent.press(q.getByText('▶'));
+    await flushMicro();
+    await rerenderWith(q, { currentTime: 0.8, duration: 3, playing: true, didJustFinish: false }, 900);
+    expect(q.getByText('⏸')).toBeTruthy();
+    pressImmediately();
+    await grantAt(q, 1);
+    expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
+    expect(q.getByText('끌어서 범위를 넓히세요 · 손을 떼면 재생')).toBeTruthy();
+  });
+});
+
+describe('ScheduleDetail 범위선택 (길게 누른 채 끌기)', () => {
+  test('오후에서 회의까지 끌어 놓으면 그 범위를 재생하고 범위 끝에서 정지한다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 1, 3);
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0.6); // 오후 시작
+    expect(q.getByText('▶ 3단어 다시 듣기')).toBeTruthy();
+    expect(q.getByText('“오후 세시 회의”')).toBeTruthy();
+    // 중간 단어(세시) 지나는 중엔 정지하지 않음
+    await rerenderWith(q, { currentTime: 1.3, duration: 3, playing: true, didJustFinish: false }, 400);
+    expect(mockPlayer.pause).not.toHaveBeenCalled();
+    // 범위 끝(회의 끝 2.3s) 도달 → 정지, 선택은 유지(다시 듣기 가능)
+    await rerenderWith(q, { currentTime: 2.31, duration: 3, playing: true, didJustFinish: false }, 900);
+    expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
+    expect(q.getByText('▶ 3단어 다시 듣기')).toBeTruthy();
+  });
+
+  test('역방향으로 끌어도 같은 범위가 된다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 3, 1);
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0.6);
+    expect(q.getByText('▶ 3단어 다시 듣기')).toBeTruthy();
+  });
+
+  test('끌어 선택하는 동안은 ScrollView가 터치를 취소하지 못하게 하고, 손을 떼면 되돌린다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    const scroll = () => q.getByTestId('detailScroll');
+    expect(scroll().props.canCancelContentTouches).toBe(true);
+    pressImmediately();
+    await grantAt(q, 1);
+    expect(scroll().props.canCancelContentTouches).toBe(false);
+    expect(q.getByText('끌어서 범위를 넓히세요 · 손을 떼면 재생')).toBeTruthy();
+    await moveTo(q, 2, 1500);
+    await release(q, 1600);
+    await flushMicro();
+    expect(scroll().props.canCancelContentTouches).toBe(true);
+  });
+
+  test('플레이어 status가 멈춰 있어도(소리 미출력) 시계 기준으로 단어 하이라이트가 진행되고 범위 끝에서 정지한다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 1, 3); // 오후(0.6)~회의(2.3)
+    // status는 seek 직후 값(0.6)에서 그대로 멈춰 있다고 가정
+    const stuck = { currentTime: 0.6, duration: 3, playing: false, didJustFinish: false };
+    // 재생 중 단어는 칩 배경이 빨간색(wordPlaying) — 범위 끝단의 굵은 글씨와 구분해 배경으로 판정
+    const chipBg = (idx: number) => JSON.stringify(q.getByTestId(`chip-${idx}`).props.style);
+    await rerenderWith(q, stuck, 300); // 시계 0.9s → 오후
+    expect(chipBg(1)).toContain('"backgroundColor":"#F06A6A"');
+    await rerenderWith(q, stuck, 850); // 시계 1.45s(-0.3 여유 = 1.15) → 세시
+    expect(chipBg(2)).toContain('"backgroundColor":"#F06A6A"');
+    expect(chipBg(1)).not.toContain('"backgroundColor":"#F06A6A"');
+    expect(mockPlayer.pause).not.toHaveBeenCalled();
+    await rerenderWith(q, stuck, 2100); // 시계 2.7s(-0.3 = 2.4) ≥ 범위 끝 2.3 → 정지
+    expect(mockPlayer.pause).toHaveBeenCalledTimes(1);
+    expect(q.getByText('▶')).toBeTruthy();
+  });
+
+  test('선택 중 네이티브가 터치를 취소(terminate)해도 손을 뗀 것처럼 범위를 재생한다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    pressImmediately();
+    await grantAt(q, 1);
+    await moveTo(q, 3, 1500);
+    await fireEvent(q.getByTestId('wordFlow'), 'responderTerminate', touchEvt(touchPrev.x, touchPrev.y, 1600));
+    await flushMicro();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0.6);
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    expect(q.getByText('▶ 3단어 다시 듣기')).toBeTruthy();
+    expect(q.getByTestId('detailScroll').props.canCancelContentTouches).toBe(true);
+  });
+
+  test('선택이 남아 있을 때 범위 밖 단어를 탭하면 그쪽으로 범위가 늘어나 재생된다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 1, 2); // 오후~세시
+    mockPlayer.seekTo.mockClear();
+    await tap(q, 0); // 내일 → 내일~세시
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0);
+    expect(q.getByText('▶ 3단어 다시 듣기')).toBeTruthy();
+  });
+
+  test('다시 듣기를 누르면 같은 범위를 처음부터 재생한다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 1, 2);
+    mockPlayer.seekTo.mockClear();
+    await fireEvent.press(q.getByText('▶ 2단어 다시 듣기'));
+    await flushMicro();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0.6);
+  });
+
+  test('✕를 누르면 선택이 해제되고 단어 탭은 다시 한 단어 재생으로 돌아온다', async () => {
+    const q = await render(ui());
+    await layoutChips(q);
+    await longPressDrag(q, 1, 2);
+    await fireEvent.press(q.getByLabelText('범위 해제'));
+    expect(q.queryByText(/다시 듣기/)).toBeNull();
+    mockPlayer.seekTo.mockClear();
+    await tap(q, 3);
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(1.7);
+  });
+});
+
+
