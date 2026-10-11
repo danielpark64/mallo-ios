@@ -23,6 +23,10 @@
 - jest-expo 도입: `npm test` 59개 (파서/저장/알림/달력/카드재생/구간재생). ScheduleCard를 components/로 분리
 - 수정 내역·순서도·실기기 체크리스트: docs/REVIEW_2026-10-09.md
 - 실기기 검증(2026-10-09, Galaxy A32·Android 13 Release): 카드 재생 1-a~d·달력 4-a~c·파서 3-a~c·Android 채널 5·재시작 6·권한 7 전부 ✅. 상세 구간재생 2-a~c는 Android(API 33/31) 단어 타임스탬프 미지원이라 iOS 확인 필요. 발견: Android 정확 알람 권한 없어 알림이 ~1분45초 늦게 옴, 문장 사이 쉼 뒤 STT 두 번째 문장 누락. Xcode 27 빌드용 expo-modules-jsi 56.0.14 업데이트(package-lock).
+- 2026-10-12 폰(iPhone 17 Pro Max) 설치: iOS 27 SDK UIScene 미채택 크래시 → plugins/withIosSceneDelegate.js + app.json 매니페스트로 해결. 8+(iOS 16)는 Xcode 27 미지원으로 설치 불가.
+- 2026-10-12 상세 범위선택 재설계: 단어 길게 누른 채 끌기 → 범위 띠 → 떼면 구간 재생, 선택 바(다시 듣기/✕). iOS는 scrollEnabled 토글이 진행 중 터치를 취소해 canCancelContentTouches로 잠금(Android는 scrollEnabled). 순수 로직 lib/wordRange.ts. jest 90개. 시뮬레이터 검증 완료, 폰 끌기만 사용자 확인 대기.
+- 2026-10-12 폰에서 발견·수정: (1) iOS 음성인식이 단어 시각을 안 주는 녹음(전부 같은 ms, 길이 0) → 저장 시(useVoiceRecorder, 첫/마지막 STT 결과 시각 기준)·표시 시(ScheduleDetail, 전체 길이 기준) 글자 수 비례 합성. (2) 상세 화면이 재생마다 playAndRecord 세션을 써 블루투스 이어폰 무음 → 스피커 모드는 playback 카테고리. (3) 재생 위치를 시계+status로 계산해 소리 유무와 무관하게 단어 하이라이트 진행, duration 0 기기는 durationSec 예비. (4) Modal 안 SafeAreaProvider(닫기/수정이 상태바 위로 올라가던 문제).
+- 2026-10-12 UX 재설계: 달력 월/주 보기(lib/prefs.ts에 기본값 저장) + 보이는 기간의 일정 전부를 날짜별 목록으로(날짜 탭 → 해당 묶음으로 스크롤), 카드 내용 2줄 요약, 전체 일정 조회를 검색창+기간 칩(전체/오늘/이번 주/이번 달/직접 선택 휠)으로 교체(lib/filterRecords.ts, components/FilterSheet.tsx), 텍스트/PDF는 미리보기(components/ExportPreview.tsx) 후 내보내기. ScrollPicker는 components/ScrollPicker.tsx로 분리. 마이크는 components/MicIcon.tsx(View로 그린 표준 모양). 편집기 Modal SafeAreaProvider·시간 박스 아이콘 overflow 수정. jest 118개. 폰 미러링으로 월/주·조회·휠 시트·미리보기·편집기 화면 확인. ※Modal 안에선 반드시 SafeAreaProvider를 따로 둘 것(상세·편집기·미리보기 모두 적용됨).
 
 다음 후보:
 (a) 규칙 파서 → Claude API 구조화(자유 말투/의도 추출) — 4단계 마무리

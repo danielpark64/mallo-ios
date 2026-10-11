@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
-  FlatList,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -14,12 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import { Calendar } from './Calendar';
+import { ScrollPicker } from './ScrollPicker';
+import { MicIcon } from './MicIcon';
 import { formatDayHeader } from '../lib/dateUtils';
 import { C } from '../lib/colors';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
@@ -45,122 +46,11 @@ export type AppendResult = {
 };
 
 // ─── 무한궤도 스크롤 피커 ─────────────────────────────────────────────────────
-const PICK_H = 42;
 // 항목 수가 적은 피커(시 등)도 양방향 스크롤 버퍼가 충분하도록
 // midOffset(중앙까지의 행 수)이 대략 같아지게 loopCount를 동적으로 계산
-const TARGET_MID_OFFSET = 48;
 
 const HOURS24     = Array.from({ length: 24 }, (_, i) => i); // 0~23
 const MINUTES     = [0,5,10,15,20,25,30,35,40,45,50,55];
-
-function ScrollPicker({
-  value, items, onChange, label,
-}: {
-  value: number;
-  items: number[];
-  onChange: (v: number) => void;
-  label: (v: number) => string;
-}) {
-  const flatRef        = useRef<FlatList>(null);
-  const isScrolling    = useRef(false);
-  const skipEffect     = useRef(false);
-  const [laid, setLaid] = useState(false);
-
-  const loopCount = useMemo(
-    () => 2 * Math.ceil(TARGET_MID_OFFSET / items.length) + 1,
-    [items]
-  );
-  const looped   = useMemo(() => Array.from({ length: loopCount }, () => items).flat(), [items, loopCount]);
-  const total    = looped.length;
-  const midOff   = Math.floor(loopCount / 2) * items.length;
-
-  const targetY = useCallback(
-    (v: number) => (midOff + items.indexOf(v)) * PICK_H,
-    [items, midOff]
-  );
-
-  // initialScrollIndex: item n-1 을 뷰포트 상단에 → item n 이 중앙 하이라이트에 위치
-  const initScrollIndex = Math.max(0, midOff + items.indexOf(value) - 1);
-
-  // 초기 스크롤 — onLayout 후 200ms + 500ms 2단계로 확실하게 실행
-  useEffect(() => {
-    if (!laid) return;
-    const t1 = setTimeout(() => {
-      flatRef.current?.scrollToOffset({ offset: targetY(value), animated: false });
-    }, 200);
-    const t2 = setTimeout(() => {
-      flatRef.current?.scrollToOffset({ offset: targetY(value), animated: false });
-    }, 500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laid]);
-
-  useEffect(() => {
-    if (!laid) return;
-    if (skipEffect.current) { skipEffect.current = false; return; }
-    if (isScrolling.current) return;
-    flatRef.current?.scrollToOffset({ offset: targetY(value), animated: true });
-  }, [value, laid, targetY]);
-
-  const handleEnd = useCallback((y: number) => {
-    isScrolling.current = false;
-    const idx    = Math.round(y / PICK_H);
-    const clipped = Math.max(0, Math.min(total - 1, idx));
-    const newVal  = looped[clipped];
-    if (newVal !== value) {
-      skipEffect.current = true;
-      onChange(newVal);
-    }
-    // 끝 근처면 가운데로 순간이동
-    const localIdx = items.indexOf(newVal);
-    const tgt = (midOff + localIdx) * PICK_H;
-    if (Math.abs(clipped - (midOff + localIdx)) > items.length * 2) {
-      setTimeout(() => {
-        flatRef.current?.scrollToOffset({ offset: tgt, animated: false });
-      }, 50);
-    }
-  }, [value, looped, total, items, midOff, onChange]);
-
-  const getItemLayout = useCallback((_: any, i: number) => ({
-    length: PICK_H, offset: PICK_H * (i + 1), index: i,
-  }), []);
-
-  const renderItem = useCallback(({ item }: { item: number }) => (
-    <TouchableOpacity style={pick.item} onPress={() => onChange(item)} activeOpacity={0.6}>
-      <Text style={item === value ? pick.sel : pick.dim}>{label(item)}</Text>
-    </TouchableOpacity>
-  ), [value, onChange, label]);
-
-  return (
-    <View style={pick.wrap} onLayout={() => setLaid(true)}>
-      <View style={pick.highlight} pointerEvents="none" />
-      <FlatList
-        ref={flatRef}
-        data={looped}
-        keyExtractor={(_, i) => String(i)}
-        renderItem={renderItem}
-        getItemLayout={getItemLayout}
-        initialScrollIndex={initScrollIndex}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={PICK_H}
-        decelerationRate="fast"
-        windowSize={3}
-        nestedScrollEnabled
-        contentContainerStyle={{ paddingVertical: PICK_H }}
-        onScrollBeginDrag={() => { isScrolling.current = true; }}
-        onMomentumScrollEnd={(e: any) => {
-          if (!isScrolling.current) return;
-          handleEnd(e.nativeEvent.contentOffset.y);
-        }}
-        onScrollEndDrag={(e: any) => {
-          if (!isScrolling.current) return;
-          const vy = e.nativeEvent.velocity?.y ?? 0;
-          if (Math.abs(vy) < 0.01) handleEnd(e.nativeEvent.contentOffset.y);
-        }}
-      />
-    </View>
-  );
-}
 
 // ─── 편집기 (전체화면) ─────────────────────────────────────────────────────────
 export function ScheduleEditor({
@@ -352,6 +242,9 @@ export function ScheduleEditor({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      {/* Modal은 별도 창이라 바깥 SafeAreaProvider의 인셋이 전달되지 않는다 → 안쪽에 따로 둔다
+          (없으면 iOS에서 취소/저장 네비가 상태바 위로 올라감 — 2026-10-12 폰 확인) */}
+      <SafeAreaProvider>
       <SafeAreaView style={styles.screen}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* 상단 네비게이션 */}
@@ -453,7 +346,7 @@ export function ScheduleEditor({
           </View>
           {appendMode && appendCapture?.uri && !appendRecording && (
             <Text style={styles.appendCaptureHint}>
-              🎙 녹음 저장됨 ({appendCapture.durationSec}초) · 내용을 고치면 구간재생은 빠지고 녹음은 그대로 남아요
+              녹음 저장됨 ({appendCapture.durationSec}초) · 내용을 고치면 구간재생은 빠지고 녹음은 그대로 남아요
             </Text>
           )}
           <View style={styles.contentInputWrap}>
@@ -474,25 +367,21 @@ export function ScheduleEditor({
               onPress={appendMode ? toggleAppendVoice : toggleStt}
               activeOpacity={0.7}
             >
-              <Animated.Text style={[styles.micIcon, { transform: [{ scale: micAnim }] }]}>
-                {(appendMode ? appendRecording : sttOn) ? '🔴' : '🎙️'}
-              </Animated.Text>
+              <Animated.View style={{ transform: [{ scale: micAnim }] }}>
+                {(appendMode ? appendRecording : sttOn)
+                  ? <View style={styles.recDot} />
+                  : <MicIcon size={22} color={C.text} />}
+              </Animated.View>
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
-const pick = StyleSheet.create({
-  wrap:      { flex: 1, height: PICK_H * 3, overflow: 'hidden', position: 'relative' },
-  highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: C.surfaceHigh, borderRadius: 10 },
-  item:      { height: PICK_H, justifyContent: 'center', alignItems: 'center' },
-  sel:       { fontSize: 24, color: C.text, fontWeight: '700' },
-  dim:       { fontSize: 15, color: C.textDim, fontWeight: '400' },
-});
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
@@ -523,21 +412,22 @@ const styles = StyleSheet.create({
   dateBtnChevron: { color: C.accent, fontSize: 12 },
   calBox:         { borderRadius: 12, marginTop: 8 },
 
+  // 왼쪽 휠(시:분)은 flex로 줄어들고, 오른쪽 알람 영역은 내용 크기만큼만 차지해 박스 밖으로 나가지 않게 한다
   pickerRow: {
     flexDirection: 'row', alignItems: 'center', width: '100%',
-    backgroundColor: C.surface, borderRadius: 16, paddingHorizontal: 8,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.surface, borderRadius: 16, paddingLeft: 8, paddingRight: 10,
+    borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
-  timePickerGroup: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  timePickerGroup: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   colon:       { color: C.text, fontSize: 20, fontWeight: '700', paddingHorizontal: 2 },
 
-  alarmSide:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingLeft: 12, paddingVertical: 10, width: 130 },
-  alarmTextCol: { alignItems: 'center', gap: 4 },
+  alarmSide:    { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 10, paddingVertical: 10 },
+  alarmTextCol: { alignItems: 'center', gap: 2, minWidth: 44 },
   alarmIconCol: { alignItems: 'center', gap: 6 },
-  meridiemText: { color: C.textSub, fontSize: 18, fontWeight: '700' },
-  timePreview:  { color: C.text, fontSize: 18, fontWeight: '700' },
+  meridiemText: { color: C.textSub, fontSize: 15, fontWeight: '700' },
+  timePreview:  { color: C.text, fontSize: 17, fontWeight: '700' },
   modeIconGroup: { flexDirection: 'row', gap: 6 },
-  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: C.surfaceHigh },
+  modeIconBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 7, paddingVertical: 6, borderRadius: 9, backgroundColor: C.surfaceHigh },
   modeIconBtnOn: { backgroundColor: C.red },
   modeIconBell: { fontSize: 14 },
   modeIconVibe: { width: 16, height: 16, resizeMode: 'contain' },
@@ -569,5 +459,5 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
   },
-  micIcon: { fontSize: 20 },
+  recDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.red },
 });
