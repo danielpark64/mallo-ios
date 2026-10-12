@@ -1,6 +1,15 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import {
+  EXPO_FALLBACK_GRACE_MS,
+  cancelAllNativeAlarms,
+  cancelNativeAlarms,
+  cancelNativeAlarmsByRecordId,
+  isNativeAlarmAvailable,
+  scheduleNativeAlarm,
+} from './nativeAlarm';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -91,7 +100,11 @@ const SOUND = 'alarm_long.wav';
 
 /**
  * 지정 시각에 알람 예약 (main + +1분 + +2분 반복 슬롯).
- * 반환값: 등록된 notification identifier 배열 (취소에 사용).
+ * 반환값: 등록된 notification identifier 배열 (취소에 사용). 네이티브 예약 키도 같은 문자열이다.
+ *
+ * Android 이중 알람: 슬롯마다 네이티브 AlarmManager(정확, T)와 Expo(보조, T+유예)를 같은 식별자로
+ * 함께 건다. 네이티브가 울리면 리시버가 같은 식별자의 Expo 예약을 지워 중복을 막고, 네이티브가
+ * 못 울린 경우에만 Expo가 유예 뒤 대신 울린다. iOS·네이티브 미빌드 환경은 Expo 단일 경로 그대로.
  */
 export async function scheduleAlarm(
   recordId: string,
@@ -111,17 +124,22 @@ export async function scheduleAlarm(
     categoryIdentifier: 'alarm',
     data: { recordId },
   };
+  const useNative = isNativeAlarmAvailable();
 
   // 메인 + +1분 + +2분 슬롯
   for (const offset of [0, 1, 2]) {
     const fireAt = new Date(at.getTime() + offset * 60 * 1000);
+    const identifier = `mallo_${recordId}_${offset}`;
+    const nativeArmed =
+      useNative &&
+      scheduleNativeAlarm({ key: identifier, recordId, at: fireAt, title: '말로', body: content, mode });
     try {
       const id = await Notifications.scheduleNotificationAsync({
-        identifier: `mallo_${recordId}_${offset}`,
+        identifier,
         content: { ...base, data: { recordId, slotOffset: offset } },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: fireAt,
+          date: nativeArmed ? new Date(fireAt.getTime() + EXPO_FALLBACK_GRACE_MS) : fireAt,
           // Android: 모드별 채널로 소리/진동 결정 (iOS는 무시됨)
           channelId: ANDROID_CHANNEL[mode],
         },
@@ -129,6 +147,8 @@ export async function scheduleAlarm(
       ids.push(id);
     } catch (e) {
       console.warn(`알림 등록 실패 (offset ${offset}):`, e);
+      // Expo 등록이 실패해도 네이티브는 걸렸으니 취소용 식별자는 남긴다
+      if (nativeArmed) ids.push(identifier);
     }
   }
   return ids;
@@ -136,6 +156,7 @@ export async function scheduleAlarm(
 
 /** 레코드에 연결된 알람 알림 전부 취소 */
 export async function cancelAlarm(notifIds: string[]): Promise<void> {
+  cancelNativeAlarms(notifIds); // Android: 네이티브 슬롯(같은 키) + 그 일정의 스누즈 슬롯
   await Promise.all(
     notifIds.map((id) =>
       Notifications.cancelScheduledNotificationAsync(id).catch(() => {})
@@ -145,6 +166,7 @@ export async function cancelAlarm(notifIds: string[]): Promise<void> {
 
 /** recordId로 예약된 알림 전부 취소 (response handler용) */
 export async function cancelAlarmByRecordId(recordId: string): Promise<void> {
+  cancelNativeAlarmsByRecordId(recordId); // Android: 울리는 중이면 멈추고 남은 네이티브 슬롯 정리
   const all = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     all
@@ -170,6 +192,7 @@ export async function resyncAlarms(
 ): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
+    cancelAllNativeAlarms(); // Android: 네이티브 원장도 전부 비운 뒤 아래에서 둘 다 다시 건다
     const now = Date.now();
     const future = records
       .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt > now)

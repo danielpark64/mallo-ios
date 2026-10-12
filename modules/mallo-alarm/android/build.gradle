@@ -1,0 +1,39 @@
+// 말로 Android 전용 정확 알람 모듈 (Expo 로컬 모듈).
+// android/ 폴더는 gitignore라 네이티브 소스를 거기 두면 커밋되지 않는다 — 저장소 안의 modules/ 에 두고
+// expo-modules-autolinking(기본 nativeModulesDir = ./modules)이 빌드 때 자동으로 끌어간다.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.danielpark.mallo'
+version = '1.0.0'
+
+android {
+  namespace "com.danielpark.mallo.alarm"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+// 네이티브 알람이 울릴 때 같은 슬롯의 Expo 예약(쌍둥이)을 취소하기 위해 expo-notifications의
+// NotificationsService 정적 API를 직접 호출한다. Expo 오토링킹은 expo-notifications를 보통 소스가 아닌
+// 로컬 Maven 퍼블리케이션(node_modules/expo-notifications/local-maven-repo)으로 붙이므로 그 좌표를 쓰고,
+// buildFromSource로 소스 프로젝트가 된 경우만 project()를 쓴다. compileOnly — 런타임 클래스는 앱이 이미 가진다.
+def expoNotificationsVersion = {
+  def pkg = new File(projectDir, '../../../node_modules/expo-notifications/package.json')
+  pkg.exists() ? new groovy.json.JsonSlurper().parse(pkg).version : null
+}()
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+  implementation 'androidx.core:core:1.17.0'
+  if (findProject(':expo-notifications') != null) {
+    compileOnly project(':expo-notifications')
+  } else if (expoNotificationsVersion != null) {
+    compileOnly "host.exp.exponent:expo.modules.notifications:${expoNotificationsVersion}"
+  } else {
+    throw new GradleException("mallo-alarm: expo-notifications를 찾을 수 없습니다 (node_modules 설치 확인)")
+  }
+}

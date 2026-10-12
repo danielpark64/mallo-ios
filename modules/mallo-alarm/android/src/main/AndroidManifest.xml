@@ -1,0 +1,52 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- 정확 알람: Android 12(API 31~32)는 SCHEDULE_EXACT_ALARM(설치 시 자동 허용, 사용자가 끌 수 있음),
+       Android 13+(API 33)는 USE_EXACT_ALARM(알람/일정 앱 전용, 자동 허용·철회 불가). 둘 다 선언한다.
+       expo-notifications도 canScheduleExactAlarms()가 참일 때만 setExactAndAllowWhileIdle을 쓰므로
+       이 선언만으로 Expo 경로의 지연(+1~2분)도 함께 사라진다. -->
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+
+  <application>
+    <!-- directBootAware: 재부팅 후 잠금해제 전에도 예약 복구·발화·울림 화면이 동작해야 한다.
+         이들이 쓰는 데이터(예약 원장)는 device-protected 저장소에 있다(AlarmStore). -->
+    <receiver
+      android:name=".AlarmReceiver"
+      android:exported="false"
+      android:directBootAware="true"/>
+    <service
+      android:name=".AlarmService"
+      android:exported="false"
+      android:directBootAware="true"
+      android:foregroundServiceType="mediaPlayback"/>
+    <receiver
+      android:name=".BootReceiver"
+      android:exported="true"
+      android:enabled="true"
+      android:directBootAware="true">
+      <intent-filter>
+        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+        <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+      </intent-filter>
+    </receiver>
+    <activity
+      android:name=".AlarmRingActivity"
+      android:exported="false"
+      android:directBootAware="true"
+      android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen"
+      android:excludeFromRecents="true"
+      android:showOnLockScreen="true"
+      android:turnScreenOn="true"
+      android:taskAffinity=""
+      android:launchMode="singleInstance"/>
+  </application>
+</manifest>
