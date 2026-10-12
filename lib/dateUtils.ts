@@ -320,3 +320,41 @@ export function mergePreAlarms(sections: DaySection[], items: PreAlarmItem[]): D
     return a.date.getTime() - b.date.getTime();
   });
 }
+
+// ─── 지난 일정 접기 ─────────────────────────────────────────────────────────────
+// 목록은 시간순(이른 것이 위)을 유지하되, 이미 지난 항목은 접어 "지금부터의 일정"이 맨 위에 오게 한다.
+export function isPastItem(x: DayListItem, now: number = Date.now()): boolean {
+  if (isPreAlarmItem(x)) return x.fireAt <= now;
+  if (x.scheduleAt == null) return false; // 날짜 미정은 지난 것으로 보지 않는다
+  if (x.hasTime) return x.scheduleAt <= now;
+  // 시간 미정(그날 0시 저장)은 그 날짜가 끝나야 지난 것
+  return x.scheduleAt + 86_400_000 <= now;
+}
+
+/**
+ * 지난 항목을 접는다. `showPast`만큼은 **가장 최근의 지난 항목부터**(지금에 가까운 순) 남겨 두고 더 오래된 것은 뺀다.
+ * 전체 일정은 몇 년 치가 쌓이면 수천 건이라 한 번에 펼치지 않고 30건씩 연다. 빈 섹션은 제거.
+ * 반환: sections(표시용), pastCount(지난 전체), hiddenCount(아직 안 보이는 지난 개수)
+ */
+export function collapsePast<T extends { data: DayListItem[] }>(
+  sections: T[],
+  now: number = Date.now(),
+  showPast = 0,
+): { sections: T[]; pastCount: number; hiddenCount: number } {
+  let pastCount = 0;
+  for (const sec of sections) for (const x of sec.data) if (isPastItem(x, now)) pastCount++;
+  const hiddenCount = Math.max(0, pastCount - showPast);
+  // 섹션은 시간순이므로 앞에서부터 hiddenCount개의 지난 항목을 건너뛴다
+  let skip = hiddenCount;
+  const out: T[] = [];
+  for (const sec of sections) {
+    const keep = sec.data.filter((x) => {
+      if (!isPastItem(x, now)) return true;
+      if (skip > 0) { skip--; return false; }
+      return true;
+    });
+    if (keep.length) out.push({ ...sec, data: keep });
+  }
+  return { sections: out, pastCount, hiddenCount };
+}
+export const PAST_PAGE = 30;

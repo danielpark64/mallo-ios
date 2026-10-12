@@ -53,3 +53,7 @@
 - 2026-10-12 18:50: 한도 직전 상태 — 영어 모드 32 확인 완료(요일 라벨·묶음 제목 언어 갱신 수정). i18n 9개 언어 구조(lib/i18n/lang.ts LANGS·STT_LOCALE·langFromLocale, dicts.ts, 빈 사전 ja/zh-Hans/zh-Hant/es/fr/de/pt.ts), 설정 언어 세그먼트 전체 언어·감싸기. **백그라운드 에이전트 3개 진행 중**: ①ja/zh 사전 ②es/fr/de/pt 사전 ③parseScheduleIntl(7개 언어 파서·dateUtils/reminders 포맷). 아이콘 시안 D/E, H/I 사용자 선택 대기. **미커밋**: 영문화+이름 SayRam(커밋 승인 대기). 재개 시: 에이전트 결과 확인(없으면 그 작업 직접 마무리) → tsc/jest → 커밋 승인 요청 → 아이콘 적용 → 4기기 빌드.
 
 - 2026-10-12 21:50: **다국어 9개 언어 완료(미커밋)** — 사전 ja/zh-Hans/zh-Hant/es/fr/de/pt 각 290키, `lib/parseScheduleIntl.ts` 표 기반 파서(7개 언어)+formatDisplayIntl, dateUtils/reminders 언어별 포맷, STT_LOCALE 표. dateUtils/notifications의 t()가 DICTS 전체 참조. 아이콘 I 적용(assets/icon.png, android mipmap webp 전부, iOS 1024). 테스트 344개. 32 빌드 중 → 설정 화면 확인 → 커밋 승인 요청 → 4기기 빌드.
+
+- 2026-10-13 00:10: 다국어·이름·아이콘 **커밋·푸시 완료**(1b4cfd2, 1494e7a). 네 기기 빌드 진행 중(32·노트 Android, 미니·폰 iOS). 다음 후보: 홈 화면 아이콘 확인, Google Play 출시 준비(릴리스 키스토어·개인정보처리방침·데이터 안전·권한 사유·스크린샷 9개 언어), KIPRIS 상표 조회(사용자), 알람 모듈 진동 실기기 검증(32).
+
+- 2026-10-13 04:10: **지난 일정 접기**(달력·전체 일정 탭, '지난 일정 N건 보기' 토글, 검색·필터 중엔 접지 않음, 접힌 상태 빈 문구 '앞으로 올 일정이 없어요') — `lib/dateUtils.ts` isPastItem/collapsePast, 테스트 346개. 32 확인 완료. 미커밋(승인 대기).

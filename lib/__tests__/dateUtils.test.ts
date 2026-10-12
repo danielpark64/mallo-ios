@@ -124,3 +124,39 @@ describe('영어 포맷 (언어 설정 en)', () => {
     expect(groupByDay([rec('e', null)]).map((s) => s.title)).toEqual(['No date']);
   });
 });
+
+describe('지난 일정 접기', () => {
+  const { collapsePast, isPastItem } = require('../dateUtils');
+  const now = new Date(2026, 9, 12, 12, 0).getTime();
+  const rec = (id: string, at: number, hasTime = true) => ({
+    id, uri: '', durationSec: 0, transcript: '', content: id, scheduleAt: at, scheduleDisplay: '', hasDate: true, hasTime, createdAt: 1,
+  });
+  test('시간 있는 일정은 시각이 지나면, 시간 미정은 날짜가 끝나야 지난 것', () => {
+    expect(isPastItem(rec('a', now - 1), now)).toBe(true);
+    expect(isPastItem(rec('b', now + 1), now)).toBe(false);
+    const todayMidnight = new Date(2026, 9, 12).getTime();
+    expect(isPastItem(rec('c', todayMidnight, false), now)).toBe(false);
+    expect(isPastItem(rec('d', todayMidnight - 86_400_000, false), now)).toBe(true);
+    expect(isPastItem({ ...rec('e', 0), scheduleAt: null }, now)).toBe(false);
+  });
+  test('지난 항목을 빼고 개수를 세며 빈 섹션은 없앤다', () => {
+    const sections = [
+      { key: '1', title: '', date: new Date(0), data: [rec('p1', now - 2000), rec('p2', now - 1000)] },
+      { key: '2', title: '', date: new Date(0), data: [rec('p3', now - 500), rec('f1', now + 1000)] },
+    ];
+    const r = collapsePast(sections, now);
+    expect(r.pastCount).toBe(3);
+    expect(r.hiddenCount).toBe(3);
+    expect(r.sections.map((s: any) => s.data.map((x: any) => x.id))).toEqual([['f1']]);
+  });
+  test('showPast만큼은 가장 최근의 지난 항목부터 남긴다 (수천 건을 한 번에 펼치지 않음)', () => {
+    const sections = [
+      { key: '1', title: '', date: new Date(0), data: [rec('p1', now - 3000), rec('p2', now - 2000)] },
+      { key: '2', title: '', date: new Date(0), data: [rec('p3', now - 1000), rec('f1', now + 1000)] },
+    ];
+    const r = collapsePast(sections, now, 2);
+    expect([r.pastCount, r.hiddenCount]).toEqual([3, 1]);
+    expect(r.sections.map((s: any) => s.data.map((x: any) => x.id))).toEqual([['p2'], ['p3', 'f1']]);
+    expect(collapsePast(sections, now, 99).hiddenCount).toBe(0);
+  });
+});

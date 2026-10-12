@@ -1,6 +1,10 @@
 // 영어 사전 — main 그룹 (키 = 한국어 원문)
 // App.tsx(메인 화면·녹음 시트·Alert) + ScheduleCard·PreAlarmRow·Calendar·MicIcon
 export const EN_MAIN: Record<string, string> = {
+  '지난 일정 {n}건 보기 ▾': 'Show {n} past ▾',
+  '지난 일정 접기 ▴': 'Hide past ▴',
+  '더 이전 일정 보기 ({n}건 남음) ▾': 'Show older ({n} left) ▾',
+  '앞으로 올 일정이 없어요': 'No upcoming schedules',
   // ── 헤더·탭 ──
   '세이람': 'SayRam',
   '다음 ·': 'Next ·',

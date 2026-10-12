@@ -2,6 +2,7 @@
 // lib/helpContent.ts 의 제목·문단 전체. HelpSheet가 t(sec.title)·t(p)로 찾는다.
 // 한국어 말하기 예시는 영어권 사용자용 예시("tomorrow at 3pm" 등)로 바꿨다.
 export const EN_HELP: Record<string, string> = {
+  '지난 일정은 "지난 일정 N건 보기"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 전체 일정 화면에서 검색·기간 조건을 쓰면 접지 않습니다.': 'Past schedules are folded under "Show N past" so upcoming ones stay on top. Tap to expand; with a search or period filter on All Schedules, nothing is folded.',
   '세이람은 말로 적는 일정 · 알람 앱입니다. 마이크를 누르고 말하면 날짜와 시간을 알아듣고 일정으로 저장합니다.':
     'SayRam is a schedule and alarm app you talk to. Tap the mic and speak; it picks out the date and time and saves a schedule.',
 

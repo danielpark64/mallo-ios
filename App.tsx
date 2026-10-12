@@ -27,7 +27,7 @@ import {
   startOfMonth,
   startOfWeek,
   type DaySection,
-  daysWithPreAlarms, isPreAlarmItem, mergePreAlarms, preAlarmItems,
+  daysWithPreAlarms, isPreAlarmItem, mergePreAlarms, preAlarmItems, collapsePast, PAST_PAGE,
   type DayListItem, type DayListSection,
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs, type CalendarMode } from './lib/prefs';
@@ -143,9 +143,15 @@ function AllSchedulesList({
   const [preview, setPreview] = useState<ExportKind | null>(null);
 
   const filtered = useMemo(() => filterRecords(records, filter), [records, filter]);
-  const sections = useMemo(() => groupByDay(filtered), [filtered, lang]);
+  const allSections = useMemo(() => groupByDay(filtered), [filtered, lang]);
+  // 검색·기간 조건이 없을 때는 지난 일정을 접어 다음 일정이 맨 위에 오게 한다
+  // 지난 일정은 30건씩 최근 것부터 연다 (수천 건을 한 번에 펼치지 않는다)
+  const [pastShown, setPastShown] = useState(0);
+  const collapsed = useMemo(() => collapsePast(allSections, Date.now(), pastShown), [allSections, pastShown]);
+  const collapsing = !isFilterActive(filter) && collapsed.hiddenCount > 0;
+  const sections = isFilterActive(filter) ? allSections : collapsed.sections;
   // 복사/내보내기는 화면과 같은 순서(날짜순, 날짜 미정은 맨 뒤)로
-  const exportList = useMemo(() => sections.flatMap((sec) => sec.data), [sections]);
+  const exportList = useMemo(() => allSections.flatMap((sec) => sec.data), [allSections]);
   const active = isFilterActive(filter);
 
   // 직접 선택 휠의 연도 후보: 일정이 있는 해 ± 1년 (올해 포함)
@@ -254,11 +260,33 @@ function AllSchedulesList({
         contentContainerStyle={styles.allListContent}
         stickySectionHeadersEnabled={false}
         keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={header}
+        ListHeaderComponent={
+          <>
+            {header}
+            {!isFilterActive(filter) && collapsed.pastCount > 0 && (
+              <View style={styles.pastToggleRow}>
+                {collapsed.hiddenCount > 0 && (
+                  <TouchableOpacity style={[styles.pastToggle, { flex: 1 }]} onPress={() => setPastShown((n) => n + PAST_PAGE)} activeOpacity={0.7} accessibilityLabel="지난 일정 보기">
+                    <Text style={styles.pastToggleText}>
+                      {pastShown === 0
+                        ? t('지난 일정 {n}건 보기 ▾', { n: collapsed.pastCount })
+                        : t('더 이전 일정 보기 ({n}건 남음) ▾', { n: collapsed.hiddenCount })}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {pastShown > 0 && (
+                  <TouchableOpacity style={[styles.pastToggle, { flex: 1 }]} onPress={() => setPastShown(0)} activeOpacity={0.7} accessibilityLabel="지난 일정 접기">
+                    <Text style={styles.pastToggleText}>{t('지난 일정 접기 ▴')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </>
+        }
         ListEmptyComponent={
           <View style={styles.emptyAll}>
             <Text style={styles.emptyAllIcon}>📅</Text>
-            <Text style={styles.emptyAllText}>{active ? t('조건에 맞는 일정이 없어요') : t('등록된 일정이 없어요')}</Text>
+            <Text style={styles.emptyAllText}>{active ? t('조건에 맞는 일정이 없어요') : collapsing ? t('앞으로 올 일정이 없어요') : t('등록된 일정이 없어요')}</Text>
             {!active && <Text style={styles.emptyAllSub}>{t('아래 마이크 버튼으로 말해서 바로 추가해보세요')}</Text>}
           </View>
         }
@@ -429,6 +457,9 @@ function AppInner() {
     [records, visibleRange, lang],
   );
   const periodCount = periodSections.reduce((n, sec) => n + sec.data.filter((x) => !isPreAlarmItem(x)).length, 0);
+  const [showPastPeriod, setShowPastPeriod] = useState(false);
+  const periodCollapsed = useMemo(() => collapsePast(periodSections), [periodSections]);
+  const periodListSections = showPastPeriod || periodCollapsed.pastCount === 0 ? periodSections : periodCollapsed.sections;
   const periodLabel =
     calendarMode === 'week'
       ? formatWeekLabel(visibleRange.start)
@@ -464,11 +495,11 @@ function AppInner() {
       return;
     }
     const key = dayKey(d);
-    let idx = periodSections.findIndex((sec) => sec.key === key);
-    if (idx < 0) idx = periodSections.findIndex((sec) => sec.date.getTime() >= t);
+    let idx = periodListSections.findIndex((sec) => sec.key === key);
+    if (idx < 0) idx = periodListSections.findIndex((sec) => sec.date.getTime() >= t);
     if (idx < 0) return;
     scrollToSection(idx);
-  }, [periodSections, visibleRange, scrollToSection]);
+  }, [periodListSections, visibleRange, scrollToSection]);
 
   const nextSchedule = useMemo(() => {
     const now = Date.now();
@@ -821,7 +852,7 @@ function AppInner() {
       {activeTab === 'calendar' ? (
         <SectionList
           ref={periodListRef}
-          sections={periodSections}
+          sections={periodListSections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.dayListContent}
           stickySectionHeadersEnabled={false}
@@ -853,11 +884,18 @@ function AppInner() {
                 <Text style={styles.dayHeaderText} numberOfLines={2}>{t('{label} 일정', { label: periodLabel })}</Text>
                 <Text style={styles.dayCount}>{periodCount > 0 ? t('{n}건', { n: periodCount }) : ''}</Text>
               </View>
+              {periodCollapsed.pastCount > 0 && (
+                <TouchableOpacity style={styles.pastToggle} onPress={() => setShowPastPeriod((v) => !v)} activeOpacity={0.7} accessibilityLabel="지난 일정 보기">
+                  <Text style={styles.pastToggleText}>
+                    {showPastPeriod ? t('지난 일정 접기 ▴') : t('지난 일정 {n}건 보기 ▾', { n: periodCollapsed.pastCount })}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </>
           }
           ListEmptyComponent={
             <View style={styles.emptyDay}>
-              <Text style={styles.emptyDayText}>{calendarMode === 'week' ? t('이 주에는 일정이 없어요') : t('이 달에는 일정이 없어요')}</Text>
+              <Text style={styles.emptyDayText}>{periodCollapsed.pastCount > 0 && !showPastPeriod ? t('앞으로 올 일정이 없어요') : calendarMode === 'week' ? t('이 주에는 일정이 없어요') : t('이 달에는 일정이 없어요')}</Text>
             </View>
           }
           renderSectionHeader={({ section }) => {
@@ -1071,6 +1109,9 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   chipOn: { backgroundColor: C.accent, borderColor: C.accent },
   chipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
   chipTextOn: { color: '#fff' },
+  pastToggleRow: { flexDirection: 'row', gap: 8 },
+  pastToggle: { marginHorizontal: 4, marginBottom: 10, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, alignItems: 'center' },
+  pastToggleText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
   resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 6, paddingTop: 2, paddingBottom: 2 },
   resultText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
   resultActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
