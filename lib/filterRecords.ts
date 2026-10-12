@@ -1,5 +1,6 @@
 // ─── 전체 일정 조회 필터 (순수 로직) ───────────────────────────────────────────
 import { endOfWeek, isSameDay, startOfWeek } from './dateUtils';
+import { t } from './i18n';
 import type { ScheduleRecord } from './storage';
 
 export type PeriodPreset = 'all' | 'today' | 'week' | 'month' | 'custom';
@@ -24,17 +25,17 @@ export function isFilterActive(f: RecordFilter): boolean {
 /** 칩에 보여줄 기간 설명. 직접 선택이면 "2026년 10월 15일"처럼 고른 항목만 */
 export function describePeriod(f: RecordFilter): string {
   switch (f.preset) {
-    case 'today': return '오늘';
-    case 'week': return '이번 주';
-    case 'month': return '이번 달';
+    case 'today': return t('오늘');
+    case 'week': return t('이번 주');
+    case 'month': return t('이번 달');
     case 'custom': {
       const parts: string[] = [];
-      if (f.year != null) parts.push(`${f.year}년`);
-      if (f.month != null) parts.push(`${f.month}월`);
-      if (f.day != null) parts.push(`${f.day}일`);
-      return parts.length ? parts.join(' ') : '기간 선택';
+      if (f.year != null) parts.push(t('{n}년', { n: f.year }));
+      if (f.month != null) parts.push(t('{n}월', { n: f.month }));
+      if (f.day != null) parts.push(t('{n}일', { n: f.day }));
+      return parts.length ? parts.join(' ') : t('기간 선택');
     }
-    default: return '전체';
+    default: return t('전체');
   }
 }
 

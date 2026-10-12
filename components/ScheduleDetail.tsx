@@ -7,6 +7,7 @@ import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useTheme, type Palette } from '../lib/theme';
+import { useT } from '../lib/i18n';
 import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords } from '../lib/exportUtils';
@@ -81,6 +82,7 @@ function EntryBlock({
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const { t } = useT();
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
   // player.currentTime은 리렌더를 일으키지 않는 네이티브 getter → 구간 종료 감지/단어 하이라이트가
   // 동작하지 않았음. 상태 구독 훅으로 100ms마다 갱신되는 반응형 값을 쓴다.
@@ -102,7 +104,7 @@ function EntryBlock({
   const statusAtStartRef = useRef<typeof status | null>(null);
   // 재생 중 80ms마다 리렌더해 시계 기준 위치로 하이라이트를 움직인다
   const [, setTick] = useState(0);
-  const text = content || transcript || '(내용 없음)';
+  const text = content || transcript || t('(내용 없음)');
 
   // ── 범위선택 상태 ──────────────────────────────────────────────────────────────
   // range: 확정된 선택(재생이 끝나도 유지 → "다시 듣기"). selecting: 손가락으로 끌어 넓히는 중.
@@ -361,14 +363,14 @@ function EntryBlock({
           {range ? (
             <View style={s.rangeBar}>
               <TouchableOpacity style={s.rangeReplay} onPress={() => playRange(range)} activeOpacity={0.8}>
-                <Text style={s.rangeReplayText}>▶ {range.end - range.start + 1}단어 다시 듣기</Text>
+                <Text style={s.rangeReplayText}>{t('▶ {n}단어 다시 듣기', { n: range.end - range.start + 1 })}</Text>
               </TouchableOpacity>
               <Text style={s.rangeWords} numberOfLines={1}>“{rangeText(segs, range)}”</Text>
               <TouchableOpacity
                 style={s.rangeClear}
                 onPress={clearRange}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityLabel="범위 해제"
+                accessibilityLabel={t('범위 해제')}
               >
                 <Text style={s.rangeClearText}>✕</Text>
               </TouchableOpacity>
@@ -377,10 +379,10 @@ function EntryBlock({
 
           <Text style={s.chipHint}>
             {selecting
-              ? '끌어서 범위를 넓히세요 · 손을 떼면 재생'
+              ? t('끌어서 범위를 넓히세요 · 손을 떼면 재생')
               : range
-                ? '다른 단어를 누르면 범위가 늘어나요 · ✕로 해제'
-                : '단어 탭: 그 단어만 · 길게 누른 채 끌기: 범위 재생'}
+                ? t('다른 단어를 누르면 범위가 늘어나요 · ✕로 해제')
+                : t('단어 탭: 그 단어만 · 길게 누른 채 끌기: 범위 재생')}
           </Text>
         </>
       ) : (
@@ -398,22 +400,22 @@ function EntryBlock({
                 style={[s.routeBtn, route === 'speaker' && s.routeBtnOn]}
                 onPress={() => onRouteChange('speaker')}
               >
-                <Text style={[s.routeBtnText, route === 'speaker' && s.routeBtnTextOn]}>🔊 스피커</Text>
+                <Text style={[s.routeBtnText, route === 'speaker' && s.routeBtnTextOn]}>{t('🔊 스피커')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.routeBtn, route === 'earpiece' && s.routeBtnOn]}
                 onPress={() => onRouteChange('earpiece')}
               >
-                <Text style={[s.routeBtnText, route === 'earpiece' && s.routeBtnTextOn]}>📞 수화기</Text>
+                <Text style={[s.routeBtnText, route === 'earpiece' && s.routeBtnTextOn]}>{t('📞 수화기')}</Text>
               </TouchableOpacity>
             </View>
           </View>
           {!hasSegments && (
-            <Text style={s.unsupported}>녹음 길이를 알 수 없어 단어별 재생을 쓸 수 없어요</Text>
+            <Text style={s.unsupported}>{t('녹음 길이를 알 수 없어 단어별 재생을 쓸 수 없어요')}</Text>
           )}
         </>
       ) : (
-        <Text style={s.unsupported}>녹음 파일 없이 글만 저장된 항목이에요</Text>
+        <Text style={s.unsupported}>{t('녹음 파일 없이 글만 저장된 항목이에요')}</Text>
       )}
     </View>
   );
@@ -437,6 +439,7 @@ export function ScheduleDetail({
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const { t } = useT();
   const [route, setRoute] = useState<AudioRoute>('speaker');
   // 텍스트/PDF는 바로 공유하지 않고 미리보기 화면을 먼저 띄운다
   const [preview, setPreview] = useState<ExportKind | null>(null);
@@ -446,7 +449,7 @@ export function ScheduleDetail({
   // (scrollEnabled를 끄면 iOS가 진행 중인 터치 자체를 취소해 release가 안 온다 — 2026-10-12 폰 확인)
   const [scrollLocked, setScrollLocked] = useState(false);
 
-  const content = record?.content || record?.transcript || '(내용 없음)';
+  const content = record?.content || record?.transcript || t('(내용 없음)');
   // 구버전 데이터 호환: 과거엔 추가 내용이 content 문자열에 '\n• '로 이어붙여 저장됨
   const [mainContent, ...legacyNotes] = content.split('\n• ');
   const segments = useMemo(() => record?.segments ?? [], [record?.segments]);
@@ -467,12 +470,14 @@ export function ScheduleDetail({
 
   if (!record) return null;
 
+  // 날짜 미정 임시 일정은 "(시간 미정)" 대신 "(임시)" 꼬리표를 단다
+  const dayPart = record.scheduleAt != null ? formatDayHeader(new Date(record.scheduleAt)) : null;
   const when =
-    record.scheduleAt != null
-      ? `${formatDayHeader(new Date(record.scheduleAt))}${
-          record.hasTime ? '  ' + formatTime(new Date(record.scheduleAt)) : '  (시간 미정)'
-        }`
-      : '날짜 미정';
+    dayPart == null
+      ? t('날짜 미정')
+      : record.hasTime
+        ? `${dayPart}  ${formatTime(new Date(record.scheduleAt!))}${record.needsDate ? '  ' + t('(임시)') : ''}`
+        : `${dayPart}  ${t(record.needsDate ? '(임시)' : '(시간 미정)')}`;
   const mode = record.alarmMode;
 
   return (
@@ -484,11 +489,11 @@ export function ScheduleDetail({
         {/* 상단 네비 */}
         <View style={s.navBar}>
           <TouchableOpacity style={s.navBtn} onPress={onClose}>
-            <Text style={s.navCloseText}>닫기</Text>
+            <Text style={s.navCloseText}>{t('닫기')}</Text>
           </TouchableOpacity>
-          <Text style={s.navTitle}>일정 상세</Text>
+          <Text style={s.navTitle}>{t('일정 상세')}</Text>
           <TouchableOpacity style={s.navBtn} onPress={() => onEdit(record)}>
-            <Text style={s.navEditText}>수정</Text>
+            <Text style={s.navEditText}>{t('수정')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -500,11 +505,11 @@ export function ScheduleDetail({
           testID="detailScroll"
         >
           {/* 일시 */}
-          <Text style={s.when}>{record.needsDate ? `${when.replace('  (시간 미정)', '')}  (임시)` : when}</Text>
+          <Text style={s.when}>{when}</Text>
           {record.needsDate && (
-            <TouchableOpacity style={s.needsDateBar} onPress={() => onEdit(record)} activeOpacity={0.8} accessibilityLabel="날짜 정하기">
-              <Text style={s.needsDateText}>날짜·시간 없이 녹음돼 오늘에 임시로 두었어요</Text>
-              <Text style={s.needsDateBtn}>정하기</Text>
+            <TouchableOpacity style={s.needsDateBar} onPress={() => onEdit(record)} activeOpacity={0.8} accessibilityLabel={t('날짜 정하기')}>
+              <Text style={s.needsDateText}>{t('날짜·시간 없이 녹음돼 오늘에 임시로 두었어요')}</Text>
+              <Text style={s.needsDateBtn}>{t('정하기')}</Text>
             </TouchableOpacity>
           )}
           {mode ? (
@@ -514,7 +519,7 @@ export function ScheduleDetail({
                 <Image source={require('../assets/vibrate_icon.png')} style={s.badgeVibe} />
               )}
               <Text style={s.badgeText}>
-                {mode === 'both' ? '소리 + 진동' : mode === 'sound' ? '소리' : '진동'}
+                {t(mode === 'both' ? '소리 + 진동' : mode === 'sound' ? '소리' : '진동')}
               </Text>
             </View>
           ) : null}
@@ -526,7 +531,11 @@ export function ScheduleDetail({
             return (
               <View>
                 <Text style={s.remindLine}>
-                  {past ? '지난 일정 (알림 없음)' : r.length ? `미리 알림 ${r.map(remindLabel).join(' · ')} · 정각 알림 ${exact ? '켬' : '끔'}` : exact ? '미리 알림 없음 · 정각 알림 켬' : '알림 없음'}
+                  {past
+                    ? t('지난 일정 (알림 없음)')
+                    : r.length
+                      ? t('미리 알림 {list} · 정각 알림 {state}', { list: r.map((m) => t(remindLabel(m))).join(' · '), state: t(exact ? '켬' : '끔') })
+                      : exact ? t('미리 알림 없음 · 정각 알림 켬') : t('알림 없음')}
                 </Text>
                 {!past && onAlarmChange && (
                   <View style={s.remindChips}>
@@ -538,9 +547,9 @@ export function ScheduleDetail({
                           style={[s.remindChip, on && s.remindChipOn]}
                           onPress={() => change(on ? r.filter((x) => x !== m) : [...r, m], exact)}
                           accessibilityState={{ selected: on }}
-                          accessibilityLabel={`미리 알림 ${remindLabel(m)}`}
+                          accessibilityLabel={t('미리 알림 {label}', { label: t(remindLabel(m)) })}
                         >
-                          <Text style={[s.remindChipText, on && s.remindChipTextOn]}>{remindLabel(m)}</Text>
+                          <Text style={[s.remindChipText, on && s.remindChipTextOn]}>{t(remindLabel(m))}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -548,9 +557,9 @@ export function ScheduleDetail({
                       style={[s.remindChip, exact && s.remindChipOn]}
                       onPress={() => change(r, !exact)}
                       accessibilityState={{ selected: exact }}
-                      accessibilityLabel="정각 알림"
+                      accessibilityLabel={t('정각 알림')}
                     >
-                      <Text style={[s.remindChipText, exact && s.remindChipTextOn]}>정각</Text>
+                      <Text style={[s.remindChipText, exact && s.remindChipTextOn]}>{t('정각')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -559,9 +568,9 @@ export function ScheduleDetail({
           })()}
 
           {/* 내용 — 메인 + 추가 엔트리를 각각 독립적으로 재생/구간선택 */}
-          <Text style={s.sectionLabel}>내용</Text>
+          <Text style={s.sectionLabel}>{t('내용')}</Text>
           <EntryBlock
-            label="메인"
+            label={t('메인')}
             uri={record.uri}
             durationSec={record.durationSec}
             content={mainContent}
@@ -575,7 +584,7 @@ export function ScheduleDetail({
           {(record.appends ?? []).map((a, i) => (
             <EntryBlock
               key={a.id}
-              label={`추가 ${i + 1} · ${formatTime(new Date(a.createdAt))}`}
+              label={t('추가 {n} · {time}', { n: i + 1, time: formatTime(new Date(a.createdAt)) })}
               uri={a.uri}
               durationSec={a.durationSec}
               content={a.content}
@@ -591,7 +600,7 @@ export function ScheduleDetail({
           {/* 구버전 메모(문자열 이어붙임) 호환 표시 */}
           {legacyNotes.length > 0 && (
             <>
-              <Text style={s.sectionLabel}>메모</Text>
+              <Text style={s.sectionLabel}>{t('메모')}</Text>
               {legacyNotes.map((n, i) => (
                 <Text key={i} style={s.noteText}>• {n}</Text>
               ))}
@@ -599,13 +608,13 @@ export function ScheduleDetail({
           )}
 
           {/* 내보내기 — 메인 + 모든 추가 엔트리 텍스트를 함께 포함 */}
-          <Text style={s.sectionLabel}>내보내기</Text>
+          <Text style={s.sectionLabel}>{t('내보내기')}</Text>
           <View style={s.exportRow}>
             <TouchableOpacity style={s.exportBtn} onPress={() => copyRecords([record])}>
-              <Text style={s.exportBtnText}>복사</Text>
+              <Text style={s.exportBtnText}>{t('복사')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.exportBtn} onPress={() => setPreview('txt')}>
-              <Text style={s.exportBtnText}>텍스트</Text>
+              <Text style={s.exportBtnText}>{t('텍스트')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.exportBtn} onPress={() => setPreview('pdf')}>
               <Text style={s.exportBtnText}>PDF</Text>
@@ -614,7 +623,7 @@ export function ScheduleDetail({
 
           {/* 내용 추가 */}
           <TouchableOpacity style={s.appendBtn} onPress={() => onAppend(record)} activeOpacity={0.85}>
-            <Text style={s.appendBtnText}>＋ 내용 추가</Text>
+            <Text style={s.appendBtnText}>{t('＋ 내용 추가')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>

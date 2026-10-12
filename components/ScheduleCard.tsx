@@ -8,6 +8,7 @@ import { normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatTime } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
 import { MicIcon } from './MicIcon';
+import { useT } from '../lib/i18n';
 
 // 동시 재생 방지: 새 카드가 재생을 시작하면 이전 카드를 멈춤
 let activeCardStopper: (() => void) | null = null;
@@ -27,6 +28,7 @@ export function ScheduleCard({
   showDate?: boolean;
 }) {
   const C = useTheme();
+  const { t } = useT();
   const { scale } = useFontScale();
   const styles = useMemo(() => makeStyles(C, scale), [C, scale]);
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
@@ -79,9 +81,9 @@ export function ScheduleCard({
   }, [status.didJustFinish, status.currentTime, status.duration, playing]);
 
   const timeLabel = item.needsDate
-    ? '날짜 미정'
-    : item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
-  const title = item.content || item.transcript || '(내용 없음)';
+    ? t('날짜 미정')
+    : item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : t('시간 미정');
+  const title = item.content || item.transcript || t('(내용 없음)');
   // 메모는 아래 별도 줄로 표시하므로 제목에서는 본문만 (중복 표시 방지)
   const mainTitle = title.split('\n• ')[0];
   const mode = (item as any).alarmMode as 'sound' | 'vibe' | 'both' | undefined;
@@ -98,7 +100,7 @@ export function ScheduleCard({
 
   const dateSub = showDate && item.scheduleAt ? (
     <Text style={styles.cardDateSub} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-      {new Date(item.scheduleAt).getMonth() + 1}월 {new Date(item.scheduleAt).getDate()}일
+      {t('{m}월 {d}일', { m: new Date(item.scheduleAt).getMonth() + 1, d: new Date(item.scheduleAt).getDate() })}
     </Text>
   ) : null;
   const remind = normalizeRemind(item.remindBefore ?? []);
@@ -111,7 +113,7 @@ export function ScheduleCard({
       {remind.length > 0 && (
         <Text style={styles.cardRemindText} numberOfLines={1}>⏰ {remind.map(remindLabel).join('·')}</Text>
       )}
-      {item.exactAlarm === false && <Text style={styles.cardRemindText}>정각 없음</Text>}
+      {item.exactAlarm === false && <Text style={styles.cardRemindText}>{t('정각 없음')}</Text>}
     </View>
   ) : <View />;
   const extras = (
@@ -125,16 +127,16 @@ export function ScheduleCard({
           style={styles.needsDateRow}
           onPress={() => onFixDate?.(item)}
           activeOpacity={0.7}
-          accessibilityLabel="날짜 정하기"
+          accessibilityLabel={t('날짜 정하기')}
         >
-          <Text style={styles.needsDateText}>언제인지 아직 안 정했어요</Text>
-          <Text style={styles.needsDateBtn}>정하기</Text>
+          <Text style={styles.needsDateText}>{t('언제인지 아직 안 정했어요')}</Text>
+          <Text style={styles.needsDateBtn}>{t('정하기')}</Text>
         </TouchableOpacity>
       )}
       {item.appends && item.appends.length > 0 && (
         <View style={styles.cardAppendRow}>
           <MicIcon size={12} color={C.textSub} />
-          <Text style={styles.cardAppendedNote}>추가 {item.appends.length}건</Text>
+          <Text style={styles.cardAppendedNote}>{t('추가 {n}건', { n: item.appends.length })}</Text>
         </View>
       )}
     </>
@@ -164,11 +166,11 @@ export function ScheduleCard({
         <View style={styles.stackActions}>
           {item.uri ? (
             <TouchableOpacity style={styles.stackBtn} onPress={toggle} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-              <Text style={styles.stackBtnText}>{playing ? '⏸ 멈춤' : '▶ 듣기'}</Text>
+              <Text style={styles.stackBtnText}>{playing ? t('⏸ 멈춤') : t('▶ 듣기')}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.stackBtn} onPress={() => onAppend(item)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Text style={styles.stackBtnTextAccent}>＋ 추가</Text>
+            <Text style={styles.stackBtnTextAccent}>{t('＋ 추가')}</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -204,7 +206,7 @@ export function ScheduleCard({
             onPress={() => onAppend(item)}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Text style={styles.cardAppendBtnText}>＋ 추가</Text>
+            <Text style={styles.cardAppendBtnText}>{t('＋ 추가')}</Text>
           </TouchableOpacity>
         </View>
       </View>

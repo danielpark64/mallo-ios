@@ -6,6 +6,7 @@ import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-nat
 import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme, type Palette } from '../lib/theme';
+import { useT } from '../lib/i18n';
 import { copyRecords, docSubtitle, exportRecordsPdf, exportRecordsTxt, recordRows, recordsToText } from '../lib/exportUtils';
 import type { ScheduleRecord } from '../lib/storage';
 
@@ -24,6 +25,7 @@ export function ExportPreview({
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const { t } = useT();
   // Modal을 계속 마운트해 둬야 닫힐 때도 slide 애니메이션이 나온다. 본문은 visible일 때만 계산.
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -31,9 +33,9 @@ export function ExportPreview({
         <SafeAreaView style={s.screen}>
           <View style={s.navBar}>
             <TouchableOpacity style={s.navBtn} onPress={onClose}>
-              <Text style={s.navCloseText}>닫기</Text>
+              <Text style={s.navCloseText}>{t('닫기')}</Text>
             </TouchableOpacity>
-            <Text style={s.navTitle}>{kind === 'pdf' ? 'PDF 미리보기' : '텍스트 미리보기'}</Text>
+            <Text style={s.navTitle}>{t(kind === 'pdf' ? 'PDF 미리보기' : '텍스트 미리보기')}</Text>
             <View style={s.navBtn} />
           </View>
 
@@ -42,7 +44,7 @@ export function ExportPreview({
           <View style={s.bottomBar}>
             {kind === 'txt' && (
               <TouchableOpacity style={s.secondaryBtn} onPress={() => copyRecords(records)} activeOpacity={0.8}>
-                <Text style={s.secondaryBtnText}>복사</Text>
+                <Text style={s.secondaryBtnText}>{t('복사')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -53,9 +55,9 @@ export function ExportPreview({
                 onClose();
               }}
               activeOpacity={0.85}
-              accessibilityLabel="내보내기"
+              accessibilityLabel={t('내보내기')}
             >
-              <Text style={s.primaryBtnText}>{kind === 'pdf' ? 'PDF로 내보내기' : '텍스트로 내보내기'}</Text>
+              <Text style={s.primaryBtnText}>{t(kind === 'pdf' ? 'PDF로 내보내기' : '텍스트로 내보내기')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -67,13 +69,14 @@ export function ExportPreview({
 function PreviewBody({ kind, records }: { kind: ExportKind; records: ScheduleRecord[] }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const { t } = useT();
   const text = useMemo(() => (kind === 'txt' ? recordsToText(records) : ''), [kind, records]);
   const rows = useMemo(() => (kind === 'pdf' ? recordRows(records) : []), [kind, records]);
 
   if (kind === 'txt') {
     return (
       <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-        <Text style={s.countLine}>일정 {records.length}건</Text>
+        <Text style={s.countLine}>{t('일정 {n}건', { n: records.length })}</Text>
         <View style={s.txtBox}>
           <Text style={s.txtText} selectable>{text}</Text>
         </View>
@@ -83,9 +86,9 @@ function PreviewBody({ kind, records }: { kind: ExportKind; records: ScheduleRec
 
   return (
     <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-      <Text style={s.countLine}>일정 {records.length}건 · 아래 모양 그대로 PDF가 만들어져요</Text>
+      <Text style={s.countLine}>{t('일정 {n}건 · 아래 모양 그대로 PDF가 만들어져요', { n: records.length })}</Text>
       <View style={s.page}>
-        <Text style={s.pageTitle}>말로 일정</Text>
+        <Text style={s.pageTitle}>{t('세이람 일정')}</Text>
         <Text style={s.pageSub}>{docSubtitle(records.length)}</Text>
         {rows.map((row, i) => (
           <View key={i} style={[s.pageRow, i === rows.length - 1 && s.pageRowLast]}>
@@ -98,7 +101,7 @@ function PreviewBody({ kind, records }: { kind: ExportKind; records: ScheduleRec
             </View>
           </View>
         ))}
-        {rows.length === 0 && <Text style={s.pageEmpty}>내보낼 일정이 없어요</Text>}
+        {rows.length === 0 && <Text style={s.pageEmpty}>{t('내보낼 일정이 없어요')}</Text>}
       </View>
     </ScrollView>
   );

@@ -1,12 +1,14 @@
 // ─── 설정 화면 ─────────────────────────────────────────────────────────────────
-// 달력 기본 보기, 백업 · 폰 옮기기, 사용설명서, 앱 정보를 한곳에 모은다.
+// 화면(테마·글자 크기·언어), 알람, 달력 기본 보기, 백업 · 폰 옮기기, 사용설명서, 앱 정보를 한곳에 모은다.
+// 문구는 모두 t()로 감싸 설정 언어(시스템/한국어/English)를 따른다.
 import { useState, useMemo } from 'react';
 import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { FONT_SCALE_LABEL, THEME_LABEL, useTheme, useThemeSetting, type Palette } from '../lib/theme';
-import type { FontScaleName, ThemeSetting } from '../lib/prefs';
+import type { FontScaleName, LanguageSetting, ThemeSetting } from '../lib/prefs';
+import { LANGS, LANGUAGE_LABEL, useT } from '../lib/i18n';
 import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
 import type { CalendarMode } from '../lib/prefs';
 import type { ScheduleRecord } from '../lib/storage';
@@ -35,6 +37,7 @@ export function SettingsSheet({
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const { themeSetting, setThemeSetting, fontScale, setFontScale } = useThemeSetting();
+  const { t, setting: langSetting, setSetting: setLangSetting } = useT();
   const [backupOpen, setBackupOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -46,32 +49,32 @@ export function SettingsSheet({
         <SafeAreaView style={s.screen}>
           <View style={s.navBar}>
             <TouchableOpacity style={s.navBtn} onPress={onClose}>
-              <Text style={s.navCloseText}>닫기</Text>
+              <Text style={s.navCloseText}>{t('닫기')}</Text>
             </TouchableOpacity>
-            <Text style={s.navTitle}>설정</Text>
+            <Text style={s.navTitle}>{t('설정')}</Text>
             <View style={s.navBtn} />
           </View>
 
           <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-            <Text style={s.sectionLabel}>화면</Text>
+            <Text style={s.sectionLabel}>{t('화면')}</Text>
             <View style={s.card}>
-              <Text style={s.rowTitle}>테마</Text>
+              <Text style={s.rowTitle}>{t('테마')}</Text>
               <View style={[s.segment, s.segmentWide]}>
-                {(['system', 'light', 'dark'] as ThemeSetting[]).map((t) => (
+                {(['system', 'light', 'dark'] as ThemeSetting[]).map((th) => (
                   <TouchableOpacity
-                    key={t}
-                    style={[s.segBtn, s.segBtnGrow, themeSetting === t && s.segBtnOn]}
-                    onPress={() => themeSetting !== t && setThemeSetting(t)}
-                    accessibilityState={{ selected: themeSetting === t }}
-                    accessibilityLabel={`테마 ${THEME_LABEL[t]}`}
+                    key={th}
+                    style={[s.segBtn, s.segBtnGrow, themeSetting === th && s.segBtnOn]}
+                    onPress={() => themeSetting !== th && setThemeSetting(th)}
+                    accessibilityState={{ selected: themeSetting === th }}
+                    accessibilityLabel={`테마 ${THEME_LABEL[th]}`}
                   >
-                    <Text style={[s.segText, themeSetting === t && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{THEME_LABEL[t]}</Text>
+                    <Text style={[s.segText, themeSetting === th && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t(THEME_LABEL[th])}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={s.rowSub}>시스템은 폰 설정(다크/라이트)을 따라요</Text>
+              <Text style={s.rowSub}>{t('시스템은 폰 설정(다크/라이트)을 따라요')}</Text>
               <View style={s.divider} />
-              <Text style={s.rowTitle}>글자 크기</Text>
+              <Text style={s.rowTitle}>{t('글자 크기')}</Text>
               <View style={[s.segment, s.segmentWide]}>
                 {(['small', 'medium', 'large', 'xlarge'] as FontScaleName[]).map((f) => (
                   <TouchableOpacity
@@ -81,17 +84,33 @@ export function SettingsSheet({
                     accessibilityState={{ selected: fontScale === f }}
                     accessibilityLabel={`글자 ${FONT_SCALE_LABEL[f]}`}
                   >
-                    <Text style={[s.segText, fontScale === f && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{FONT_SCALE_LABEL[f]}</Text>
+                    <Text style={[s.segText, fontScale === f && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t(FONT_SCALE_LABEL[f])}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={s.rowSub}>일정 내용, 달력, 설명서 등 앱의 모든 글자에 적용돼요</Text>
+              <Text style={s.rowSub}>{t('일정 내용, 달력, 설명서 등 앱의 모든 글자에 적용돼요')}</Text>
+              <View style={s.divider} />
+              <Text style={s.rowTitle}>{t('언어')}</Text>
+              <View style={[s.segment, s.segmentWide, s.chipWrap]}>
+                {(['system', ...LANGS] as LanguageSetting[]).map((l) => (
+                  <TouchableOpacity
+                    key={l}
+                    style={[s.segBtn, s.langChip, langSetting === l && s.segBtnOn]}
+                    onPress={() => langSetting !== l && setLangSetting(l)}
+                    accessibilityState={{ selected: langSetting === l }}
+                    accessibilityLabel={`언어 ${LANGUAGE_LABEL[l]}`}
+                  >
+                    <Text style={[s.segText, langSetting === l && s.segTextOn]} numberOfLines={1}>{t(LANGUAGE_LABEL[l])}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={s.rowSub}>{t('시스템은 폰의 언어를 따라요')}</Text>
             </View>
 
-            <Text style={s.sectionLabel}>알람</Text>
+            <Text style={s.sectionLabel}>{t('알람')}</Text>
             <View style={s.card}>
-              <Text style={s.rowTitle}>기본 미리 알림</Text>
-              <Text style={s.rowSub}>새 일정에 자동으로 붙어요. 일정마다 편집기에서 바꿀 수 있어요</Text>
+              <Text style={s.rowTitle}>{t('기본 미리 알림')}</Text>
+              <Text style={s.rowSub}>{t('새 일정에 자동으로 붙어요. 일정마다 편집기에서 바꿀 수 있어요')}</Text>
               <View style={[s.segment, s.segmentWide, s.chipWrap]}>
                 {REMIND_OPTIONS.map((m) => {
                   const on = defaultRemind.includes(m);
@@ -108,15 +127,15 @@ export function SettingsSheet({
                   );
                 })}
               </View>
-              <Text style={s.rowSub}>하루 전은 전날 저녁 8시에 울려요</Text>
+              <Text style={s.rowSub}>{t('하루 전은 전날 저녁 8시에 울려요')}</Text>
             </View>
 
-            <Text style={s.sectionLabel}>달력</Text>
+            <Text style={s.sectionLabel}>{t('달력')}</Text>
             <View style={s.card}>
               <View style={s.rowBetween}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.rowTitle}>기본 보기</Text>
-                  <Text style={s.rowSub}>앱을 열 때 달력을 어떻게 보여줄지</Text>
+                  <Text style={s.rowTitle}>{t('기본 보기')}</Text>
+                  <Text style={s.rowSub}>{t('앱을 열 때 달력을 어떻게 보여줄지')}</Text>
                 </View>
                 <View style={s.segment}>
                   {(['month', 'week'] as const).map((m) => (
@@ -127,44 +146,44 @@ export function SettingsSheet({
                       accessibilityState={{ selected: calendarMode === m }}
                       accessibilityLabel={m === 'month' ? '월 보기' : '주 보기'}
                     >
-                      <Text style={[s.segText, calendarMode === m && s.segTextOn]}>{m === 'month' ? '월' : '주'}</Text>
+                      <Text style={[s.segText, calendarMode === m && s.segTextOn]}>{m === 'month' ? t('월') : t('주')}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
             </View>
 
-            <Text style={s.sectionLabel}>데이터</Text>
+            <Text style={s.sectionLabel}>{t('데이터')}</Text>
             <View style={s.card}>
               <TouchableOpacity style={s.rowBetween} onPress={() => setBackupOpen(true)} activeOpacity={0.7} accessibilityLabel="백업 · 폰 옮기기">
                 <View style={{ flex: 1 }}>
-                  <Text style={s.rowTitle}>백업 · 폰 옮기기</Text>
-                  <Text style={s.rowSub}>일정 {records.length}건 · 녹음 있는 일정 {withAudio}건</Text>
+                  <Text style={s.rowTitle}>{t('백업 · 폰 옮기기')}</Text>
+                  <Text style={s.rowSub}>{t('일정 {n}건 · 녹음 있는 일정 {a}건', { n: records.length, a: withAudio })}</Text>
                 </View>
                 <Text style={s.chevron}>›</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={s.sectionLabel}>도움말</Text>
+            <Text style={s.sectionLabel}>{t('도움말')}</Text>
             <View style={s.card}>
               <TouchableOpacity style={s.rowBetween} onPress={() => setHelpOpen(true)} activeOpacity={0.7} accessibilityLabel="사용설명서">
                 <View style={{ flex: 1 }}>
-                  <Text style={s.rowTitle}>사용설명서</Text>
-                  <Text style={s.rowSub}>말하는 요령, 달력·찾기, 구간 재생, 알람, 백업</Text>
+                  <Text style={s.rowTitle}>{t('사용설명서')}</Text>
+                  <Text style={s.rowSub}>{t('말하는 요령, 달력·찾기, 구간 재생, 알람, 백업')}</Text>
                 </View>
                 <Text style={s.chevron}>›</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={s.sectionLabel}>앱 정보</Text>
+            <Text style={s.sectionLabel}>{t('앱 정보')}</Text>
             <View style={s.card}>
               <View style={s.rowBetween}>
-                <Text style={s.rowTitle}>버전</Text>
+                <Text style={s.rowTitle}>{t('버전')}</Text>
                 <Text style={s.rowValue}>{version}</Text>
               </View>
               <View style={s.divider} />
               <Text style={s.note}>
-                모든 녹음과 일정은 이 폰 안에만 저장되고 서버로 보내지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.
+                {t('모든 녹음과 일정은 이 폰 안에만 저장되고 서버로 보내지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.')}
               </Text>
             </View>
           </ScrollView>
@@ -201,7 +220,8 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   chevron: { color: C.textSub, fontSize: 22, fontWeight: '300' },
   segment: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 9, padding: 3 },
   segmentWide: { marginTop: 10, marginBottom: 8 },
-  chipWrap: { flexWrap: 'wrap' },
+  chipWrap: { flexWrap: 'wrap', gap: 4 },
+  langChip: { paddingHorizontal: 12, paddingVertical: 7, marginVertical: 1 },
   segBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 7 },
   segBtnGrow: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
   segBtnOn: { backgroundColor: C.accent },

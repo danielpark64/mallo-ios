@@ -14,10 +14,11 @@ import {
   monthGrid,
   startOfMonth,
   startOfWeek,
-  WEEKDAYS,
+  weekdayLabels,
 } from '../lib/dateUtils';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import type { CalendarMode } from '../lib/prefs';
+import { useT } from '../lib/i18n';
 
 export type DateRange = { start: Date; end: Date };
 
@@ -42,6 +43,7 @@ export function Calendar({
   onVisibleRangeChange?: (range: DateRange) => void;
 }) {
   const C = useTheme();
+  const { t } = useT();
   const { scale } = useFontScale();
   const styles = useMemo(() => makeStyles(C, scale), [C, scale]);
   // 격자 실제 폭을 재서 7칸을 정수 폭으로 나눈다 (측정 전에는 비율)
@@ -117,21 +119,21 @@ export function Calendar({
     <View style={styles.wrap}>
       {/* 헤더: ‹ 기간 라벨 › */}
       <View style={styles.head}>
-        <TouchableOpacity onPress={prev} style={styles.navBtn} accessibilityLabel={mode === 'week' ? '지난 주' : '지난 달'}>
+        <TouchableOpacity onPress={prev} style={styles.navBtn} accessibilityLabel={mode === 'week' ? t('지난 주') : t('지난 달')}>
           <Text style={styles.navText}>‹</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={goToday} activeOpacity={0.7} style={styles.labelBtn} accessibilityLabel="오늘로 이동">
+        <TouchableOpacity onPress={goToday} activeOpacity={0.7} style={styles.labelBtn} accessibilityLabel={t('오늘로 이동')}>
           <Text style={styles.monthLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>{label}</Text>
-          {!showsToday && <Text style={styles.todayHint}>오늘로</Text>}
+          {!showsToday && <Text style={styles.todayHint}>{t('오늘로')}</Text>}
         </TouchableOpacity>
-        <TouchableOpacity onPress={next} style={styles.navBtn} accessibilityLabel={mode === 'week' ? '다음 주' : '다음 달'}>
+        <TouchableOpacity onPress={next} style={styles.navBtn} accessibilityLabel={mode === 'week' ? t('다음 주') : t('다음 달')}>
           <Text style={styles.navText}>›</Text>
         </TouchableOpacity>
       </View>
 
       {/* 요일 헤더 */}
       <View style={styles.weekRow}>
-        {WEEKDAYS.map((w, i) => (
+        {weekdayLabels().map((w, i) => (
           <Text key={w} style={[styles.weekday, i === 0 && styles.sun, i === 6 && styles.sat]}>
             {w}
           </Text>
@@ -180,9 +182,9 @@ export function Calendar({
                 style={[styles.modeBtn, mode === m && styles.modeBtnOn]}
                 onPress={() => mode !== m && onModeChange(m)}
                 accessibilityState={{ selected: mode === m }}
-                accessibilityLabel={m === 'month' ? '월 보기' : '주 보기'}
+                accessibilityLabel={m === 'month' ? t('월 보기') : t('주 보기')}
               >
-                <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextOn]}>{m === 'month' ? '월' : '주'}</Text>
+                <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextOn]}>{m === 'month' ? t('월') : t('주')}</Text>
               </TouchableOpacity>
             ))}
           </View>

@@ -11,7 +11,9 @@ import { ScrollPicker } from './ScrollPicker';
 import { MicIcon } from './MicIcon';
 import { formatDayHeader } from '../lib/dateUtils';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
+import { useT } from '../lib/i18n';
 import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
+import { sttLang as sttLangFor } from '../lib/sttLang';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import { useVoiceRecorder } from '../lib/useVoiceRecorder';
 import { NO_FILE_NOTICE } from '../lib/voiceCapture';
@@ -64,6 +66,9 @@ export function ScheduleEditor({
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { scale: fontScale } = useFontScale();
+  const { t, lang } = useT();
+  // 내용 입력 STT는 앱 언어를 따른다
+  const sttLang = sttLangFor();
   const [content, setContent] = useState('');
   const [date, setDate]       = useState(new Date());
   const [hour, setHour]       = useState(9);   // 0~23
@@ -115,7 +120,7 @@ export function ScheduleEditor({
     // 자동 재시작 (iOS continuous 제한 우회)
     setTimeout(() => {
       if (!sttRef.current) return;
-      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+      ExpoSpeechRecognitionModule.start({ lang: sttLang, interimResults: true, continuous: false });
     }, 150);
   });
 
@@ -123,7 +128,7 @@ export function ScheduleEditor({
     if (!sttRef.current) return;
     setTimeout(() => {
       if (!sttRef.current) return;
-      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+      ExpoSpeechRecognitionModule.start({ lang: sttLang, interimResults: true, continuous: false });
     }, 300);
   });
 
@@ -132,7 +137,7 @@ export function ScheduleEditor({
     sttRef.current = true;
     setSttOn(true);
     setTimeout(() => {
-      ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+      ExpoSpeechRecognitionModule.start({ lang: sttLang, interimResults: true, continuous: false });
     }, 100);
   };
 
@@ -206,10 +211,10 @@ export function ScheduleEditor({
 
   const handleSave = () => {
     if (appendMode && appendRecording) {
-      Alert.alert('녹음 중이에요', '마이크를 다시 눌러 녹음을 마친 뒤 저장해주세요.');
+      Alert.alert(t('녹음 중이에요'), t('마이크를 다시 눌러 녹음을 마친 뒤 저장해주세요.'));
       return;
     }
-    if (!content.trim()) { Alert.alert('내용을 입력해주세요'); return; }
+    if (!content.trim()) { Alert.alert(t('내용을 입력해주세요')); return; }
     if (appendMode && record) {
       // 녹음한 전사 그대로면 구간재생용 세그먼트를 함께 저장, 이후 텍스트를 고쳤다면
       // 오디오는 그대로 유지하되 세그먼트(단어별 타임스탬프)만 무효화
@@ -230,20 +235,20 @@ export function ScheduleEditor({
 
   const handleDelete = () => {
     if (!record) return;
-    Alert.alert('일정 삭제', '이 일정을 삭제할까요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '삭제', style: 'destructive', onPress: () => onDelete(record.id) },
+    Alert.alert(t('일정 삭제'), t('이 일정을 삭제할까요?'), [
+      { text: t('취소'), style: 'cancel' },
+      { text: t('삭제'), style: 'destructive', onPress: () => onDelete(record.id) },
     ]);
   };
 
   const labelHour  = useCallback((v: number) => v.toString().padStart(2, '0'), []);
   const labelMin   = useCallback((v: number) => v.toString().padStart(2, '0'), []);
 
-  const meridiem = hour < 12 ? '오전' : '오후';
+  const meridiem = t(hour < 12 ? '오전' : '오후');
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
   const timeStr = `${h12}:${minute.toString().padStart(2, '0')}`;
 
-  const navTitle = appendMode ? '내용 추가' : record ? '일정 수정' : '새 일정';
+  const navTitle = t(appendMode ? '내용 추가' : record ? '일정 수정' : '새 일정');
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -255,7 +260,7 @@ export function ScheduleEditor({
         {/* 상단 네비게이션 */}
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.navBtn} onPress={onClose}>
-            <Text style={styles.navCancelText}>취소</Text>
+            <Text style={styles.navCancelText}>{t('취소')}</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle} numberOfLines={1}>{navTitle}</Text>
           <View style={styles.navRight}>
@@ -265,7 +270,7 @@ export function ScheduleEditor({
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.navBtn} onPress={handleSave}>
-              <Text style={styles.navSaveText}>저장</Text>
+              <Text style={styles.navSaveText}>{t('저장')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -286,7 +291,7 @@ export function ScheduleEditor({
         ) : (
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
-              <Text style={styles.label}>날짜</Text>
+              <Text style={styles.label}>{t('날짜')}</Text>
               {/* 빠른 선택 — 날짜 없이 녹음한 일정을 고칠 때 한 번에 끝나도록 */}
               <View style={styles.quickRow}>
                 {[0, 1, 2].map((offset) => {
@@ -300,7 +305,7 @@ export function ScheduleEditor({
                       onPress={() => { setDate(d); setShowCal(false); }}
                       accessibilityState={{ selected: on }}
                     >
-                      <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{['오늘', '내일', '모레'][offset]}</Text>
+                      <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{t(['오늘', '내일', '모레'][offset])}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -319,7 +324,7 @@ export function ScheduleEditor({
                 </View>
               )}
 
-              <Text style={styles.label}>시간</Text>
+              <Text style={styles.label}>{t('시간')}</Text>
               <View style={styles.pickerRow}>
                 <View style={styles.timePickerGroup}>
                   <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
@@ -362,7 +367,7 @@ export function ScheduleEditor({
 
         {!appendMode && (
           <View style={styles.section}>
-            <Text style={styles.label}>알림</Text>
+            <Text style={styles.label}>{t('알림')}</Text>
             <View style={styles.remindRow}>
               {REMIND_OPTIONS.map((m) => {
                 const on = remindBefore.includes(m);
@@ -372,9 +377,9 @@ export function ScheduleEditor({
                     style={[styles.quickChip, on && styles.quickChipOn]}
                     onPress={() => toggleRemind(m)}
                     accessibilityState={{ selected: on }}
-                    accessibilityLabel={`미리 알림 ${remindLabel(m)}`}
+                    accessibilityLabel={t('미리 알림 {label}', { label: t(remindLabel(m)) })}
                   >
-                    <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{remindLabel(m)}</Text>
+                    <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{t(remindLabel(m))}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -382,15 +387,15 @@ export function ScheduleEditor({
                 style={[styles.quickChip, exactAlarm && styles.quickChipOn]}
                 onPress={() => setExactAlarm((v) => !v)}
                 accessibilityState={{ selected: exactAlarm }}
-                accessibilityLabel="정각 알림"
+                accessibilityLabel={t('정각 알림')}
               >
-                <Text style={[styles.quickChipText, exactAlarm && styles.quickChipTextOn]}>정각</Text>
+                <Text style={[styles.quickChipText, exactAlarm && styles.quickChipTextOn]}>{t('정각')}</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.remindHint}>
               {remindBefore.length
-                ? `${remindBefore.map(remindLabel).join(' · ')}에 한 번씩 미리 알려요${exactAlarm ? ', 정각에도 울려요' : ''}`
-                : exactAlarm ? '정각에만 울려요 (못 들으면 1분·2분 뒤 다시)' : '알림 없음'}
+                ? t('{list}에 한 번씩 미리 알려요', { list: remindBefore.map((m) => t(remindLabel(m))).join(' · ') }) + (exactAlarm ? t(', 정각에도 울려요') : '')
+                : exactAlarm ? t('정각에만 울려요 (못 들으면 1분·2분 뒤 다시)') : t('알림 없음')}
             </Text>
           </View>
         )}
@@ -398,17 +403,17 @@ export function ScheduleEditor({
         {/* 내용 입력 — 남은 공간 전부 차지 */}
         <View style={styles.contentArea}>
           <View style={styles.contentLabelRow}>
-            <Text style={styles.label}>{appendMode ? '추가할 내용' : '내용'}</Text>
-            {sttOn && <Text style={styles.sttHint}>🎤 듣는 중… 탭하면 중지</Text>}
-            {appendRecording && <Text style={styles.sttHint}>🎤 녹음 중… 탭하면 완료</Text>}
+            <Text style={styles.label}>{t(appendMode ? '추가할 내용' : '내용')}</Text>
+            {sttOn && <Text style={styles.sttHint}>{t('🎤 듣는 중… 탭하면 중지')}</Text>}
+            {appendRecording && <Text style={styles.sttHint}>{t('🎤 녹음 중… 탭하면 완료')}</Text>}
           </View>
           {appendMode && appendCapture?.uri && !appendRecording && (
             <Text style={styles.appendCaptureHint}>
-              녹음 저장됨 ({appendCapture.durationSec}초) · 내용을 고치면 구간재생은 빠지고 녹음은 그대로 남아요
+              {t('녹음 저장됨 ({sec}초) · 내용을 고치면 구간재생은 빠지고 녹음은 그대로 남아요', { sec: appendCapture.durationSec })}
             </Text>
           )}
           {appendMode && appendCapture && !appendCapture.uri && !appendRecording && (
-            <Text style={styles.appendCaptureHint}>{NO_FILE_NOTICE}</Text>
+            <Text style={styles.appendCaptureHint}>{t(NO_FILE_NOTICE)}</Text>
           )}
           <View style={styles.contentInputWrap}>
             <TextInput
@@ -418,7 +423,7 @@ export function ScheduleEditor({
                 if (sttOn) baseContentRef.current = t;
                 setContent(t);
               }}
-              placeholder={appendMode ? '이어붙일 내용을 말하거나 입력하세요' : '할 일을 입력하세요'}
+              placeholder={t(appendMode ? '이어붙일 내용을 말하거나 입력하세요' : '할 일을 입력하세요')}
               placeholderTextColor={C.textDim}
               multiline
               textAlignVertical="top"

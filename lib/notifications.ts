@@ -1,6 +1,13 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+// 알림 제목·버튼·채널 이름 번역. i18n → prefs → expo-file-system 순으로 끌려오므로 모듈 평가 시점이 아니라
+// 호출 시점에 읽고, 어떤 이유로든 i18n을 못 읽으면 한국어 원문을 쓴다 (알람 예약 자체는 절대 막지 않는다).
+import { getLang } from './i18n/lang';
+import { EN } from './i18n/en';
+import { DICTS } from './i18n/dicts';
+const t = (key: string): string => { const l = getLang(); return l === 'ko' ? key : (DICTS[l]?.[key] ?? EN[key] ?? key); };
+
 import { REMIND_OPTIONS, normalizeRemind, preRecordId, remindBody, remindFireAt } from './reminders';
 import {
   EXPO_FALLBACK_GRACE_MS,
@@ -53,21 +60,21 @@ export async function registerAndroidChannels() {
   try {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL.both, {
       ...common,
-      name: '일정 알람 (소리+진동)',
+      name: t('일정 알람 (소리+진동)'),
       sound: 'alarm_long.wav',
       enableVibrate: true,
       vibrationPattern: [0, 500, 300, 500],
     });
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL.sound, {
       ...common,
-      name: '일정 알람 (소리)',
+      name: t('일정 알람 (소리)'),
       sound: 'alarm_long.wav',
       enableVibrate: false,
       vibrationPattern: null,
     });
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL.vibe, {
       ...common,
-      name: '일정 알람 (진동)',
+      name: t('일정 알람 (진동)'),
       sound: null,
       enableVibrate: true,
       vibrationPattern: [0, 500, 300, 500],
@@ -83,12 +90,12 @@ export async function registerNotificationCategories() {
     [
       {
         identifier: 'stop',
-        buttonTitle: '알람 끄기',
+        buttonTitle: t('알람 끄기'),
         options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: true },
       },
       {
         identifier: 'snooze',
-        buttonTitle: '5분 후 다시',
+        buttonTitle: t('5분 후 다시'),
         options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: true },
       },
     ],
@@ -135,12 +142,12 @@ export async function scheduleAlarm(
     const body = remindBody(m, content, at);
     const nativeArmed =
       useNative &&
-      scheduleNativeAlarm({ key: identifier, recordId: subId, at: fireAt, title: '말로 · 미리 알림', body, mode });
+      scheduleNativeAlarm({ key: identifier, recordId: subId, at: fireAt, title: t('세이람 · 미리 알림'), body, mode });
     try {
       const id = await Notifications.scheduleNotificationAsync({
         identifier,
         content: {
-          title: '말로 · 미리 알림',
+          title: t('세이람 · 미리 알림'),
           body,
           sound: mode === 'vibe' ? undefined : SOUND,
           categoryIdentifier: 'alarm',
@@ -163,7 +170,7 @@ export async function scheduleAlarm(
   if (at.getTime() <= Date.now()) return ids;
 
   const base: Notifications.NotificationContentInput = {
-    title: '말로',
+    title: t('세이람'),
     body: content,
     // iOS: sound 있으면 자동 진동, sound 없으면 무진동
     // both/sound → alarm_long.wav (iOS는 소리+진동 자동), vibe → 무음(배너만)
@@ -177,7 +184,7 @@ export async function scheduleAlarm(
     const identifier = `mallo_${recordId}_${offset}`;
     const nativeArmed =
       useNative &&
-      scheduleNativeAlarm({ key: identifier, recordId, at: fireAt, title: '말로', body: content, mode });
+      scheduleNativeAlarm({ key: identifier, recordId, at: fireAt, title: t('세이람'), body: content, mode });
     try {
       const id = await Notifications.scheduleNotificationAsync({
         identifier,

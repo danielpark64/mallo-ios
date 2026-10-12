@@ -5,6 +5,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Directory, File, Paths } from 'expo-file-system';
 import { formatDayHeader, formatTime } from './dateUtils';
+import { t } from './i18n';
 import type { ScheduleRecord } from './storage';
 
 /** 레코드 1건 → 사람이 읽는 텍스트 */
@@ -12,12 +13,12 @@ export function recordToText(r: ScheduleRecord): string {
   const lines: string[] = [];
   if (r.scheduleAt != null) {
     const d = new Date(r.scheduleAt);
-    lines.push(`${formatDayHeader(d)}${r.hasTime ? ' ' + formatTime(d) : ' (시간 미정)'}`);
+    lines.push(`${formatDayHeader(d)}${r.hasTime ? ' ' + formatTime(d) : ' ' + t('(시간 미정)')}`);
   } else {
-    lines.push('날짜 미정');
+    lines.push(t('날짜 미정'));
   }
   // 구버전 데이터 호환: 과거엔 추가 내용이 content 문자열에 '\n• '로 이어붙여 저장됨
-  const [main, ...legacyNotes] = (r.content || r.transcript || '(내용 없음)').split('\n• ');
+  const [main, ...legacyNotes] = (r.content || r.transcript || t('(내용 없음)')).split('\n• ');
   lines.push(main);
   for (const n of legacyNotes) lines.push(`  • ${n}`);
   for (const a of r.appends ?? []) lines.push(`  + ${a.content || a.transcript}`);
@@ -27,7 +28,7 @@ export function recordToText(r: ScheduleRecord): string {
 /** 여러 건 → 텍스트 문서 */
 export function recordsToText(records: ScheduleRecord[]): string {
   const now = new Date();
-  const header = `말로 일정 (${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 기준, ${records.length}건)`;
+  const header = t('세이람 일정 ({date} 기준, {n}건)', { date: ymd(now), n: records.length });
   return [header, '', ...records.map((r) => recordToText(r)), ''].join('\n\n');
 }
 
@@ -39,8 +40,8 @@ export function recordRows(records: ScheduleRecord[]): DocRow[] {
     const when =
       r.scheduleAt != null
         ? `${formatDayHeader(new Date(r.scheduleAt))}${r.hasTime ? ' ' + formatTime(new Date(r.scheduleAt)) : ''}`
-        : '날짜 미정';
-    const [main, ...legacyNotes] = (r.content || r.transcript || '(내용 없음)').split('\n• ');
+        : t('날짜 미정');
+    const [main, ...legacyNotes] = (r.content || r.transcript || t('(내용 없음)')).split('\n• ');
     const notes = [...legacyNotes, ...(r.appends ?? []).map((a) => a.content || a.transcript)];
     return { when, main, notes };
   });
@@ -48,7 +49,12 @@ export function recordRows(records: ScheduleRecord[]): DocRow[] {
 
 /** 문서 제목 줄 — "2026년 10월 12일 기준 · 3건" */
 export function docSubtitle(count: number, now: Date = new Date()): string {
-  return `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 기준 · ${count}건`;
+  return t('{date} 기준 · {n}건', { date: ymd(now), n: count });
+}
+
+/** 문서용 날짜 — "2026년 10월 12일" (영어는 "10/12/2026") */
+function ymd(d: Date): string {
+  return t('{y}년 {m}월 {d}일', { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() });
 }
 
 /** 여러 건 → PDF용 HTML */
@@ -71,7 +77,7 @@ export function recordsToHtml(records: ScheduleRecord[]): string {
     td.when { white-space: nowrap; color: #1a56c4; font-weight: 600; width: 1%; padding-right: 16px; }
     ul { margin: 6px 0 0 0; padding-left: 18px; color: #555; }
   </style></head><body>
-    <h1>말로 일정</h1>
+    <h1>${escapeHtml(t('세이람 일정'))}</h1>
     <div class="sub">${docSubtitle(records.length, now)}</div>
     <table>${rows}</table>
   </body></html>`;
@@ -91,9 +97,9 @@ function stamp(): string {
 export async function copyRecords(records: ScheduleRecord[]): Promise<void> {
   try {
     await Clipboard.setStringAsync(recordsToText(records));
-    Alert.alert('복사 완료', `일정 ${records.length}건을 복사했습니다.`);
+    Alert.alert(t('복사 완료'), t('일정 {n}건을 복사했습니다.', { n: records.length }));
   } catch {
-    Alert.alert('복사 실패', '다시 시도해주세요.');
+    Alert.alert(t('복사 실패'), t('다시 시도해주세요.'));
   }
 }
 
@@ -102,13 +108,13 @@ export async function exportRecordsTxt(records: ScheduleRecord[]): Promise<void>
   try {
     const dir = new Directory(Paths.cache, 'exports');
     if (!dir.exists) dir.create({ intermediates: true });
-    const f = new File(dir, `말로일정_${stamp()}.txt`);
+    const f = new File(dir, `${t('세이람일정')}_${stamp()}.txt`);
     if (f.exists) f.delete();
     f.create();
     f.write(recordsToText(records));
-    await Sharing.shareAsync(f.uri, { mimeType: 'text/plain', dialogTitle: '일정 내보내기' });
+    await Sharing.shareAsync(f.uri, { mimeType: 'text/plain', dialogTitle: t('일정 내보내기') });
   } catch (e) {
-    Alert.alert('내보내기 실패', String(e));
+    Alert.alert(t('내보내기 실패'), String(e));
   }
 }
 
@@ -119,9 +125,9 @@ export async function exportRecordsPdf(records: ScheduleRecord[]): Promise<void>
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
       UTI: 'com.adobe.pdf',
-      dialogTitle: '일정 PDF 내보내기',
+      dialogTitle: t('일정 PDF 내보내기'),
     });
   } catch (e) {
-    Alert.alert('PDF 내보내기 실패', String(e));
+    Alert.alert(t('PDF 내보내기 실패'), String(e));
   }
 }

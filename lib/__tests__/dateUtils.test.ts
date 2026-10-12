@@ -100,3 +100,27 @@ describe('하루 전 미리 알림 표시 항목', () => {
     expect(sections[0].data.map((x: any) => x.kind ?? x.id)).toEqual(['d', 'pre']);
   });
 });
+
+describe('영어 포맷 (언어 설정 en)', () => {
+  const { setCurrentLang } = require('../i18n');
+  const { formatTime, formatDayHeader, weekdayLabels, WEEKDAYS } = require('../dateUtils');
+  beforeAll(() => setCurrentLang('en'));
+  afterAll(() => setCurrentLang('ko'));
+  test('시각·날짜 머리글·요일', () => {
+    expect(formatTime(new Date(2026, 9, 12, 15, 0))).toBe('3:00 PM');
+    expect(formatTime(new Date(2026, 9, 12, 0, 5))).toBe('12:05 AM');
+    expect(formatDayHeader(new Date(2026, 9, 12))).toBe('Mon, Oct 12');
+    expect(weekdayLabels()).toEqual(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+    expect(WEEKDAYS).toEqual(['일', '월', '화', '수', '목', '금', '토']); // 기존 export는 그대로
+  });
+  test('월·주 라벨, 날짜 미정 섹션', () => {
+    expect(formatMonthLabel(2026, 9)).toBe('October 2026');
+    expect(formatWeekLabel(new Date(2026, 9, 11))).toBe('Oct 11 – 17, 2026');
+    expect(formatWeekLabel(new Date(2026, 9, 28))).toBe('Oct 25 – 31, 2026');
+    expect(formatWeekLabel(new Date(2026, 9, 30))).toBe('Oct 25 – 31, 2026');
+    expect(formatWeekLabel(new Date(2026, 10, 1))).toBe('Nov 1 – 7, 2026');
+    expect(formatWeekLabel(new Date(2026, 8, 30))).toBe('Sep 27 – Oct 3, 2026');
+    expect(formatWeekLabel(new Date(2026, 11, 30))).toBe('Dec 27, 2026 – Jan 2, 2027');
+    expect(groupByDay([rec('e', null)]).map((s) => s.title)).toEqual(['No date']);
+  });
+});

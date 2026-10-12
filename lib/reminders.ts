@@ -5,16 +5,50 @@
 // → 미리 알림을 끄거나 미루어도 정각 알람(+1·+2분 재알림)은 건드리지 않는다.
 import { formatTime } from './dateUtils';
 
+import { getLang } from './i18n/lang';
+
 export const REMIND_OPTIONS = [10, 30, 60, 1440] as const;
 export type RemindBefore = (typeof REMIND_OPTIONS)[number];
 export const DEFAULT_REMIND: RemindBefore[] = [30];
 /** 하루 전 알림이 울리는 전날 시각 */
 export const DAY_BEFORE_HOUR = 20;
 
+/**
+ * 칩 라벨: "30분 전" / en "30 min before", "1시간 전" / "1 hour before", "하루 전" / "Day before"
+ * ja "30分前"·"1時間前"·"前日" / zh "提前30分钟"·"提前1小时"·"提前1天" / es "30 min antes"·"1 hora antes"·"Un día antes" …
+ */
 export function remindLabel(m: number): string {
-  if (m === 1440) return '하루 전';
-  if (m >= 60) return `${Math.round(m / 60)}시간 전`;
-  return `${m}분 전`;
+  const lang = getLang();
+  const h = Math.round(m / 60);
+  switch (lang) {
+    case 'en':
+      if (m === 1440) return 'Day before';
+      return m >= 60 ? `${h} ${h === 1 ? 'hour' : 'hours'} before` : `${m} min before`;
+    case 'ja':
+      if (m === 1440) return '前日';
+      return m >= 60 ? `${h}時間前` : `${m}分前`;
+    case 'zh-Hans':
+      if (m === 1440) return '提前1天';
+      return m >= 60 ? `提前${h}小时` : `提前${m}分钟`;
+    case 'zh-Hant':
+      if (m === 1440) return '提前1天';
+      return m >= 60 ? `提前${h}小時` : `提前${m}分鐘`;
+    case 'es':
+      if (m === 1440) return 'Un día antes';
+      return m >= 60 ? `${h} ${h === 1 ? 'hora' : 'horas'} antes` : `${m} min antes`;
+    case 'fr':
+      if (m === 1440) return 'La veille';
+      return m >= 60 ? `${h} ${h === 1 ? 'heure' : 'heures'} avant` : `${m} min avant`;
+    case 'de':
+      if (m === 1440) return 'Am Vortag';
+      return m >= 60 ? `${h} ${h === 1 ? 'Stunde' : 'Stunden'} vorher` : `${m} Min. vorher`;
+    case 'pt':
+      if (m === 1440) return 'Um dia antes';
+      return m >= 60 ? `${h} ${h === 1 ? 'hora' : 'horas'} antes` : `${m} min antes`;
+    default:
+      if (m === 1440) return '하루 전';
+      return m >= 60 ? `${h}시간 전` : `${m}분 전`;
+  }
 }
 
 export function isRemindOption(m: unknown): m is RemindBefore {
@@ -38,11 +72,27 @@ export function remindFireAt(scheduleAt: Date, m: number): Date {
   return new Date(scheduleAt.getTime() - m * 60_000);
 }
 
-/** 미리 알림 문구: "30분 뒤 · 치과 예약", "내일 오후 3:00 · 치과 예약" */
+/**
+ * 미리 알림 문구: "30분 뒤 · 치과 예약", "내일 오후 3:00 · 치과 예약" / en "In 30 min · X", "Tomorrow 3:00 PM · X"
+ * ja "30分後 · X"·"明日 15:00 · X" / zh "30分钟后 · X"·"明天 15:00 · X" / es "En 30 min · X"·"Mañana 15:00 · X" …
+ */
 export function remindBody(m: number, content: string, scheduleAt: Date): string {
-  if (m === 1440) return `내일 ${formatTime(scheduleAt)} · ${content}`;
-  if (m >= 60) return `${Math.round(m / 60)}시간 뒤 · ${content}`;
-  return `${m}분 뒤 · ${content}`;
+  const lang = getLang();
+  const t = formatTime(scheduleAt);
+  const h = Math.round(m / 60);
+  let head: string;
+  switch (lang) {
+    case 'en': head = m === 1440 ? `Tomorrow ${t}` : m >= 60 ? `In ${h} ${h === 1 ? 'hour' : 'hours'}` : `In ${m} min`; break;
+    case 'ja': head = m === 1440 ? `明日 ${t}` : m >= 60 ? `${h}時間後` : `${m}分後`; break;
+    case 'zh-Hans': head = m === 1440 ? `明天 ${t}` : m >= 60 ? `${h}小时后` : `${m}分钟后`; break;
+    case 'zh-Hant': head = m === 1440 ? `明天 ${t}` : m >= 60 ? `${h}小時後` : `${m}分鐘後`; break;
+    case 'es': head = m === 1440 ? `Mañana ${t}` : m >= 60 ? `En ${h} ${h === 1 ? 'hora' : 'horas'}` : `En ${m} min`; break;
+    case 'fr': head = m === 1440 ? `Demain ${t}` : m >= 60 ? `Dans ${h} ${h === 1 ? 'heure' : 'heures'}` : `Dans ${m} min`; break;
+    case 'de': head = m === 1440 ? `Morgen ${t}` : m >= 60 ? `In ${h} ${h === 1 ? 'Stunde' : 'Stunden'}` : `In ${m} Min.`; break;
+    case 'pt': head = m === 1440 ? `Amanhã ${t}` : m >= 60 ? `Em ${h} ${h === 1 ? 'hora' : 'horas'}` : `Em ${m} min`; break;
+    default: head = m === 1440 ? `내일 ${t}` : m >= 60 ? `${h}시간 뒤` : `${m}분 뒤`; break;
+  }
+  return `${head} · ${content}`;
 }
 
 /** 미리 알림용 식별자 접미사 */

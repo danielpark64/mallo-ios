@@ -5,6 +5,7 @@ import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, type Palette } from '../lib/theme';
+import { useT } from '../lib/i18n';
 import type { RecordFilter } from '../lib/filterRecords';
 import { ScrollPicker } from './ScrollPicker';
 
@@ -27,6 +28,7 @@ export function FilterSheet({
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const [year, setYear] = useState(value.year ?? ANY);
   const [month, setMonth] = useState(value.month ?? ANY);
   const [day, setDay] = useState(value.day ?? ANY);
@@ -43,37 +45,37 @@ export function FilterSheet({
   const years = useMemo(() => [ANY, ...yearChoices], [yearChoices]);
   const months = useMemo(() => [ANY, ...Array.from({ length: 12 }, (_, i) => i + 1)], []);
   const days = useMemo(() => [ANY, ...Array.from({ length: 31 }, (_, i) => i + 1)], []);
-  const label = useCallback((v: number) => (v === ANY ? '전체' : String(v)), []);
+  const label = useCallback((v: number) => (v === ANY ? t('전체') : String(v)), [t]);
 
-  const summary = [year !== ANY && `${year}년`, month !== ANY && `${month}월`, day !== ANY && `${day}일`]
+  const summary = [year !== ANY && t('{n}년', { n: year }), month !== ANY && t('{n}월', { n: month }), day !== ANY && t('{n}일', { n: day })]
     .filter(Boolean)
     .join(' ');
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="닫기" />
+      <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={onClose} accessibilityLabel={t('닫기')} />
       <View style={[s.sheet, { paddingBottom: 16 + insets.bottom }]}>
         <View style={s.handle} />
-        <Text style={s.title}>기간 직접 선택</Text>
-        <Text style={s.summary}>{summary || '전체 기간'}</Text>
+        <Text style={s.title}>{t('기간 직접 선택')}</Text>
+        <Text style={s.summary}>{summary || t('전체 기간')}</Text>
 
         <View style={s.pickers}>
           <View style={s.pickerCol}>
-            <Text style={s.pickerLabel}>년</Text>
+            <Text style={s.pickerLabel}>{t('년')}</Text>
             {/* ScrollPicker는 flex:1이라 세로 컨테이너 안에선 높이가 0이 된다 → 가로 행으로 감싸 높이를 지킨다 */}
             <View style={s.pickerRow}>
               <ScrollPicker value={year} items={years} onChange={setYear} label={label} />
             </View>
           </View>
           <View style={s.pickerCol}>
-            <Text style={s.pickerLabel}>월</Text>
+            <Text style={s.pickerLabel}>{t('월')}</Text>
             {/* ScrollPicker는 flex:1이라 세로 컨테이너 안에선 높이가 0이 된다 → 가로 행으로 감싸 높이를 지킨다 */}
             <View style={s.pickerRow}>
               <ScrollPicker value={month} items={months} onChange={setMonth} label={label} />
             </View>
           </View>
           <View style={s.pickerCol}>
-            <Text style={s.pickerLabel}>일</Text>
+            <Text style={s.pickerLabel}>{t('일')}</Text>
             {/* ScrollPicker는 flex:1이라 세로 컨테이너 안에선 높이가 0이 된다 → 가로 행으로 감싸 높이를 지킨다 */}
             <View style={s.pickerRow}>
               <ScrollPicker value={day} items={days} onChange={setDay} label={label} />
@@ -87,7 +89,7 @@ export function FilterSheet({
             onPress={() => { setYear(ANY); setMonth(ANY); setDay(ANY); }}
             activeOpacity={0.8}
           >
-            <Text style={s.resetBtnText}>초기화</Text>
+            <Text style={s.resetBtnText}>{t('초기화')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={s.applyBtn}
@@ -96,7 +98,7 @@ export function FilterSheet({
             }
             activeOpacity={0.85}
           >
-            <Text style={s.applyBtnText}>적용</Text>
+            <Text style={s.applyBtnText}>{t('적용')}</Text>
           </TouchableOpacity>
         </View>
       </View>

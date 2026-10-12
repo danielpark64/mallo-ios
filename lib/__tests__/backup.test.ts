@@ -49,7 +49,7 @@ beforeEach(() => { mockStore.clear(); mockDirs.clear(); mockDirs.add('doc/mallo'
 describe('backupName / audioNamesOf / mergeRecords', () => {
   test('백업 이름에 날짜·시각이 들어가고 다시 읽어낼 수 있다', () => {
     const name = backupName(new Date(2026, 9, 12, 7, 5));
-    expect(name).toBe('말로백업_2026-10-12_0705');
+    expect(name).toBe('세이람백업_2026-10-12_0705');
     expect(new Date(parseBackupDate(name)).getHours()).toBe(7);
     expect(parseBackupDate('이상한이름')).toBe(0);
   });
@@ -71,7 +71,7 @@ describe('createBackup / listBackups / restoreBackup / deleteBackup', () => {
     jest.useFakeTimers({ now: new Date(2026, 9, 12, 7, 5) });
     const b = createBackup([rec('1', 'doc/mallo/rec_1.m4a'), rec('2', 'doc/mallo/rec_2.m4a')]);
     jest.useRealTimers();
-    expect(b.name).toBe('말로백업_2026-10-12_0705');
+    expect(b.name).toBe('세이람백업_2026-10-12_0705');
     expect(b.count).toBe(2);
     expect(b.audioFiles).toBe(1);
     expect(mockStore.get(`doc/mallo-backups/${b.name}/rec_1.m4a`)).toBe('A');
@@ -83,7 +83,7 @@ describe('createBackup / listBackups / restoreBackup / deleteBackup', () => {
 
   test('복원: 다른 폰 경로의 uri를 현재 폴더로 바꾸고, 없는 녹음만 복사하며, 기존 일정은 유지한다', () => {
     // 다른 폰에서 만든 백업 폴더를 흉내 낸다
-    const dir = 'doc/mallo-backups/말로백업_2026-10-01_0900';
+    const dir = 'doc/mallo-backups/세이람백업_2026-10-01_0900';
     mockDirs.add('doc/mallo-backups'); mockDirs.add(dir);
     const foreign = [
       rec('10', 'file:///other-phone/Documents/mallo/rec_10.m4a', 'file:///other-phone/Documents/mallo/rec_10_a.m4a'),

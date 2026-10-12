@@ -7,6 +7,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Legacy from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import type { ScheduleRecord } from './storage';
+import { t } from './i18n';
 
 const DB_DIR = new Directory(Paths.document, 'mallo');
 export const BACKUP_ROOT = new Directory(Paths.document, 'mallo-backups');
@@ -17,7 +18,7 @@ export type RestoreResult = { added: number; skipped: number; missingAudio: numb
 
 function pad(n: number) { return n.toString().padStart(2, '0'); }
 export function backupName(d: Date = new Date()): string {
-  return `말로백업_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  return `세이람백업_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
 export function parseBackupDate(name: string): number {
   const m = /(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})/.exec(name);
@@ -104,7 +105,7 @@ export function restoreBackup(dirUri: string, existing: ScheduleRecord[]): Resto
   const dir = new Directory(dirUri);
   const manifest = new File(dir, MANIFEST);
   const incoming = JSON.parse(manifest.textSync()) as ScheduleRecord[];
-  if (!Array.isArray(incoming)) throw new Error('백업 목록 파일이 올바르지 않아요');
+  if (!Array.isArray(incoming)) throw new Error(t('백업 목록 파일이 올바르지 않아요'));
   if (!DB_DIR.exists) DB_DIR.create({ intermediates: true });
   let missingAudio = 0;
   for (const n of audioNamesOf(incoming)) {
@@ -154,9 +155,9 @@ export async function importBackupFromFolderAndroid(existing: ScheduleRecord[]):
   const byName = new Map<string, string>();
   for (const u of entries) byName.set(baseName(u), u);
   const manifestUri = byName.get(MANIFEST);
-  if (!manifestUri) throw new Error('고른 폴더에 records.json이 없어요. 백업 폴더(말로백업_…)를 골라주세요.');
+  if (!manifestUri) throw new Error(t('고른 폴더에 records.json이 없어요. 백업 폴더(세이람백업_…)를 골라주세요.'));
   const incoming = JSON.parse(await Legacy.readAsStringAsync(manifestUri)) as ScheduleRecord[];
-  if (!Array.isArray(incoming)) throw new Error('백업 목록 파일이 올바르지 않아요');
+  if (!Array.isArray(incoming)) throw new Error(t('백업 목록 파일이 올바르지 않아요'));
   if (!DB_DIR.exists) DB_DIR.create({ intermediates: true });
   let missingAudio = 0;
   for (const n of audioNamesOf(incoming)) {

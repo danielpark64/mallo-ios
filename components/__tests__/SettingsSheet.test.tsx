@@ -79,4 +79,23 @@ describe('SettingsSheet 화면 설정', () => {
     await fireEvent.press(g2('글자 아주 크게'));
     expect(g2('글자 아주 크게').props.accessibilityState.selected).toBe(true);
   });
+
+  test('언어 항목: 시스템/한국어/English 세그먼트, English를 고르면 문구가 영어로 바뀐다', async () => {
+    const { LanguageProvider } = require('../../lib/i18n');
+    const { getByLabelText, getByText, queryByText } = await render(
+      <LanguageProvider initial="ko">
+        <SettingsSheet {...base} calendarMode="month" onCalendarMode={() => {}} />
+      </LanguageProvider>
+    );
+    expect(getByText('언어')).toBeTruthy();
+    expect(getByLabelText('언어 대한민국').props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(getByLabelText('언어 English'));
+    expect(getByLabelText('언어 English').props.accessibilityState.selected).toBe(true);
+    expect(getByText('Settings')).toBeTruthy();
+    expect(getByText('Language')).toBeTruthy();
+    expect(getByText('Extra large')).toBeTruthy();
+    expect(queryByText('설정')).toBeNull();
+    // 접근성 라벨은 한국어 키 그대로라 테스트·스크린리더 식별이 안정적
+    expect(getByLabelText('테마 시스템')).toBeTruthy();
+  });
 });

@@ -32,6 +32,7 @@ import {
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs, type CalendarMode } from './lib/prefs';
 import { normalizeRemind, parsePreRecordId } from './lib/reminders';
+import { LanguageProvider, useT } from './lib/i18n';
 import {
   EMPTY_FILTER,
   describePeriod,
@@ -134,6 +135,7 @@ function AllSchedulesList({
   onFixDate: (r: ScheduleRecord) => void;
 }) {
   const C = useTheme();
+  const { t, lang } = useT();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { scale: fontScale } = useFontScale();
   const [filter, setFilter] = useState<RecordFilter>(EMPTY_FILTER);
@@ -141,7 +143,7 @@ function AllSchedulesList({
   const [preview, setPreview] = useState<ExportKind | null>(null);
 
   const filtered = useMemo(() => filterRecords(records, filter), [records, filter]);
-  const sections = useMemo(() => groupByDay(filtered), [filtered]);
+  const sections = useMemo(() => groupByDay(filtered), [filtered, lang]);
   // 복사/내보내기는 화면과 같은 순서(날짜순, 날짜 미정은 맨 뒤)로
   const exportList = useMemo(() => sections.flatMap((sec) => sec.data), [sections]);
   const active = isFilterActive(filter);
@@ -162,11 +164,11 @@ function AllSchedulesList({
   };
 
   const chips: { key: PeriodPreset; label: string }[] = [
-    { key: 'all', label: '전체' },
-    { key: 'today', label: '오늘' },
-    { key: 'week', label: '이번 주' },
-    { key: 'month', label: '이번 달' },
-    { key: 'custom', label: filter.preset === 'custom' ? `${describePeriod(filter)} ▾` : '기간 선택 ▾' },
+    { key: 'all', label: t('전체') },
+    { key: 'today', label: t('오늘') },
+    { key: 'week', label: t('이번 주') },
+    { key: 'month', label: t('이번 달') },
+    { key: 'custom', label: filter.preset === 'custom' ? `${describePeriod(filter)} ▾` : t('기간 선택 ▾') },
   ];
 
   const today = new Date();
@@ -180,16 +182,16 @@ function AllSchedulesList({
           style={[styles.searchInput, { fontSize: 16 * fontScale }]}
           value={filter.keyword}
           onChangeText={(t) => setFilter((f) => ({ ...f, keyword: t }))}
-          placeholder="내용으로 찾기"
+          placeholder={t('내용으로 찾기')}
           placeholderTextColor={C.textDim}
           returnKeyType="search"
-          accessibilityLabel="일정 검색"
+          accessibilityLabel={t('일정 검색')}
         />
         {filter.keyword ? (
           <TouchableOpacity
             onPress={() => setFilter((f) => ({ ...f, keyword: '' }))}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel="검색어 지우기"
+            accessibilityLabel={t('검색어 지우기')}
           >
             <Text style={styles.searchClear}>✕</Text>
           </TouchableOpacity>
@@ -219,20 +221,20 @@ function AllSchedulesList({
       </ScrollView>
 
       <View style={styles.resultRow}>
-        <Text style={styles.resultText}>{active ? `결과 ${filtered.length}건` : `전체 ${filtered.length}건`}</Text>
+        <Text style={styles.resultText}>{active ? t('결과 {n}건', { n: filtered.length }) : t('전체 {n}건', { n: filtered.length })}</Text>
         <View style={styles.resultActions}>
           {active && (
             <TouchableOpacity onPress={() => setFilter(EMPTY_FILTER)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.resultReset}>초기화</Text>
+              <Text style={styles.resultReset}>{t('초기화')}</Text>
             </TouchableOpacity>
           )}
           {filtered.length > 0 && (
             <>
               <TouchableOpacity style={styles.resultBtn} onPress={() => copyRecords(exportList)}>
-                <Text style={styles.resultBtnText}>복사</Text>
+                <Text style={styles.resultBtnText}>{t('복사')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.resultBtn} onPress={() => setPreview('txt')}>
-                <Text style={styles.resultBtnText}>텍스트</Text>
+                <Text style={styles.resultBtnText}>{t('텍스트')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.resultBtn} onPress={() => setPreview('pdf')}>
                 <Text style={styles.resultBtnText}>PDF</Text>
@@ -256,8 +258,8 @@ function AllSchedulesList({
         ListEmptyComponent={
           <View style={styles.emptyAll}>
             <Text style={styles.emptyAllIcon}>📅</Text>
-            <Text style={styles.emptyAllText}>{active ? '조건에 맞는 일정이 없어요' : '등록된 일정이 없어요'}</Text>
-            {!active && <Text style={styles.emptyAllSub}>아래 마이크 버튼으로 말해서 바로 추가해보세요</Text>}
+            <Text style={styles.emptyAllText}>{active ? t('조건에 맞는 일정이 없어요') : t('등록된 일정이 없어요')}</Text>
+            {!active && <Text style={styles.emptyAllSub}>{t('아래 마이크 버튼으로 말해서 바로 추가해보세요')}</Text>}
           </View>
         }
         renderSectionHeader={({ section }) => {
@@ -270,7 +272,7 @@ function AllSchedulesList({
               </Text>
               {isToday && (
                 <View style={styles.todayChip}>
-                  <Text style={styles.todayChipText}>오늘</Text>
+                  <Text style={styles.todayChipText}>{t('오늘')}</Text>
                 </View>
               )}
             </View>
@@ -301,16 +303,19 @@ function AllSchedulesList({
 // Provider와 실제 컨텐츠를 분리한다.
 export default function App() {
   return (
-    <ThemeProvider>
-      <SafeAreaProvider>
-        <AppInner />
-      </SafeAreaProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <AppInner />
+        </SafeAreaProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 
 function AppInner() {
   const C = useTheme();
+  const { t, lang } = useT();
   const styles = useMemo(() => makeStyles(C), [C]);
   const resolvedTheme = useResolvedTheme();
   const { scale: fontScale } = useFontScale();
@@ -372,7 +377,7 @@ function AppInner() {
       await resyncAlarms(recs);
       setPermissionGranted(audio.granted && speech.granted);
       if (!audio.granted || !speech.granted) {
-        Alert.alert('권한 필요', '마이크 및 음성 인식 권한이 모두 필요합니다.');
+        Alert.alert(t('권한 필요'), t('마이크 및 음성 인식 권한이 모두 필요합니다.'));
       }
     })();
   }, []);
@@ -388,7 +393,7 @@ function AppInner() {
         await cancelAlarmByRecordId(recordId).catch(() => {});
         if (response.actionIdentifier === 'snooze') {
           const rec = recordsRef.current.find((r) => r.id === pre.recordId);
-          const body = response.notification.request.content.body || rec?.content || '미리 알림';
+          const body = response.notification.request.content.body || rec?.content || t('미리 알림');
           await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true });
         }
         return;
@@ -397,7 +402,7 @@ function AppInner() {
         // 스누즈: 남은 슬롯 취소 후 5분 뒤로 다시 예약
         await cancelAlarmByRecordId(recordId).catch(() => {});
         const rec = recordsRef.current.find((r) => r.id === recordId);
-        const body = rec?.content || rec?.transcript || response.notification.request.content.body || '알람';
+        const body = rec?.content || rec?.transcript || response.notification.request.content.body || t('알람');
         await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both');
       } else {
         // 알람 끄기 버튼 / 알림 탭 / 스와이프 닫기 → 남은 재알림(+1/+2분) 취소
@@ -421,7 +426,7 @@ function AppInner() {
       groupByDay(schedulesBetween(records, visibleRange.start, visibleRange.end)),
       preAlarmItems(records, visibleRange.start, visibleRange.end),
     ),
-    [records, visibleRange],
+    [records, visibleRange, lang],
   );
   const periodCount = periodSections.reduce((n, sec) => n + sec.data.filter((x) => !isPreAlarmItem(x)).length, 0);
   const periodLabel =
@@ -481,7 +486,7 @@ function AppInner() {
   // ── 녹음 ─────────────────────────────────────────────────────────────────────
   const startRecording = async () => {
     if (!permissionGranted) {
-      Alert.alert('권한 없음', '마이크 및 음성 인식 권한을 허용해주세요.');
+      Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'));
       return;
     }
     setShowRecorder(true);
@@ -504,7 +509,7 @@ function AppInner() {
     })();
 
     if (!uri && voice.fileRecording) {
-      Alert.alert('녹음 실패', '녹음 파일이 만들어지지 않았어요. 다시 시도해주세요.');
+      Alert.alert(t('녹음 실패'), t('녹음 파일이 만들어지지 않았어요. 다시 시도해주세요.'));
       return;
     }
     // Android 12 이하는 녹음 파일 없이 글만 저장(uri '') — lib/voiceCapture.ts
@@ -513,7 +518,7 @@ function AppInner() {
       try { return persistAudio(uri, key); } catch (e) { console.warn('오디오 저장 실패:', e); return uri; }
     };
     if (!transcript) {
-      Alert.alert('인식 실패', '음성이 인식되지 않았어요. 다시 시도해주세요.');
+      Alert.alert(t('인식 실패'), t('음성이 인식되지 않았어요. 다시 시도해주세요.'));
       return;
     }
     // 날짜·시간을 한마디도 안 했으면 녹음을 버리지 않고 오늘(시간 미정)로 저장 + "정하기" 꼬리표.
@@ -536,7 +541,7 @@ function AppInner() {
       return;
     }
     if (!parsed.hasDate && !parsed.hasTime) {
-      Alert.alert('삭제할 일정을 못 찾았어요', `"${transcript}"\n\n어느 날 일정을 지울지 날짜를 함께 말씀해주세요.`, [{ text: '확인' }]);
+      Alert.alert(t('삭제할 일정을 못 찾았어요'), t('"{text}"\n\n어느 날 일정을 지울지 날짜를 함께 말씀해주세요.', { text: transcript }), [{ text: t('확인') }]);
       return;
     }
 
@@ -574,7 +579,7 @@ function AppInner() {
         (r) => r.scheduleAt != null && isSameDay(new Date(r.scheduleAt), parsed.date!)
       );
       if (targets.length === 0) {
-        Alert.alert('삭제할 일정 없음', `${formatDayHeader(parsed.date)}에 일정이 없어요.`);
+        Alert.alert(t('삭제할 일정 없음'), t('{day}에 일정이 없어요.', { day: formatDayHeader(parsed.date) }));
         return;
       }
       const target = parsed.hasTime
@@ -585,14 +590,14 @@ function AppInner() {
         : targets[0];
       const extras = targets.filter((r) => r.id !== target.id);
       const extrasStr = extras.length > 0
-        ? '\n\n같은 날 다른 일정:\n' + extras.map((r) => `• ${r.content}`).join('\n')
+        ? '\n\n' + t('같은 날 다른 일정:') + '\n' + extras.map((r) => `• ${r.content}`).join('\n')
         : '';
       Alert.alert(
-        '일정 삭제',
-        `삭제할 일정:\n"${target.content}"\n${target.scheduleDisplay}${extrasStr}`,
+        t('일정 삭제'),
+        t('삭제할 일정:\n"{content}"\n{when}', { content: target.content, when: target.scheduleDisplay }) + extrasStr,
         [
-          { text: '취소', style: 'cancel' },
-          { text: '삭제', style: 'destructive', onPress: async () => {
+          { text: t('취소'), style: 'cancel' },
+          { text: t('삭제'), style: 'destructive', onPress: async () => {
             if (target.uri) deleteAudio(target.uri);
             for (const a of target.appends ?? []) if (a.uri) deleteAudio(a.uri);
             await cancelAlarmGroup(target.id, target.notifIds);
@@ -611,11 +616,11 @@ function AppInner() {
       );
       if (existing) {
         Alert.alert(
-          '비슷한 시간 일정이 있어요',
-          `기존: "${existing.content}"\n${existing.scheduleDisplay}\n\n새로 인식:\n"${parsed.content}"`,
+          t('비슷한 시간 일정이 있어요'),
+          t('기존: "{old}"\n{when}\n\n새로 인식:\n"{new}"', { old: existing.content, when: existing.scheduleDisplay, new: parsed.content }),
           [
-            { text: '취소', style: 'cancel' },
-            { text: '추가로 붙이기', onPress: async () => {
+            { text: t('취소'), style: 'cancel' },
+            { text: t('추가로 붙이기'), onPress: async () => {
               // 메모가 아니라 메인과 동등한 독립 엔트리로 추가 — 자기 녹음/전사/구간재생을 그대로 보존
               const appendId = Date.now().toString();
               const newAppend: AppendEntry = {
@@ -629,7 +634,7 @@ function AppInner() {
               ));
               setSelectedDate(recordedDate);
             }},
-            { text: '새 일정', onPress: saveAsNew },
+            { text: t('새 일정'), onPress: saveAsNew },
           ]
         );
         return;
@@ -766,10 +771,10 @@ function AppInner() {
       {/* ── 헤더 ── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.appName}>말로</Text>
+          <Text style={styles.appName}>{t('세이람')}</Text>
           {nextSchedule?.scheduleAt ? (
             <Text style={styles.nextLabel} numberOfLines={bigText ? 2 : 1}>
-              다음 ·{' '}
+              {t('다음 ·')}{' '}
               {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
               {formatTime(new Date(nextSchedule.scheduleAt))}
             </Text>
@@ -779,8 +784,8 @@ function AppInner() {
           {!bigText && (
             <Text style={styles.clockText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatTime(currentTime)}</Text>
           )}
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel="설정">
-            <Text style={styles.settingsBtnText}>설정</Text>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel={t('설정')}>
+            <Text style={styles.settingsBtnText}>{t('설정')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
             <Text style={styles.addCircleBtnText}>＋</Text>
@@ -797,7 +802,7 @@ function AppInner() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segTabText, activeTab === 'calendar' && styles.segTabTextActive]}>
-              달력
+              {t('달력')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -806,7 +811,7 @@ function AppInner() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segTabText, activeTab === 'all' && styles.segTabTextActive]}>
-              전체 일정
+              {t('전체 일정')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -845,14 +850,14 @@ function AppInner() {
                 onVisibleRangeChange={setVisibleRange}
               />
               <View style={styles.dayHeader}>
-                <Text style={styles.dayHeaderText} numberOfLines={2}>{periodLabel} 일정</Text>
-                <Text style={styles.dayCount}>{periodCount > 0 ? `${periodCount}건` : ''}</Text>
+                <Text style={styles.dayHeaderText} numberOfLines={2}>{t('{label} 일정', { label: periodLabel })}</Text>
+                <Text style={styles.dayCount}>{periodCount > 0 ? t('{n}건', { n: periodCount }) : ''}</Text>
               </View>
             </>
           }
           ListEmptyComponent={
             <View style={styles.emptyDay}>
-              <Text style={styles.emptyDayText}>{calendarMode === 'week' ? '이 주에는 일정이 없어요' : '이 달에는 일정이 없어요'}</Text>
+              <Text style={styles.emptyDayText}>{calendarMode === 'week' ? t('이 주에는 일정이 없어요') : t('이 달에는 일정이 없어요')}</Text>
             </View>
           }
           renderSectionHeader={({ section }) => {
@@ -865,7 +870,7 @@ function AppInner() {
                 </Text>
                 {isToday && (
                   <View style={styles.todayChip}>
-                    <Text style={styles.todayChipText}>오늘</Text>
+                    <Text style={styles.todayChipText}>{t('오늘')}</Text>
                   </View>
                 )}
               </View>
@@ -938,7 +943,7 @@ function AppInner() {
         <View style={styles.overlay}>
           <View style={[styles.sheet, { paddingBottom: 44 + insets.bottom }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>듣고 있어요</Text>
+            <Text style={styles.sheetTitle}>{t('듣고 있어요')}</Text>
             <Waveform metering={voice.recorderState.metering} isRecording={voice.recorderState.isRecording} />
             {!voice.fileRecording && <Text style={styles.sheetNotice}>{NO_FILE_NOTICE}</Text>}
             <View style={styles.transcriptBox}>
@@ -946,7 +951,7 @@ function AppInner() {
                 <Text style={styles.transcriptText} numberOfLines={4}>{voice.liveText}</Text>
               ) : (
                 <Text style={styles.transcriptPlaceholder}>
-                  말씀해보세요…{'\n'}예: "내일 오후 3시에 회의"
+                  {t('말씀해보세요…\n예: "내일 오후 3시에 회의"')}
                 </Text>
               )}
               {voice.liveText ? (
@@ -958,18 +963,18 @@ function AppInner() {
                     ) : null}
                   </View>
                 ) : (
-                  <Text style={styles.detectWait}>⏳ 날짜·시간을 기다리는 중…</Text>
+                  <Text style={styles.detectWait}>{t('⏳ 날짜·시간을 기다리는 중…')}</Text>
                 )
               ) : null}
             </View>
             <Text style={styles.timer}>{formatDuration(elapsedSec)}</Text>
             <View style={styles.sheetBtns}>
               <TouchableOpacity style={styles.cancelBtn} onPress={cancelRecording}>
-                <Text style={styles.cancelBtnText}>취소</Text>
+                <Text style={styles.cancelBtnText}>{t('취소')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.stopBtn} onPress={stopRecording}>
                 <Text style={styles.stopBtnIcon}>⏹</Text>
-                <Text style={styles.stopBtnText}>완료</Text>
+                <Text style={styles.stopBtnText}>{t('완료')}</Text>
               </TouchableOpacity>
             </View>
           </View>

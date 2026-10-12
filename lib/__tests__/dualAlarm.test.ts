@@ -76,7 +76,7 @@ describe('scheduleAlarm — 두 경로 모두 예약', () => {
     expect(nativeCalls.map((c) => c[0])).toEqual(['mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
     expect(nativeCalls.map((c) => c[1])).toEqual(['r1', 'r1', 'r1']);
     expect(nativeCalls.map((c) => c[2] - at.getTime())).toEqual([0, 60_000, 120_000]);
-    expect(nativeCalls[0].slice(3)).toEqual(['말로', '회의', true, true]);
+    expect(nativeCalls[0].slice(3)).toEqual(['세이람', '회의', true, true]);
 
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
     const expoOffsets = mocked.scheduleNotificationAsync.mock.calls.map(
@@ -177,7 +177,7 @@ describe('미리 알림 — 네이티브·Expo 두 경로, 정각과 독립', ()
     const ids = await scheduleAlarm('r1', '치과', at, 'both', { remindBefore: [30] });
     expect(ids).toEqual(['mallo_r1_pre30', 'mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
     const n = mockNative.schedule.mock.calls;
-    expect(n[0].slice(0, 5)).toEqual(['mallo_r1_pre30', 'r1#pre30', at.getTime() - 30 * 60_000, '말로 · 미리 알림', '30분 뒤 · 치과']);
+    expect(n[0].slice(0, 5)).toEqual(['mallo_r1_pre30', 'r1#pre30', at.getTime() - 30 * 60_000, '세이람 · 미리 알림', '30분 뒤 · 치과']);
     expect(n[1][1]).toBe('r1');
     const expoPre = mocked.scheduleNotificationAsync.mock.calls[0][0];
     expect((expoPre.trigger as any).date.getTime()).toBe(at.getTime() - 30 * 60_000 + EXPO_FALLBACK_GRACE_MS);

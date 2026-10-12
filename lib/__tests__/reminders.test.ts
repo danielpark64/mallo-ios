@@ -67,3 +67,16 @@ describe('parseSchedule에 미리 알림이 이어진다', () => {
     expect(parseSchedule('내일 오후 세 시에 치과 예약', base).remindBefore).toBeUndefined();
   });
 });
+
+describe('영어 라벨 (언어 설정 en)', () => {
+  const { setCurrentLang } = require('../i18n');
+  beforeAll(() => setCurrentLang('en'));
+  afterAll(() => setCurrentLang('ko'));
+  test('remindLabel / remindBody', () => {
+    const at = new Date(2026, 9, 12, 15, 0);
+    expect([10, 30, 60, 1440].map(remindLabel)).toEqual(['10 min before', '30 min before', '1 hour before', 'Day before']);
+    expect(remindBody(30, 'Dentist', at)).toBe('In 30 min · Dentist');
+    expect(remindBody(60, 'Dentist', at)).toBe('In 1 hour · Dentist');
+    expect(remindBody(1440, 'Dentist', at)).toBe('Tomorrow 3:00 PM · Dentist');
+  });
+});

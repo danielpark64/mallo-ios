@@ -1,5 +1,8 @@
 // ─── 한국어 자연어 → 일정(날짜·시간) 파서 ──────────────────────────────────────
 import { extractRemindBefore } from './reminders';
+import { getLang } from './i18n';
+import { parseScheduleEn } from './parseScheduleEn';
+import { parseScheduleIntl, formatDisplayIntl } from './parseScheduleIntl';
 // STT로 받은 한국어 문장에서 날짜·시간을 추출해 실제 Date 로 변환한다.
 // 예) "내일 오후 3시에 팀 회의" → { date: 2026-06-07 15:00, content: "팀 회의" }
 
@@ -51,6 +54,10 @@ function isValidMonthDay(month: number, date: number): boolean {
 
 // ─── 메인 파서 ────────────────────────────────────────────────────────────────
 export function parseSchedule(input: string, base: Date = new Date()): ParsedSchedule {
+  // 영어 모드면 영어 파서로, 그 외 언어(ja·zh·es·fr·de·pt)는 표 기반 파서로 (한국어 경로는 그대로)
+  const lang = getLang();
+  if (lang === 'en') return parseScheduleEn(input, base);
+  if (lang !== 'ko') return parseScheduleIntl(input, base, lang);
   const pre = extractRemindBefore((input ?? '').trim());
   const result0 = parseScheduleCore(pre.text, base);
   return pre.remindBefore ? { ...result0, remindBefore: pre.remindBefore } : result0;
@@ -290,7 +297,14 @@ function stripContent(text: string, matched: string[]): string {
 }
 
 // ─── 사람이 읽기 좋은 표현 ─────────────────────────────────────────────────────
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** 언어별 표기 — ko: "6월 7일 (일) 오후 3:00" / en: "Sun, Jun 7 · 3:00 PM" (시간 미정이면 "Sun, Jun 7") / 그 외는 formatDisplayIntl */
 export function formatDisplay(d: Date, hasDate: boolean, hasTime: boolean): string {
+  const lang = getLang();
+  if (lang === 'en') return formatDisplayEn(d, hasDate, hasTime);
+  if (lang !== 'ko') return formatDisplayIntl(d, hasDate, hasTime, lang);
   const month = d.getMonth() + 1;
   const date = d.getDate();
   const dow = WEEKDAYS[d.getDay()];
@@ -306,7 +320,18 @@ export function formatDisplay(d: Date, hasDate: boolean, hasTime: boolean): stri
   return s.trim();
 }
 
-// 날짜·시간 포함 여부만 빠르게 (UI 배지용)
+function formatDisplayEn(d: Date, hasDate: boolean, hasTime: boolean): string {
+  const parts: string[] = [];
+  if (hasDate) parts.push(`${WEEKDAYS_EN[d.getDay()]}, ${MONTHS_EN[d.getMonth()]} ${d.getDate()}`);
+  if (hasTime) {
+    const h = d.getHours();
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    parts.push(`${h12}:${d.getMinutes().toString().padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`);
+  }
+  return parts.join(' · ');
+}
+
+// 날짜·시간 포함 여부만 빠르게 (UI 배지용) — parseSchedule 이 언어별로 위임하므로 영어도 지원
 export function hasDateTime(text: string): boolean {
   const p = parseSchedule(text);
   return p.hasDate || p.hasTime;

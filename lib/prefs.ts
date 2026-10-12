@@ -6,9 +6,11 @@ import { DEFAULT_REMIND, normalizeRemind } from './reminders';
 export type CalendarMode = 'month' | 'week';
 export type ThemeSetting = 'system' | 'light' | 'dark';
 export type FontScaleName = 'small' | 'medium' | 'large' | 'xlarge';
-export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[] };
+export type LanguageSetting = 'system' | 'ko' | 'en' | 'ja' | 'zh-Hans' | 'zh-Hant' | 'es' | 'fr' | 'de' | 'pt';
+export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[]; language: LanguageSetting };
 
-const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND] };
+const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND], language: 'system' };
+const LANGUAGES: LanguageSetting[] = ['system', 'ko', 'en', 'ja', 'zh-Hans', 'zh-Hant', 'es', 'fr', 'de', 'pt'];
 const THEMES: ThemeSetting[] = ['system', 'light', 'dark'];
 const FONT_SCALES: FontScaleName[] = ['small', 'medium', 'large', 'xlarge'];
 const DIR = new Directory(Paths.document, 'mallo');
@@ -25,6 +27,7 @@ export function loadPrefs(): Prefs {
       ...(THEMES.includes(parsed?.theme) ? { theme: parsed.theme as ThemeSetting } : {}),
       ...(FONT_SCALES.includes(parsed?.fontScale) ? { fontScale: parsed.fontScale as FontScaleName } : {}),
       ...(Array.isArray(parsed?.defaultRemind) ? { defaultRemind: normalizeRemind(parsed.defaultRemind) } : {}),
+      ...(LANGUAGES.includes(parsed?.language) ? { language: parsed.language as LanguageSetting } : {}),
     };
   } catch {
     return { ...DEFAULTS };

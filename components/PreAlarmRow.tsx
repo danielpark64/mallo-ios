@@ -6,9 +6,11 @@ import { Text } from './AppText';
 import { useTheme, type Palette } from '../lib/theme';
 import { formatTime, type PreAlarmItem } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
+import { useT } from '../lib/i18n';
 
 export function PreAlarmRow({ item, onPress }: { item: PreAlarmItem; onPress: (r: ScheduleRecord) => void }) {
   const C = useTheme();
+  const { t } = useT();
   const s = useMemo(() => makeStyles(C), [C]);
   const target = new Date(item.record.scheduleAt!);
   const text = item.record.content || item.record.transcript;
@@ -16,8 +18,8 @@ export function PreAlarmRow({ item, onPress }: { item: PreAlarmItem; onPress: (r
     <TouchableOpacity style={s.row} onPress={() => onPress(item.record)} activeOpacity={0.7} testID="pre-alarm-row">
       <Text style={s.time}>⏰ {formatTime(new Date(item.fireAt))}</Text>
       <View style={s.body}>
-        <Text style={s.label}>미리 알림 · 하루 전</Text>
-        <Text style={s.text} numberOfLines={1}>내일 {formatTime(target)} · {text}</Text>
+        <Text style={s.label}>{t('미리 알림 · 하루 전')}</Text>
+        <Text style={s.text} numberOfLines={1}>{t('내일 {time} · {text}', { time: formatTime(target), text: text ?? '' })}</Text>
       </View>
     </TouchableOpacity>
   );

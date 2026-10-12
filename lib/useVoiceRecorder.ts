@@ -12,6 +12,7 @@ import {
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import type { TranscriptSegment } from './storage';
+import { sttLang } from './sttLang';
 import { canRecordFileWhileRecognizing } from './voiceCapture';
 import { hasUsableTimestamps, synthesizeSegmentTimes } from './wordRange';
 
@@ -95,7 +96,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     setTimeout(() => {
       if (!sttActiveRef.current) return;
       try {
-        ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
+        ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
       } catch {}
     }, 200);
@@ -106,7 +107,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     const attempt = (n: number) => {
       if (!sttActiveRef.current) return;
       try {
-        ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: true });
+        ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
       } catch {
         if (n < 3) setTimeout(() => attempt(n + 1), 400);
