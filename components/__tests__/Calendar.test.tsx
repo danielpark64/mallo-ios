@@ -48,11 +48,11 @@ describe('Calendar', () => {
 describe('Calendar 주 보기 / 모드 토글 / 보이는 기간', () => {
   const sel = new Date(2026, 9, 14); // 2026-10-14 수
 
-  test('주 보기는 그 주(일~토) 7일만 보여주고 라벨은 "10월 11일 – 17일"', async () => {
+  test('주 보기는 그 주(일~토) 7일만 보여주고 라벨은 "2026년 10월 11일 – 17일"', async () => {
     const { getByText, queryByText } = await render(
       <Calendar selectedDate={sel} onSelectDate={noop} markedDays={marks} mode="week" onModeChange={noop} />
     );
-    expect(getByText('10월 11일 – 17일')).toBeTruthy();
+    expect(getByText('2026년 10월 11일 – 17일')).toBeTruthy();
     for (const d of [11, 12, 13, 14, 15, 16, 17]) expect(getByText(String(d))).toBeTruthy();
     expect(queryByText('10')).toBeNull();
     expect(queryByText('18')).toBeNull();
@@ -62,12 +62,12 @@ describe('Calendar 주 보기 / 모드 토글 / 보이는 기간', () => {
     const { getByText } = await render(
       <Calendar selectedDate={new Date(2026, 9, 28)} onSelectDate={noop} markedDays={marks} mode="week" onModeChange={noop} />
     );
-    expect(getByText('10월 25일 – 31일')).toBeTruthy();
+    expect(getByText('2026년 10월 25일 – 31일')).toBeTruthy();
     await fireEvent.press(getByText('›'));
-    expect(getByText('11월 1일 – 7일')).toBeTruthy();
+    expect(getByText('2026년 11월 1일 – 7일')).toBeTruthy();
     await fireEvent.press(getByText('‹'));
     await fireEvent.press(getByText('‹'));
-    expect(getByText('10월 18일 – 24일')).toBeTruthy();
+    expect(getByText('2026년 10월 18일 – 24일')).toBeTruthy();
   });
 
   test('월/주 토글을 누르면 onModeChange가 호출된다 (같은 모드는 무시)', async () => {

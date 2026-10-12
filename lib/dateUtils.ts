@@ -99,14 +99,13 @@ export function formatMonthLabel(year: number, month: number): string {
   return `${year}년 ${month + 1}월`;
 }
 
-/** "10월 12일 – 18일", 달이 바뀌면 "10월 29일 – 11월 4일" */
+/** "2026년 10월 12일 – 18일", 달이 바뀌면 "2026년 10월 29일 – 11월 4일" (연도는 주 시작일 기준) */
 export function formatWeekLabel(weekStart: Date): string {
   const s = startOfWeek(weekStart);
   const e = addDays(s, 6);
   const sameMonth = s.getMonth() === e.getMonth();
-  return sameMonth
-    ? `${s.getMonth() + 1}월 ${s.getDate()}일 – ${e.getDate()}일`
-    : `${s.getMonth() + 1}월 ${s.getDate()}일 – ${e.getMonth() + 1}월 ${e.getDate()}일`;
+  const head = `${s.getFullYear()}년 ${s.getMonth() + 1}월 ${s.getDate()}일`;
+  return sameMonth ? `${head} – ${e.getDate()}일` : `${head} – ${e.getMonth() + 1}월 ${e.getDate()}일`;
 }
 
 /** 날짜별 섹션 — 전체 일정 탭·달력 기간 목록 공용. 날짜 미정은 맨 뒤 */

@@ -25,12 +25,11 @@ import { ExportPreview, type ExportKind } from './ExportPreview';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import {
   activeSegmentIndex,
+  chipsForEntry,
   extendRange,
   findChipAt,
-  hasUsableTimestamps,
   normalizeRange,
   rangeText,
-  synthesizeSegmentTimes,
   type ChipLayout,
   type WordRange,
 } from '../lib/wordRange';
@@ -112,7 +111,6 @@ function EntryBlock({
   const statusAtStartRef = useRef<typeof status | null>(null);
   // 재생 중 80ms마다 리렌더해 시계 기준 위치로 하이라이트를 움직인다
   const [, setTick] = useState(0);
-  const hasSegments = segments.length > 0;
   const text = content || transcript || '(내용 없음)';
 
   // ── 범위선택 상태 ──────────────────────────────────────────────────────────────
@@ -155,7 +153,9 @@ function EntryBlock({
     claimPlayback();
     await applyRoute(route);
     segEndRef.current = endSec;
-    player.seekTo(startSec);
+    // seekTo는 비동기 — 기다리지 않고 play()하면(특히 끝까지 들은 뒤 다시 ▶) 이전 위치(끝)에서 재생이 시작돼
+    // 바로 끝나 버리고, 하이라이트만 시계 기준으로 끝까지 움직여 "소리는 안 나는데 단어만 움직이는" 상태가 된다 (2026-10-12 폰)
+    try { await player.seekTo(startSec); } catch {}
     playStartSecRef.current = startSec;
     playStartedAtRef.current = Date.now();
     statusAtStartRef.current = statusRef.current;
@@ -172,12 +172,13 @@ function EntryBlock({
   // 전체 길이(초): 플레이어가 알려주면 그 값, 아니면(0) 저장된 녹음 길이
   const totalSec = status.duration > 0 ? status.duration : durationSec;
 
-  // 저장된 타임스탬프가 쓸모없으면(모두 같은 값·길이 0) 전체 길이에 글자 수 비례로 배분한 근사 시각을 쓴다.
-  // 새 녹음은 useVoiceRecorder가 저장 시점에 합성하지만, 그 전에 저장된 녹음을 위한 표시 시점 보정.
+  // 단어칩: 저장된 단어 시각이 표시 글과 같으면 그대로(쓸모없는 시각은 합성), 글을 고쳐 단어가 달라졌거나
+  // 단어 시각이 없으면 표시 글을 나눠 근사 시각을 합성한다 — 녹음이 있는 한 칩 탭·끌기·따라가기가 항상 동작.
   const segs = useMemo(
-    () => (hasUsableTimestamps(segments) ? segments : synthesizeSegmentTimes(segments, 0, Math.max(0, totalSec) * 1000)),
-    [segments, totalSec],
+    () => (uri ? chipsForEntry(segments, text, Math.max(0, totalSec) * 1000) : []),
+    [uri, text, segments, totalSec],
   );
+  const hasSegments = segs.length > 0;
 
   const toggle = () => {
     if (playing) {
@@ -341,7 +342,7 @@ function EntryBlock({
       {hasSegments ? (
         <>
           <View style={s.wordFlow} testID="wordFlow" {...pan.panHandlers}>
-            {segments.map((seg, idx) => {
+            {segs.map((seg, idx) => {
               const playingNow = idx === activeIdx;
               const selected = inRange(idx);
               return (
@@ -417,12 +418,12 @@ function EntryBlock({
             </View>
           </View>
           {!hasSegments && (
-            <Text style={s.unsupported}>
-              이 기기는 OS 버전으로 인해 부분별 녹음 재생을 사용할 수 없습니다
-            </Text>
+            <Text style={s.unsupported}>녹음 길이를 알 수 없어 단어별 재생을 쓸 수 없어요</Text>
           )}
         </>
-      ) : null}
+      ) : (
+        <Text style={s.unsupported}>녹음 파일 없이 글만 저장된 항목이에요</Text>
+      )}
     </View>
   );
 }
@@ -503,7 +504,13 @@ export function ScheduleDetail({
           testID="detailScroll"
         >
           {/* 일시 */}
-          <Text style={s.when}>{when}</Text>
+          <Text style={s.when}>{record.needsDate ? `${when.replace('  (시간 미정)', '')}  (임시)` : when}</Text>
+          {record.needsDate && (
+            <TouchableOpacity style={s.needsDateBar} onPress={() => onEdit(record)} activeOpacity={0.8} accessibilityLabel="날짜 정하기">
+              <Text style={s.needsDateText}>날짜·시간 없이 녹음돼 오늘에 임시로 두었어요</Text>
+              <Text style={s.needsDateBtn}>정하기</Text>
+            </TouchableOpacity>
+          )}
           {mode ? (
             <View style={s.badgeRow}>
               {mode !== 'vibe' && <Text style={s.badgeIcon}>🔔</Text>}
@@ -597,6 +604,13 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 20, paddingBottom: 48 },
   when: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 18 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  needsDateBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    marginTop: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: 'rgba(240, 106, 106, 0.14)',
+  },
+  needsDateText: { color: C.red, fontSize: 13, fontWeight: '600', flex: 1 },
+  needsDateBtn: { color: '#fff', fontSize: 13, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   badgeIcon: { fontSize: 14 },
   badgeVibe: { width: 16, height: 16, resizeMode: 'contain' },
   badgeText: { color: C.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },

@@ -91,3 +91,26 @@ export function synthesizeSegmentTimes(
     return out;
   });
 }
+
+/**
+ * 화면에 보여줄 단어칩 목록.
+ * - 저장된 단어 시각(segments)이 있으면 그대로(시각이 쓸모없으면 전체 길이에 합성) — 칩 단어는 말한 문장(transcript) 기준.
+ * - 단어 시각이 없으면(글을 고치면 편집기가 segments를 비운다 / 인식기가 안 준 경우) 표시할 글(content, 없으면
+ *   transcript)을 공백으로 나눠 전체 길이에 글자 수 비례로 시각을 합성한다 — 근사치지만 단어 탭·끌기 선택·
+ *   읽는 단어 따라가기가 계속 동작한다 (2026-10-12 폰: 글을 고친 '추가' 엔트리에 칩이 아예 안 떠 선택 불가).
+ * - 녹음 길이를 모르면(0) 합성할 수 없어 칩을 만들지 않는다.
+ */
+export function chipsForEntry(
+  segments: ReadonlyArray<TranscriptSegment>,
+  text: string,
+  totalMs: number,
+): TranscriptSegment[] {
+  if (segments.length) {
+    return hasUsableTimestamps(segments) ? [...segments] : synthesizeSegmentTimes(segments, 0, Math.max(0, totalMs));
+  }
+  if (totalMs <= 0) return [];
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const blank = words.map((w) => ({ segment: w, startTimeMillis: 0, endTimeMillis: 0 }));
+  return synthesizeSegmentTimes(blank, 0, totalMs);
+}

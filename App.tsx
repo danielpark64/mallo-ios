@@ -21,6 +21,7 @@ import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { StatusBar } from 'expo-status-bar';
 
 import { parseSchedule, formatDisplay } from './lib/parseSchedule';
+import { fallbackToToday } from './lib/autoDate';
 import {
   dayKey,
   daysWithSchedules,
@@ -55,6 +56,7 @@ import {
   type ScheduleRecord,
 } from './lib/storage';
 import { useVoiceRecorder } from './lib/useVoiceRecorder';
+import { NO_FILE_NOTICE } from './lib/voiceCapture';
 import * as Notifications from 'expo-notifications';
 import {
   cancelAlarm,
@@ -70,6 +72,7 @@ import { copyRecords } from './lib/exportUtils';
 import { Calendar, type DateRange } from './components/Calendar';
 import { ExportPreview, type ExportKind } from './components/ExportPreview';
 import { FilterSheet } from './components/FilterSheet';
+import { SettingsSheet } from './components/SettingsSheet';
 import { MicIcon } from './components/MicIcon';
 import { ScheduleCard } from './components/ScheduleCard';
 import { ScheduleDetail } from './components/ScheduleDetail';
@@ -127,10 +130,12 @@ function AllSchedulesList({
   records,
   onPress,
   onAppend,
+  onFixDate,
 }: {
   records: ScheduleRecord[];
   onPress: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
+  onFixDate: (r: ScheduleRecord) => void;
 }) {
   const [filter, setFilter] = useState<RecordFilter>(EMPTY_FILTER);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -272,7 +277,7 @@ function AllSchedulesList({
             </View>
           );
         }}
-        renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} />}
+        renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} />}
         SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
       />
 
@@ -326,6 +331,7 @@ function AppInner() {
   const [appendMode, setAppendMode] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'calendar' | 'all'>('calendar');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // 달력 보기(월/주)는 사용자가 고른 값을 저장해 다음 실행에도 유지
   const [calendarMode, setCalendarMode] = useState<CalendarMode>(() => loadPrefs().calendarMode);
   // 첫 렌더부터 목록이 채워지도록 초기 기간을 미리 계산 (Calendar가 곧 같은 값을 통지한다)
@@ -469,27 +475,46 @@ function AppInner() {
       return new Date(n.getFullYear(), n.getMonth(), n.getDate());
     })();
 
-    if (!uri) {
+    if (!uri && voice.fileRecording) {
       Alert.alert('녹음 실패', '녹음 파일이 만들어지지 않았어요. 다시 시도해주세요.');
       return;
     }
+    // Android 12 이하는 녹음 파일 없이 글만 저장(uri '') — lib/voiceCapture.ts
+    const keepAudio = (key: string): string => {
+      if (!uri) return '';
+      try { return persistAudio(uri, key); } catch (e) { console.warn('오디오 저장 실패:', e); return uri; }
+    };
     if (!transcript) {
       Alert.alert('인식 실패', '음성이 인식되지 않았어요. 다시 시도해주세요.');
       return;
     }
+    // 날짜·시간을 한마디도 안 했으면 녹음을 버리지 않고 오늘(시간 미정)로 저장 + "정하기" 꼬리표.
+    // 다시 녹음시키면 방금 말한 내용이 사라지고, 현재 시각으로 알람을 걸면 말한 적 없는 알람이 울린다.
+    // 삭제 의도("…지워줘")는 날짜가 필요하므로 아래 삭제 분기 전에 여기서 걸러지지 않게 둔다.
+    const isDeleteIntentEarly = /(삭제|지워|없애|제거)\s*(해\s*)?(줘|주세요|버려|해)?\s*$/.test(transcript);
+    if (!parsed.hasDate && !parsed.hasTime && !isDeleteIntentEarly) {
+      const auto = fallbackToToday();
+      const id = Date.now().toString();
+      const record: ScheduleRecord = {
+        id, uri: keepAudio(id), durationSec, transcript,
+        content: parsed.content || transcript,
+        scheduleAt: auto.date.getTime(), scheduleDisplay: auto.display,
+        hasDate: auto.hasDate, hasTime: auto.hasTime, needsDate: true,
+        segments: capturedSegments.length ? [...capturedSegments] : undefined,
+        alarmMode: 'both', createdAt: Date.now(),
+      };
+      commit([record, ...records]);
+      setSelectedDate(recordedDate);
+      return;
+    }
     if (!parsed.hasDate && !parsed.hasTime) {
-      Alert.alert(
-        '언제인지 알 수 없어요',
-        `"${transcript}"\n\n날짜나 시간이 빠졌어요. "내일 오후 3시"처럼 시점을 포함해서 다시 말씀해주세요.`,
-        [{ text: '확인' }]
-      );
+      Alert.alert('삭제할 일정을 못 찾았어요', `"${transcript}"\n\n어느 날 일정을 지울지 날짜를 함께 말씀해주세요.`, [{ text: '확인' }]);
       return;
     }
 
     const saveAsNew = async () => {
       const id = Date.now().toString();
-      let savedUri = uri!;
-      try { savedUri = persistAudio(uri!, id); } catch (e) { console.warn('오디오 저장 실패:', e); }
+      const savedUri = keepAudio(id);
       let notifIds: string[] | undefined;
       if (parsed.date && parsed.hasTime) {
         const ids = await scheduleAlarm(id, parsed.content || transcript, parsed.date);
@@ -562,11 +587,8 @@ function AppInner() {
             { text: '추가로 붙이기', onPress: async () => {
               // 메모가 아니라 메인과 동등한 독립 엔트리로 추가 — 자기 녹음/전사/구간재생을 그대로 보존
               const appendId = Date.now().toString();
-              let savedUri = uri;
-              try { savedUri = persistAudio(uri, `${existing.id}_a${appendId}`); }
-              catch (e) { console.warn('추가 오디오 저장 실패:', e); }
               const newAppend: AppendEntry = {
-                id: appendId, uri: savedUri, durationSec,
+                id: appendId, uri: keepAudio(`${existing.id}_a${appendId}`), durationSec,
                 transcript, content: parsed.content || transcript,
                 segments: capturedSegments.length ? [...capturedSegments] : undefined,
                 createdAt: Date.now(),
@@ -625,6 +647,7 @@ function AppInner() {
               scheduleDisplay: display,
               hasDate: true,
               hasTime: res.hasTime,
+              needsDate: false, // 사용자가 날짜·시간을 정했으니 꼬리표 해제
               notifIds,
               alarmMode: res.alarmMode,
               // 내용이 바뀌면 기존 단어별 타임스탬프는 무효 → 카드 표시도 새 내용으로
@@ -703,6 +726,9 @@ function AppInner() {
         </View>
         <View style={styles.headerRight}>
           <Text style={styles.clockText}>{formatTime(currentTime)}</Text>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel="설정">
+            <Text style={styles.settingsBtnText}>설정</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
             <Text style={styles.addCircleBtnText}>＋</Text>
           </TouchableOpacity>
@@ -791,12 +817,12 @@ function AppInner() {
               </View>
             );
           }}
-          renderItem={({ item }) => <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} />}
+          renderItem={({ item }) => <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} />}
           SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         />
       ) : (
         <View style={styles.allWrap}>
-          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} />
+          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} />
         </View>
       )}
 
@@ -806,6 +832,21 @@ function AppInner() {
           <MicIcon size={30} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* ── 설정 (달력 기본 보기 · 백업 · 사용설명서 · 앱 정보) ── */}
+      <SettingsSheet
+        visible={settingsOpen}
+        records={records}
+        calendarMode={calendarMode}
+        onCalendarMode={handleCalendarMode}
+        onClose={() => setSettingsOpen(false)}
+        onRestored={async (next) => {
+          // 다른 폰의 알림 id는 이 폰에서 무효 → 전부 비우고 미래 일정 알람을 다시 건다
+          const cleaned = next.map((r) => ({ ...r, notifIds: undefined }));
+          commit(cleaned);
+          await resyncAlarms(cleaned);
+        }}
+      />
 
       {/* ── 상세 보기 ── */}
       <ScheduleDetail
@@ -836,6 +877,7 @@ function AppInner() {
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>듣고 있어요</Text>
             <Waveform metering={voice.recorderState.metering} isRecording={voice.recorderState.isRecording} />
+            {!voice.fileRecording && <Text style={styles.sheetNotice}>{NO_FILE_NOTICE}</Text>}
             <View style={styles.transcriptBox}>
               {voice.liveText ? (
                 <Text style={styles.transcriptText} numberOfLines={4}>{voice.liveText}</Text>
@@ -886,6 +928,8 @@ const styles = StyleSheet.create({
   nextLabel: { color: C.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
+  settingsBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: C.surfaceHigh },
+  settingsBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
   addCircleBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: C.surfaceHigh,
@@ -984,6 +1028,7 @@ const styles = StyleSheet.create({
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 18 },
   sheetTitle: { color: C.red, fontSize: 15, fontWeight: '600', marginBottom: 16 },
+  sheetNotice: { color: C.textSub, fontSize: 12, textAlign: 'center', marginTop: -4, marginBottom: 8, paddingHorizontal: 20 },
   waveform: { flexDirection: 'row', alignItems: 'center', height: 56, gap: 3, marginBottom: 16 },
   bar: { width: 4, height: 48, borderRadius: 2, backgroundColor: C.red },
   transcriptBox: {

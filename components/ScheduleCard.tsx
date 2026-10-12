@@ -14,11 +14,14 @@ export function ScheduleCard({
   item,
   onPress,
   onAppend,
+  onFixDate,
   showDate = false,
 }: {
   item: ScheduleRecord;
   onPress: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
+  /** 날짜·시간 없이 녹음돼 임시로 오늘에 둔 일정의 "정하기" — 편집기를 연다 */
+  onFixDate?: (r: ScheduleRecord) => void;
   showDate?: boolean;
 }) {
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
@@ -70,7 +73,9 @@ export function ScheduleCard({
     if (status.didJustFinish || atEnd) setPlaying(false);
   }, [status.didJustFinish, status.currentTime, status.duration, playing]);
 
-  const timeLabel = item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
+  const timeLabel = item.needsDate
+    ? '날짜 미정'
+    : item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : '시간 미정';
   const title = item.content || item.transcript || '(내용 없음)';
   // 메모는 아래 별도 줄로 표시하므로 제목에서는 본문만 (중복 표시 방지)
   const mainTitle = title.split('\n• ')[0];
@@ -110,6 +115,18 @@ export function ScheduleCard({
         {appendedNotes.map((note, i) => (
           <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
         ))}
+        {item.needsDate && (
+          // 사라지지 않는 꼬리표 — 사용자가 날짜·시간을 정할 때까지 남는다 (재촉 없음)
+          <TouchableOpacity
+            style={styles.needsDateRow}
+            onPress={() => onFixDate?.(item)}
+            activeOpacity={0.7}
+            accessibilityLabel="날짜 정하기"
+          >
+            <Text style={styles.needsDateText}>언제인지 아직 안 정했어요</Text>
+            <Text style={styles.needsDateBtn}>정하기</Text>
+          </TouchableOpacity>
+        )}
         {item.appends && item.appends.length > 0 && (
           <View style={styles.cardAppendRow}>
             <MicIcon size={12} color={C.textSub} />
@@ -181,6 +198,13 @@ const styles = StyleSheet.create({
   cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
   cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
   cardAppendRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  needsDateRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    marginTop: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: 'rgba(240, 106, 106, 0.14)',
+  },
+  needsDateText: { color: C.red, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  needsDateBtn: { color: '#fff', fontSize: 12, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 6 },
   cardPlayBtn: {
     width: 36, height: 36, marginLeft: 6,
     alignItems: 'center', justifyContent: 'center',

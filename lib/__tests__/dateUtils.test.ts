@@ -42,10 +42,11 @@ describe('라벨', () => {
     expect(formatMonthLabel(2026, 9)).toBe('2026년 10월');
   });
   test('주 라벨 — 같은 달이면 일만, 달이 바뀌면 양쪽 달 표기', () => {
-    expect(formatWeekLabel(new Date(2026, 9, 11))).toBe('10월 11일 – 17일');
-    expect(formatWeekLabel(new Date(2026, 9, 28))).toBe('10월 25일 – 31일');
-    expect(formatWeekLabel(new Date(2026, 10, 1))).toBe('11월 1일 – 7일');
-    expect(formatWeekLabel(new Date(2026, 8, 30))).toBe('9월 27일 – 10월 3일');
+    expect(formatWeekLabel(new Date(2026, 9, 11))).toBe('2026년 10월 11일 – 17일');
+    expect(formatWeekLabel(new Date(2026, 9, 28))).toBe('2026년 10월 25일 – 31일');
+    expect(formatWeekLabel(new Date(2026, 10, 1))).toBe('2026년 11월 1일 – 7일');
+    expect(formatWeekLabel(new Date(2026, 8, 30))).toBe('2026년 9월 27일 – 10월 3일');
+    expect(formatWeekLabel(new Date(2026, 11, 30))).toBe('2026년 12월 27일 – 1월 2일');
   });
 });
 

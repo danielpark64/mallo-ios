@@ -384,3 +384,30 @@ describe('ScheduleDetail 범위선택 (길게 누른 채 끌기)', () => {
 });
 
 
+
+describe('ScheduleDetail 글을 고친 추가 엔트리(단어 시각 없음)', () => {
+  test('녹음이 있으면 고친 글을 나눠 칩을 만들어 단어 탭 재생이 된다', async () => {
+    const withAppend: ScheduleRecord = {
+      ...record,
+      appends: [{
+        id: 'a1', uri: 'file:///rec_a1.m4a', durationSec: 6, transcript: '수학 옆에 있는 뚝배기',
+        content: '송내역 옆에 있는 뚝배기', createdAt: 2, // segments 없음 (편집기가 글을 고치면 비운다)
+      }],
+    };
+    const screen = await render(
+      <ScheduleDetail visible record={withAppend} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />,
+    );
+    // 메인 4개 + 추가 4개 → chip-0이 두 블록에 하나씩
+    expect(screen.getAllByTestId('chip-0')).toHaveLength(2);
+    expect(screen.getByText('송내역')).toBeTruthy();
+    expect(screen.queryByText(/단어별 재생을 쓸 수 없어요/)).toBeNull();
+  });
+  test('녹음 파일이 없는 항목(Android 12 이하)은 칩 없이 글만 보이고 안내가 뜬다', async () => {
+    const noAudio: ScheduleRecord = { ...record, uri: '', segments: undefined, appends: undefined };
+    const screen = await render(
+      <ScheduleDetail visible record={noAudio} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />,
+    );
+    expect(screen.queryAllByTestId('chip-0')).toHaveLength(0);
+    expect(screen.getByText('녹음 파일 없이 글만 저장된 항목이에요')).toBeTruthy();
+  });
+});

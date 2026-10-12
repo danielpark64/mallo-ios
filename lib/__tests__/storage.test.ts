@@ -77,3 +77,20 @@ describe('saveRecords / loadRecords', () => {
     expect(loadRecords()).toEqual([]);
   });
 });
+
+describe('녹음 경로 보정(resolveAudioUri)', () => {
+  test('예전 컨테이너 경로로 저장된 uri는 현재 mallo 폴더의 같은 파일명으로 바뀐다', () => {
+    mockStore.set('doc/mallo/rec_1.m4a', 'audio');
+    const r = { ...rec('1'), uri: 'file:///old-container/Documents/mallo/rec_1.m4a',
+      appends: [{ id: 'a', uri: 'file:///old-container/Documents/mallo/rec_1_a2.m4a', durationSec: 1, transcript: '', content: 'x', createdAt: 1 }] };
+    mockStore.set('doc/mallo/rec_1_a2.m4a', 'audio');
+    saveRecords([r]);
+    const loaded = loadRecords();
+    expect(loaded[0].uri).toBe('doc/mallo/rec_1.m4a');
+    expect(loaded[0].appends![0].uri).toBe('doc/mallo/rec_1_a2.m4a');
+  });
+  test('빈 uri(수동 입력)는 그대로', () => {
+    saveRecords([rec('2')]);
+    expect(loadRecords()[0].uri).toBe('');
+  });
+});

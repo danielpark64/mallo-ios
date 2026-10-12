@@ -36,6 +36,7 @@ export type ScheduleRecord = {
   alarmMode?: 'both' | 'sound' | 'vibe'; // 알람 방식
   segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
   appends?: AppendEntry[]; // "＋ 추가"로 붙은 독립 엔트리들
+  needsDate?: boolean;    // 날짜·시간 없이 녹음돼 오늘(시간 미정)로 임시 저장됨 → 사용자가 정하면 해제
   createdAt: number;      // 생성 시각(epoch ms)
 };
 
@@ -60,14 +61,41 @@ function readRecordsFile(f: File): ScheduleRecord[] | null {
   }
 }
 
+/**
+ * 저장된 녹음 경로를 현재 앱 폴더 기준으로 다시 잡는다.
+ * iOS는 앱 업데이트·재설치·폰 이전 때 데이터 컨테이너 경로(UUID)가 바뀌어 절대경로가 깨지므로
+ * 파일 이름만 믿고 mallo 폴더에서 다시 찾는다. 백업 복원 때도 같은 규칙을 쓴다.
+ */
+export function resolveAudioUri(uri: string): string {
+  if (!uri) return uri;
+  const name = uri.split('/').pop() ?? '';
+  if (!name) return uri;
+  try {
+    const here = new File(DB_DIR, decodeURIComponent(name));
+    if (here.uri === uri) return uri;
+    if (here.exists) return here.uri;
+    return new File(uri).exists ? uri : here.uri;
+  } catch {
+    return uri;
+  }
+}
+
+function normalizeRecords(records: ScheduleRecord[]): ScheduleRecord[] {
+  return records.map((r) => ({
+    ...r,
+    uri: resolveAudioUri(r.uri),
+    appends: r.appends?.map((a) => ({ ...a, uri: resolveAudioUri(a.uri) })),
+  }));
+}
+
 export function loadRecords(): ScheduleRecord[] {
   const main = readRecordsFile(DB_FILE);
-  if (main) return main;
+  if (main) return normalizeRecords(main);
   // 본 파일이 없거나(최초 실행) 깨진 경우 → 백업 시도
   const bak = readRecordsFile(BAK_FILE);
   if (bak) {
     console.warn('records.json 손상 → 백업본으로 복구');
-    return bak;
+    return normalizeRecords(bak);
   }
   return [];
 }

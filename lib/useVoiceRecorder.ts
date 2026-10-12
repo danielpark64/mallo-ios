@@ -1,6 +1,6 @@
 // ─── 음성 녹음 + STT 캡처 (녹음 파일 + 전사 + 단어별 타임스탬프) ─────────────────────
 // 메인 FAB 녹음과 편집기의 "추가" 녹음이 동일한 로직을 공유하도록 분리한 단일 소스.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   RecordingPresets,
   setAudioModeAsync,
@@ -12,6 +12,7 @@ import {
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
 import type { TranscriptSegment } from './storage';
+import { canRecordFileWhileRecognizing } from './voiceCapture';
 import { hasUsableTimestamps, synthesizeSegmentTimes } from './wordRange';
 
 export type VoiceCaptureResult = {
@@ -21,9 +22,26 @@ export type VoiceCaptureResult = {
   segments: TranscriptSegment[];
 };
 
-export function useVoiceRecorder() {
+export type VoiceRecorderState = { isRecording: boolean; durationMillis: number; metering?: number };
+
+export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
+  // Android 12 이하: 녹음기와 음성 인식기가 마이크를 같이 못 써서 인식만 돌린다 (lib/voiceCapture.ts 참고)
+  const fileRecording = opts?.fileRecording ?? canRecordFileWhileRecognizing();
   const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
-  const recorderState = useAudioRecorderState(recorder, 50);
+  const fileState = useAudioRecorderState(recorder, 50);
+  // 인식만 돌릴 때는 녹음기 상태가 없으므로 타이머로 같은 모양의 상태를 만든다
+  const [sttOnlyState, setSttOnlyState] = useState<VoiceRecorderState>({ isRecording: false, durationMillis: 0 });
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopTick = () => {
+    if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+  };
+  useEffect(() => stopTick, []); // 언마운트 시 타이머 정리
+  // 인식 전용 모드에서 stop() 뒤 'end'까지 기다리는 중 (마지막 단어가 stop 직후 도착하므로)
+  const stoppingRef = useRef(false);
+  const endResolveRef = useRef<(() => void) | null>(null);
+  const recorderState: VoiceRecorderState = fileRecording
+    ? { isRecording: fileState.isRecording, durationMillis: fileState.durationMillis ?? 0, metering: fileState.metering }
+    : sttOnlyState;
 
   const [liveText, setLiveText] = useState('');
   const liveTextRef = useRef('');
@@ -70,6 +88,7 @@ export function useVoiceRecorder() {
   });
 
   useSpeechRecognitionEvent('end', () => {
+    if (stoppingRef.current) { endResolveRef.current?.(); return; }
     if (!sttActiveRef.current) return;
     sttBaseTextRef.current = liveTextRef.current;
     sttBaseSegsRef.current = liveSegmentsRef.current;
@@ -105,30 +124,66 @@ export function useVoiceRecorder() {
     sttOffsetMsRef.current = 0;
     firstResultAtRef.current = 0;
     lastResultAtRef.current = 0;
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
-    await recorder.prepareToRecordAsync();
-    recorder.record();
+    if (fileRecording) {
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+    } else {
+      stopTick();
+      const startedAt = Date.now();
+      setSttOnlyState({ isRecording: true, durationMillis: 0 });
+      tickRef.current = setInterval(() => {
+        setSttOnlyState({ isRecording: true, durationMillis: Date.now() - startedAt });
+      }, 250);
+    }
     recordStartAtRef.current = Date.now();
     startSTT();
+  };
+
+  const finishSttOnly = () => {
+    stopTick();
+    const durationMillis = recordStartAtRef.current ? Date.now() - recordStartAtRef.current : 0;
+    setSttOnlyState({ isRecording: false, durationMillis: 0 });
+    return durationMillis;
   };
 
   const cancel = async () => {
     sttActiveRef.current = false;
     try { ExpoSpeechRecognitionModule.abort(); } catch {}
-    try { await recorder.stop(); } catch {}
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
+    if (fileRecording) {
+      try { await recorder.stop(); } catch {}
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
+    } else {
+      finishSttOnly();
+    }
     setLiveText('');
     liveTextRef.current = '';
   };
 
   const stop = async (): Promise<VoiceCaptureResult> => {
-    sttActiveRef.current = false;
-    try { ExpoSpeechRecognitionModule.stop(); } catch {}
-    await recorder.stop();
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
-    const uri = recorder.uri;
+    let uri: string | null = null;
+    let durationMs = 0;
+    if (fileRecording) {
+      sttActiveRef.current = false;
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
+      uri = recorder.uri;
+      durationMs = recorderState.durationMillis ?? 0;
+    } else {
+      // 전사가 유일한 데이터이므로 최종 결과가 들어올 'end'까지(최대 800ms) 결과를 계속 받는다
+      durationMs = finishSttOnly();
+      stoppingRef.current = true;
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 800);
+        endResolveRef.current = () => { clearTimeout(timer); resolve(); };
+      });
+      endResolveRef.current = null;
+      stoppingRef.current = false;
+      sttActiveRef.current = false;
+    }
     const transcript = liveTextRef.current.trim();
-    const durationMs = recorderState.durationMillis ?? 0;
     const durationSec = Math.round(durationMs / 1000);
     let segments = [...liveSegmentsRef.current];
     if (segments.length && !hasUsableTimestamps(segments)) {
@@ -143,5 +198,5 @@ export function useVoiceRecorder() {
     return { uri: uri ?? null, transcript, durationSec, segments };
   };
 
-  return { recorderState, liveText, start, stop, cancel };
+  return { recorderState, liveText, start, stop, cancel, fileRecording };
 }

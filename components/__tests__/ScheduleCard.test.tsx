@@ -81,4 +81,15 @@ describe('ScheduleCard 재생', () => {
     );
     expect(queryByText('▶')).toBeNull();
   });
+
+  test('날짜 없이 녹음된 일정(needsDate)은 "날짜 미정"과 꼬리표를 보여주고 정하기가 onFixDate를 부른다', async () => {
+    const onFix = jest.fn();
+    const { getByText, getByLabelText } = await render(
+      <ScheduleCard item={{ ...item, needsDate: true, hasTime: false }} onPress={() => {}} onAppend={() => {}} onFixDate={onFix} />
+    );
+    expect(getByText('날짜 미정')).toBeTruthy();
+    expect(getByText('언제인지 아직 안 정했어요')).toBeTruthy();
+    await fireEvent.press(getByLabelText('날짜 정하기'));
+    expect(onFix).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' }));
+  });
 });

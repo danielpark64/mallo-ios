@@ -25,6 +25,7 @@ import { formatDayHeader } from '../lib/dateUtils';
 import { C } from '../lib/colors';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import { useVoiceRecorder } from '../lib/useVoiceRecorder';
+import { NO_FILE_NOTICE } from '../lib/voiceCapture';
 
 export type AlarmMode = 'both' | 'sound' | 'vibe';
 
@@ -151,11 +152,11 @@ export function ScheduleEditor({
     if (appendRecording) {
       const res = await appendVoice.stop();
       setAppendRecording(false);
-      if (res.uri && res.transcript) {
+      if (res.transcript) {
         const capture: AppendResult = {
           content: res.transcript,
           transcript: res.transcript,
-          uri: res.uri,
+          uri: res.uri ?? '', // Android 12 이하는 녹음 파일 없음 (lib/voiceCapture.ts)
           durationSec: res.durationSec,
           segments: res.segments.length ? res.segments : undefined,
         };
@@ -282,6 +283,24 @@ export function ScheduleEditor({
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <Text style={styles.label}>날짜</Text>
+              {/* 빠른 선택 — 날짜 없이 녹음한 일정을 고칠 때 한 번에 끝나도록 */}
+              <View style={styles.quickRow}>
+                {[0, 1, 2].map((offset) => {
+                  const n = new Date();
+                  const d = new Date(n.getFullYear(), n.getMonth(), n.getDate() + offset);
+                  const on = d.toDateString() === date.toDateString();
+                  return (
+                    <TouchableOpacity
+                      key={offset}
+                      style={[styles.quickChip, on && styles.quickChipOn]}
+                      onPress={() => { setDate(d); setShowCal(false); }}
+                      accessibilityState={{ selected: on }}
+                    >
+                      <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{['오늘', '내일', '모레'][offset]}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCal((s) => !s)}>
                 <Text style={styles.dateBtnText}>{formatDayHeader(date)}</Text>
                 <Text style={styles.dateBtnChevron}>{showCal ? '▲' : '▼'}</Text>
@@ -349,6 +368,9 @@ export function ScheduleEditor({
               녹음 저장됨 ({appendCapture.durationSec}초) · 내용을 고치면 구간재생은 빠지고 녹음은 그대로 남아요
             </Text>
           )}
+          {appendMode && appendCapture && !appendCapture.uri && !appendRecording && (
+            <Text style={styles.appendCaptureHint}>{NO_FILE_NOTICE}</Text>
+          )}
           <View style={styles.contentInputWrap}>
             <TextInput
               style={styles.contentInput}
@@ -402,6 +424,11 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 20, paddingBottom: 8 },
   label: { color: C.accent, fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 8 },
 
+  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  quickChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  quickChipOn: { backgroundColor: C.accent, borderColor: C.accent },
+  quickChipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
+  quickChipTextOn: { color: '#fff' },
   dateBtn: {
     backgroundColor: C.surface, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 14,
