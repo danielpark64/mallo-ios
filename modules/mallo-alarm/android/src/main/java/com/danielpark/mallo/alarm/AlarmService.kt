@@ -133,7 +133,9 @@ class AlarmService : Service() {
     private fun scheduleSnooze(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean) {
         if (recordId.isEmpty()) return
         val base = System.currentTimeMillis() + SNOOZE_MS
-        for (slot in 0..2) {
+        // 미리 알림(id#preN)은 "한 번" 울리는 것이 설계라 스누즈도 1슬롯 (정각은 3슬롯)
+        val slots = if (AlarmScheduling.isPreRecordId(recordId)) 0..0 else 0..2
+        for (slot in slots) {
             val e = AlarmStore.Entry(
                 key = AlarmScheduling.snoozeKey(recordId, slot), recordId = recordId,
                 triggerAtMs = base + slot * 60_000L, title = title, body = body,

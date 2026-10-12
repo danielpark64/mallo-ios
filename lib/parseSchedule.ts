@@ -1,4 +1,5 @@
 // ─── 한국어 자연어 → 일정(날짜·시간) 파서 ──────────────────────────────────────
+import { extractRemindBefore } from './reminders';
 // STT로 받은 한국어 문장에서 날짜·시간을 추출해 실제 Date 로 변환한다.
 // 예) "내일 오후 3시에 팀 회의" → { date: 2026-06-07 15:00, content: "팀 회의" }
 
@@ -13,6 +14,8 @@ export type ParsedSchedule = {
   content: string;
   /** 사람이 읽기 좋은 일정 표현 (예: "6월 7일 (토) 오후 3:00") */
   display: string;
+  /** "30분 전에 알려줘"처럼 말로 정한 미리 알림(분). 말하지 않았으면 undefined → 기본값 사용 */
+  remindBefore?: number[];
 };
 
 // 한글 고유어 수사 → 숫자 (시(時)에 주로 쓰임: 한시~열두시)
@@ -48,6 +51,12 @@ function isValidMonthDay(month: number, date: number): boolean {
 
 // ─── 메인 파서 ────────────────────────────────────────────────────────────────
 export function parseSchedule(input: string, base: Date = new Date()): ParsedSchedule {
+  const pre = extractRemindBefore((input ?? '').trim());
+  const result0 = parseScheduleCore(pre.text, base);
+  return pre.remindBefore ? { ...result0, remindBefore: pre.remindBefore } : result0;
+}
+
+function parseScheduleCore(input: string, base: Date): ParsedSchedule {
   const text = (input ?? '').trim();
   let hasDate = false;
   let hasTime = false;

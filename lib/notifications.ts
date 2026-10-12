@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { REMIND_OPTIONS, normalizeRemind, preRecordId, remindBody, remindFireAt } from './reminders';
 import {
   EXPO_FALLBACK_GRACE_MS,
   cancelAllNativeAlarms,
@@ -106,15 +107,61 @@ const SOUND = 'alarm_long.wav';
  * 함께 건다. 네이티브가 울리면 리시버가 같은 식별자의 Expo 예약을 지워 중복을 막고, 네이티브가
  * 못 울린 경우에만 Expo가 유예 뒤 대신 울린다. iOS·네이티브 미빌드 환경은 Expo 단일 경로 그대로.
  */
+export type AlarmOptions = {
+  /** 미리 알림(분). 각각 한 번씩 울린다 */
+  remindBefore?: number[];
+  /** 정각 + 1·2분 재알림. 기본 true */
+  exactAlarm?: boolean;
+  /** 한 번만(스누즈 등): 정각 슬롯 1개만 건다 */
+  single?: boolean;
+};
+
 export async function scheduleAlarm(
   recordId: string,
   content: string,
   at: Date,
-  mode: AlarmMode = 'both'
+  mode: AlarmMode = 'both',
+  opts: AlarmOptions = {}
 ): Promise<string[]> {
-  if (at.getTime() <= Date.now()) return [];
-
   const ids: string[] = [];
+  const useNative = isNativeAlarmAvailable();
+
+  // ── 미리 알림: 각각 한 번, 정각 알람과 독립(식별자 recordId#preN) ──
+  for (const m of normalizeRemind(opts.remindBefore ?? [])) {
+    const fireAt = remindFireAt(at, m);
+    if (fireAt.getTime() <= Date.now()) continue;
+    const identifier = `mallo_${recordId}_pre${m}`;
+    const subId = preRecordId(recordId, m);
+    const body = remindBody(m, content, at);
+    const nativeArmed =
+      useNative &&
+      scheduleNativeAlarm({ key: identifier, recordId: subId, at: fireAt, title: '말로 · 미리 알림', body, mode });
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        identifier,
+        content: {
+          title: '말로 · 미리 알림',
+          body,
+          sound: mode === 'vibe' ? undefined : SOUND,
+          categoryIdentifier: 'alarm',
+          data: { recordId: subId, baseRecordId: recordId, pre: m },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: nativeArmed ? new Date(fireAt.getTime() + EXPO_FALLBACK_GRACE_MS) : fireAt,
+          channelId: ANDROID_CHANNEL[mode],
+        },
+      });
+      ids.push(id);
+    } catch (e) {
+      console.warn(`미리 알림 등록 실패 (${m}분 전):`, e);
+      if (nativeArmed) ids.push(identifier);
+    }
+  }
+
+  if (opts.exactAlarm === false) return ids;
+  if (at.getTime() <= Date.now()) return ids;
+
   const base: Notifications.NotificationContentInput = {
     title: '말로',
     body: content,
@@ -124,10 +171,8 @@ export async function scheduleAlarm(
     categoryIdentifier: 'alarm',
     data: { recordId },
   };
-  const useNative = isNativeAlarmAvailable();
-
   // 메인 + +1분 + +2분 슬롯
-  for (const offset of [0, 1, 2]) {
+  for (const offset of opts.single ? [0] : [0, 1, 2]) {
     const fireAt = new Date(at.getTime() + offset * 60 * 1000);
     const identifier = `mallo_${recordId}_${offset}`;
     const nativeArmed =
@@ -176,6 +221,16 @@ export async function cancelAlarmByRecordId(recordId: string): Promise<void> {
 }
 
 /**
+ * 일정 하나의 알람을 통째로 정리: 저장된 식별자(notifIds) + 정각/미리 알림/스누즈를 recordId 단위로.
+ * 삭제·편집 저장 때 쓴다. (미리 알림을 "5분 뒤 다시"로 미룬 슬롯은 notifIds에 없어서 recordId로 잡아야 한다)
+ */
+export async function cancelAlarmGroup(recordId: string, notifIds?: string[]): Promise<void> {
+  if (notifIds?.length) await cancelAlarm(notifIds);
+  await cancelAlarmByRecordId(recordId);
+  for (const m of REMIND_OPTIONS) await cancelAlarmByRecordId(preRecordId(recordId, m));
+}
+
+/**
  * 앱 시작 시 전체 알람 재동기화.
  * - 삭제된 일정의 잔여 알림 정리 (전부 취소 후 재등록)
  * - iOS 로컬 알림 64개 제한 대응: 가까운 일정부터 예산(60개) 안에서만 등록
@@ -188,23 +243,30 @@ export async function resyncAlarms(
     scheduleAt: number | null;
     hasTime: boolean;
     alarmMode?: AlarmMode;
+    remindBefore?: number[];
+    exactAlarm?: boolean;
   }>
 ): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
     cancelAllNativeAlarms(); // Android: 네이티브 원장도 전부 비운 뒤 아래에서 둘 다 다시 건다
     const now = Date.now();
+    // 정각이 지났어도 미리 알림이 남아 있을 수는 없으므로(미리 알림은 정각보다 앞) 정각 기준으로 거른다
     const future = records
       .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt > now)
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
     let budget = 60; // 64개 한도에서 여유분 확보
     for (const r of future) {
-      if (budget < 3) break;
+      // 이 일정이 쓸 슬롯 수(정각 3 + 미리 알림 N)만큼 예산이 남아 있을 때만 등록
+      const need = (r.exactAlarm === false ? 0 : 3) + normalizeRemind(r.remindBefore ?? []).length;
+      if (need === 0) continue;
+      if (budget < need) break;
       const ids = await scheduleAlarm(
         r.id,
         r.content || r.transcript,
         new Date(r.scheduleAt!),
-        r.alarmMode ?? 'both'
+        r.alarmMode ?? 'both',
+        { remindBefore: r.remindBefore, exactAlarm: r.exactAlarm }
       );
       budget -= ids.length;
     }

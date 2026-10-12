@@ -40,7 +40,7 @@ jest.mock('expo-notifications', () => ({
 
 import * as Notifications from 'expo-notifications';
 import { EXPO_FALLBACK_GRACE_MS, isNativeAlarmAvailable } from '../nativeAlarm';
-import { cancelAlarm, cancelAlarmByRecordId, resyncAlarms, scheduleAlarm } from '../notifications';
+import { cancelAlarm, cancelAlarmByRecordId, cancelAlarmGroup, resyncAlarms, scheduleAlarm } from '../notifications';
 
 const mocked = Notifications as jest.Mocked<typeof Notifications>;
 const future = (min: number) => new Date(Date.now() + min * 60_000);
@@ -167,5 +167,47 @@ describe('resyncAlarms — 전체 재스케줄', () => {
     const cancelOrder = mockNative.cancelAll.mock.invocationCallOrder[0];
     const firstSchedule = mockNative.schedule.mock.invocationCallOrder[0];
     expect(cancelOrder).toBeLessThan(firstSchedule);
+  });
+});
+
+describe('미리 알림 — 네이티브·Expo 두 경로, 정각과 독립', () => {
+  beforeEach(() => { Platform.OS = 'android'; mockNativeAvailable = true; });
+  test('30분 전은 recordId "r1#pre30"으로 네이티브(정각 T-30분)와 Expo(+유예)에 걸리고, 정각 3슬롯은 "r1"', async () => {
+    const at = future(120);
+    const ids = await scheduleAlarm('r1', '치과', at, 'both', { remindBefore: [30] });
+    expect(ids).toEqual(['mallo_r1_pre30', 'mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
+    const n = mockNative.schedule.mock.calls;
+    expect(n[0].slice(0, 5)).toEqual(['mallo_r1_pre30', 'r1#pre30', at.getTime() - 30 * 60_000, '말로 · 미리 알림', '30분 뒤 · 치과']);
+    expect(n[1][1]).toBe('r1');
+    const expoPre = mocked.scheduleNotificationAsync.mock.calls[0][0];
+    expect((expoPre.trigger as any).date.getTime()).toBe(at.getTime() - 30 * 60_000 + EXPO_FALLBACK_GRACE_MS);
+  });
+  test('하루 전은 전날 20:00에 네이티브 예약', async () => {
+    const at = new Date(Date.now() + 3 * 86_400_000);
+    await scheduleAlarm('r1', '치과', at, 'vibe', { remindBefore: [1440], exactAlarm: false });
+    const t = new Date(mockNative.schedule.mock.calls[0][2]);
+    expect([t.getDate(), t.getHours(), t.getMinutes()]).toEqual([new Date(at.getTime() - 86_400_000).getDate(), 20, 0]);
+    expect(mockNative.schedule).toHaveBeenCalledTimes(1); // 정각 꺼짐 → pre만
+  });
+  test('네이티브가 없으면(iOS) 미리 알림도 Expo 단일 경로·정시', async () => {
+    Platform.OS = 'ios'; mockNativeAvailable = false;
+    const at = future(120);
+    await scheduleAlarm('r1', '치과', at, 'both', { remindBefore: [30] });
+    expect(mockNative.schedule).not.toHaveBeenCalled();
+    expect((mocked.scheduleNotificationAsync.mock.calls[0][0].trigger as any).date.getTime()).toBe(at.getTime() - 30 * 60_000);
+  });
+  test('미리 알림 끄기는 "r1#pre30"만 취소하고 정각 "r1"은 남긴다', async () => {
+    mocked.getAllScheduledNotificationsAsync.mockResolvedValueOnce([
+      { identifier: 'mallo_r1_pre30', content: { data: { recordId: 'r1#pre30' } } },
+      { identifier: 'mallo_r1_0', content: { data: { recordId: 'r1' } } },
+    ] as any);
+    await cancelAlarmByRecordId('r1#pre30');
+    expect(mockNative.cancelByRecordId).toHaveBeenCalledWith('r1#pre30');
+    expect(mocked.cancelScheduledNotificationAsync.mock.calls.map((c) => c[0])).toEqual(['mallo_r1_pre30']);
+  });
+  test('cancelAlarmGroup: 저장된 식별자 + 정각 + 미리 알림 4종을 recordId 단위로 모두 정리', async () => {
+    await cancelAlarmGroup('r1', ['mallo_r1_pre30', 'mallo_r1_0']);
+    expect(mockNative.cancel).toHaveBeenCalledWith(['mallo_r1_pre30', 'mallo_r1_0']);
+    expect(mockNative.cancelByRecordId.mock.calls.map((c) => c[0])).toEqual(['r1', 'r1#pre10', 'r1#pre30', 'r1#pre60', 'r1#pre1440']);
   });
 });

@@ -26,7 +26,10 @@ object ExpoTwin {
 
     /** 일정 하나의 Expo 슬롯 3개를 예약·표시 모두 정리 */
     fun clearRecord(context: Context, recordId: String) {
-        val ids = (0..2).map { AlarmScheduling.expoKey(recordId, it) }
+        val ids = (0..2).map { AlarmScheduling.expoKey(recordId, it) }.toMutableList()
+        // "id#pre30" → 원래 미리 알림 Expo 식별자 mallo_id_pre30 도 함께
+        val hash = recordId.indexOf('#')
+        if (hash > 0) ids.add("mallo_" + recordId.substring(0, hash) + "_" + recordId.substring(hash + 1))
         cancelScheduled(context, ids)
         dismissPresented(context, ids)
     }

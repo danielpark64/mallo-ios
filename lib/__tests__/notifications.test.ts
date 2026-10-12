@@ -118,3 +118,30 @@ describe('resyncAlarms', () => {
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(60);
   });
 });
+
+describe('scheduleAlarm — 미리 알림', () => {
+  test('30분 전·1시간 전은 각각 한 번, 정각 3슬롯과 별도 식별자(recordId#preN)로 예약된다', async () => {
+    const at = future(120);
+    const ids = await scheduleAlarm('r1', '치과', at, 'both', { remindBefore: [30, 60] });
+    expect(ids).toEqual(['mallo_r1_pre30', 'mallo_r1_pre60', 'mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
+    const calls = mocked.scheduleNotificationAsync.mock.calls.map((c) => c[0]);
+    expect((calls[0].trigger as any).date.getTime()).toBe(at.getTime() - 30 * 60_000);
+    expect(calls[0].content.body).toBe('30분 뒤 · 치과');
+    expect(calls[0].content.data).toEqual({ recordId: 'r1#pre30', baseRecordId: 'r1', pre: 30 });
+    expect(calls[1].content.body).toBe('1시간 뒤 · 치과');
+    expect(calls[2].content.data).toEqual({ recordId: 'r1', slotOffset: 0 });
+  });
+  test('이미 지난 미리 알림은 건너뛰고, 정각 알림을 끄면 미리 알림만 건다', async () => {
+    const ids = await scheduleAlarm('r1', '치과', future(20), 'both', { remindBefore: [10, 30], exactAlarm: false });
+    expect(ids).toEqual(['mallo_r1_pre10']);
+  });
+  test('single: 정각 슬롯 1개만(스누즈용)', async () => {
+    const ids = await scheduleAlarm('r1#pre30', '30분 뒤 · 치과', future(5), 'both', { single: true });
+    expect(ids).toEqual(['mallo_r1#pre30_0']);
+  });
+  test('resyncAlarms는 일정의 미리 알림·정각 설정을 그대로 다시 건다', async () => {
+    await resyncAlarms([{ id: 'a', content: '치과', transcript: '', scheduleAt: future(120).getTime(), hasTime: true, remindBefore: [30], exactAlarm: false }]);
+    const ids = mocked.scheduleNotificationAsync.mock.calls.map((c) => c[0].identifier);
+    expect(ids).toEqual(['mallo_a_pre30']);
+  });
+});

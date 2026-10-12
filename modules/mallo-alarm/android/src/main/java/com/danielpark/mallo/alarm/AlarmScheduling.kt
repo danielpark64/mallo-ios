@@ -82,7 +82,11 @@ object AlarmScheduling {
         val expanded = LinkedHashSet<String>(keys)
         for (k in keys) {
             val rid = AlarmStore.get(context, k)?.recordId ?: recordIdFromKey(k) ?: continue
-            for (e in AlarmStore.byRecordId(context, rid)) expanded.add(e.key)
+            // 일정 단위 정리: 정각 슬롯("id")뿐 아니라 미리 알림("id#pre30")과 그 스누즈까지 같이 내린다
+            val base = baseRecordId(rid)
+            for (e in AlarmStore.all(context)) {
+                if (e.recordId == base || e.recordId.startsWith("$base#")) expanded.add(e.key)
+            }
         }
         for (k in expanded) disarm(context, k)
         AlarmStore.remove(context, expanded)
@@ -109,6 +113,14 @@ object AlarmScheduling {
         if (!key.startsWith("mallo_")) return null
         val cut = key.lastIndexOf('_')
         if (cut <= 6) return null
-        return key.substring(6, cut)
+        val id = key.substring(6, cut)
+        val tail = key.substring(cut + 1)
+        // 미리 알림 키 mallo_<id>_pre<N> → recordId "<id>#pre<N>" (lib/reminders.ts preRecordId와 동일 규칙)
+        if (tail.startsWith("pre")) return "$id#$tail"
+        return id
     }
+
+    /** "id#pre30" → "id" */
+    fun baseRecordId(recordId: String): String = recordId.substringBefore('#')
+    fun isPreRecordId(recordId: String): Boolean = recordId.contains("#pre")
 }
