@@ -87,6 +87,9 @@
 | Maldam | 말담 | 말을 담다 | 말을 담아두는 일정 | 없음 | 없음 | 영어권 읽기 어색 | ◎(보류) |
 | Sayrok | 세이록 | say+록(기록) | 말하면 기록되는 일정 | 'Sayro'만 | 없음 | 영어권 뜻 없음 | ◎(보류) |
 | Tellmo | 텔모 | tell+memo | 말하면 메모·알림 | 없음 | 없음 | Tellmi(영국 NHS)·TellMe 유사명 | ◎(주의) |
+| **Sayram / SayRam** | 세이람 | say+(알)람 = "세이알람" 줄임 | 말하면 알람·일정 | 동명 없음 (Sayram Taxi·Sayram Lake는 지명 기반 무관 앱) | 동명 없음 | 신장·카자흐 지명(Sayram). sayram.com 사용 중, .app/.co.kr 비어 있음. 영어권 '사이람' 발음 가능 → SayRam 표기 권장 | ◎(지명 주의) |
+| 세이 알람 / SayAlarm | 세이알람 | say+alarm | — | 동명 0건이나 '말하는 알람' 계열 다수와 묶임 | 동명 0건 | 기능 설명 조합이라 상표 약함, 알람 시계 앱으로 보임 | △ |
+| 말하는 알람 | — | TTS 알람으로 읽힘 | — | Talking Alarm 계열 다수 | '말하는 알람 시계' 존재 | 방향이 반대(알람이 말함) | ✕ |
 | Malhae | 말해 | "말해" | 말해두면 챙겨주는 일정 | 한글 '말해' 교육앱 | 한글 '말해'(Keytalk) + 말해보카(1000만) | 검색어가 말해보카에 묻힘 | △ |
 | Malrok | 말록 | 말+록 | | 개발사 'Malrok Studio' 3개 | 없음 | | △ |
 | Saytime | 세이타임 | say+time | | Talking Clock 1만+ 등 | 'SayTime - 시간 기록' | | △ |
@@ -102,3 +105,5 @@
 - 2026-10-12: 사용자 — "이름과 아이콘은 좀 더 고민, 틈나는 대로 후보를 모아 달라". 미결.
 - 2026-10-12: 스토어 조사 결과 '말로'·'Saylo'는 중복으로 탈락, '세이요'는 영문 Sayo 충돌. 새 후보 수집 필요.
 - 2026-10-12: 2차 후보 20개 조사 → ◎ 8개(Malnote·Sayrim·Saykeep·Malday·Tellday·Maldam·Sayrok·Tellmo). 1차 보류였던 Malhae·Memoro·Tellit·Dalda는 중복 탈락. 상표 조회 미실시.
+- 2026-10-12: 사용자 제안 세이 알람·말하는 알람·Sayram 검토. Sayram(세이람)은 한국 시장 기준 상위권(뜻·발음·중복 양호), 영어권은 지명 충돌·발음 주의.
+- 2026-10-12: **이름 확정 SayRam(세이람)**, 부제 "말로 하는 알람·일정" / "Say it, it's scheduled". **아이콘 확정 I**(남색 그라데이션 + 코랄 S + 흰 마이크 배지, assets/icon-candidates/I_navy_S_mic_badge.png) → assets/icon.png·Android 적응형·iOS 1024 적용. 상표(KIPRIS) 조회는 사용자 직접 확인 예정.

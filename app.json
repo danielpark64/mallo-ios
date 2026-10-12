@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "말로",
+    "name": "SayRam",
     "slug": "mallo",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -36,7 +36,7 @@
     "android": {
       "package": "com.danielpark.mallo",
       "adaptiveIcon": {
-        "backgroundColor": "#0b0b1c",
+        "backgroundColor": "#141430",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
