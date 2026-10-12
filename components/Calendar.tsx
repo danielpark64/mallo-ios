@@ -1,8 +1,9 @@
 // ─── 달력 (월 보기 / 주 보기) ───────────────────────────────────────────────────
 // 월 보기는 6주 그리드, 주 보기는 한 줄(일~토). 헤더의 ‹ › 로 한 달/한 주씩 이동, 가운데 라벨을 누르면 오늘로.
 // 보이는 기간이 바뀌면 onVisibleRangeChange로 알려 부모가 그 기간의 일정을 모두 보여줄 수 있게 한다.
-import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import {
   addDays,
   dayKey,
@@ -15,7 +16,7 @@ import {
   startOfWeek,
   WEEKDAYS,
 } from '../lib/dateUtils';
-import { C } from '../lib/colors';
+import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import type { CalendarMode } from '../lib/prefs';
 
 export type DateRange = { start: Date; end: Date };
@@ -24,6 +25,7 @@ export function Calendar({
   selectedDate,
   onSelectDate,
   markedDays,
+  preMarkedDays,
   mode = 'month',
   onModeChange,
   onVisibleRangeChange,
@@ -31,12 +33,20 @@ export function Calendar({
   selectedDate: Date;
   onSelectDate: (d: Date) => void;
   markedDays: Set<string>;
+  /** 하루 전 미리 알림이 울리는 날 — 빈 점으로 표시 */
+  preMarkedDays?: Set<string>;
   /** 월/주 보기. 생략하면 월 보기 고정(모드 토글 숨김) */
   mode?: CalendarMode;
   onModeChange?: (m: CalendarMode) => void;
   /** 화면에 보이는 기간(양 끝 포함)이 바뀔 때 */
   onVisibleRangeChange?: (range: DateRange) => void;
 }) {
+  const C = useTheme();
+  const { scale } = useFontScale();
+  const styles = useMemo(() => makeStyles(C, scale), [C, scale]);
+  // 격자 실제 폭을 재서 7칸을 정수 폭으로 나눈다 (측정 전에는 비율)
+  const [gridW, setGridW] = useState(0);
+  const cellW = useMemo(() => ({ width: gridW > 0 ? Math.floor(gridW / 7) : (`${100 / 7}%` as const) }), [gridW]);
   const [view, setView] = useState(() => ({
     year: selectedDate.getFullYear(),
     month: selectedDate.getMonth(),
@@ -111,7 +121,7 @@ export function Calendar({
           <Text style={styles.navText}>‹</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={goToday} activeOpacity={0.7} style={styles.labelBtn} accessibilityLabel="오늘로 이동">
-          <Text style={styles.monthLabel}>{label}</Text>
+          <Text style={styles.monthLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>{label}</Text>
           {!showsToday && <Text style={styles.todayHint}>오늘로</Text>}
         </TouchableOpacity>
         <TouchableOpacity onPress={next} style={styles.navBtn} accessibilityLabel={mode === 'week' ? '다음 주' : '다음 달'}>
@@ -129,17 +139,18 @@ export function Calendar({
       </View>
 
       {/* 날짜 그리드 (월: 6주, 주: 1줄) */}
-      <View style={styles.grid}>
+      <View style={styles.grid} onLayout={(e) => setGridW(e.nativeEvent.layout.width)}>
         {cells.map((d, i) => {
-          if (!d) return <View key={`e${i}`} style={styles.cell} />;
+          if (!d) return <View key={`e${i}`} style={[styles.cell, cellW]} />;
           const selected = isSameDay(d, selectedDate);
           const isToday = isSameDay(d, today);
           const marked = markedDays.has(dayKey(d));
+          const preMarked = !marked && (preMarkedDays?.has(dayKey(d)) ?? false);
           const dow = d.getDay();
           // 주 보기에서 달이 걸치는 주는 그 주의 다수 달(목요일 기준)이 아닌 날짜만 흐리게
           const outsideMonth = mode === 'week' && d.getMonth() !== addDays(weekStart, 3).getMonth();
           return (
-            <TouchableOpacity key={dayKey(d)} style={styles.cell} onPress={() => onSelectDate(d)} activeOpacity={0.7}>
+            <TouchableOpacity key={dayKey(d)} style={[styles.cell, cellW]} onPress={() => onSelectDate(d)} activeOpacity={0.7}>
               <View style={[styles.dayCircle, selected && styles.daySelected, !selected && isToday && styles.dayToday]}>
                 <Text
                   style={[
@@ -153,7 +164,7 @@ export function Calendar({
                   {d.getDate()}
                 </Text>
               </View>
-              <View style={[styles.dot, marked && !selected && styles.dotOn]} />
+              <View style={[styles.dot, marked && !selected && styles.dotOn, preMarked && !selected && styles.dotPre]} testID={preMarked ? `pre-dot-${dayKey(d)}` : undefined} />
             </TouchableOpacity>
           );
         })}
@@ -181,7 +192,7 @@ export function Calendar({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   wrap: {
     backgroundColor: C.surface,
     marginHorizontal: 16,
@@ -195,9 +206,9 @@ const styles = StyleSheet.create({
   },
 
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  navBtn: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   navText: { color: C.textSub, fontSize: 26, fontWeight: '300' },
-  labelBtn: { alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4 },
+  labelBtn: { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4 },
   monthLabel: { color: C.text, fontSize: 17, fontWeight: '700' },
   todayHint: { color: C.accent, fontSize: 11, fontWeight: '600', marginTop: 1 },
 
@@ -207,20 +218,23 @@ const styles = StyleSheet.create({
   sat: { color: C.sat },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 3 },
-  dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  // 폭은 측정값(cellW)으로 준다: 14.2857%×7이 반올림으로 100%를 넘기면 넓은 화면(iPad 세로)에서 토요일 칸이 다음 줄로 밀린다
+  cell: { alignItems: 'center', paddingVertical: 3 },
+  // 날짜 원은 글자에 맞춰 키우되 7칸 폭(좁은 폰 ≈43pt)을 넘지 않게 상한
+  dayCircle: { width: Math.round(Math.min(34 * scale, 42)), height: Math.round(Math.min(34 * scale, 42)), borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   daySelected: { backgroundColor: C.accent },
   dayToday: { borderWidth: 1.5, borderColor: C.accent },
   dayText: { color: C.text, fontSize: 15, fontWeight: '400' },
   dayTextOutside: { color: C.textDim },
-  dayTextSelected: { color: '#fff', fontWeight: '700' },
+  dayTextSelected: { color: C.onAccent, fontWeight: '700' },
   dot: { width: 7, height: 7, borderRadius: 3.5, marginTop: 2, backgroundColor: 'transparent' },
-  dotOn: { backgroundColor: '#6FB2FF' },
+  dotOn: { backgroundColor: C.sat },
+  dotPre: { borderWidth: 1.5, borderColor: C.sat, backgroundColor: 'transparent' },
 
   modeRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
   modeToggle: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 9, padding: 3 },
   modeBtn: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 7 },
   modeBtnOn: { backgroundColor: C.accent },
   modeBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
-  modeBtnTextOn: { color: '#fff' },
+  modeBtnTextOn: { color: C.onAccent },
 });

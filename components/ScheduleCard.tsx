@@ -1,8 +1,10 @@
 // ─── 일정 카드 (달력 탭 / 전체 일정 탭 공용) ──────────────────────────────────────
-import { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { C } from '../lib/colors';
+import { useFontScale, useTheme, type Palette } from '../lib/theme';
+import { normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatTime } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
 import { MicIcon } from './MicIcon';
@@ -24,6 +26,9 @@ export function ScheduleCard({
   onFixDate?: (r: ScheduleRecord) => void;
   showDate?: boolean;
 }) {
+  const C = useTheme();
+  const { scale } = useFontScale();
+  const styles = useMemo(() => makeStyles(C, scale), [C, scale]);
   const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
   // useAudioPlayer()가 돌려주는 player 객체의 currentTime/playing은 리렌더를 일으키지 않는
   // 네이티브 getter라 useEffect 의존성으로 쓸 수 없다 → 상태 구독 훅으로 반응형 값 사용
@@ -87,6 +92,88 @@ export function ScheduleCard({
     : [];
 
   const accentColor = mode === 'vibe' ? C.textSub : mode === 'both' ? C.accent : C.red;
+  // 글자를 크게(1.3배↑) 쓰면 가로 3열(시간|내용|▶)이 너무 좁아져 내용이 두세 글자마다 꺾인다.
+  // 그때는 세로 배치: 1줄 시간·알람, 2줄 내용(전체 폭), 3줄 듣기·추가 버튼.
+  const stacked = scale >= 1.3;
+
+  const dateSub = showDate && item.scheduleAt ? (
+    <Text style={styles.cardDateSub} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+      {new Date(item.scheduleAt).getMonth() + 1}월 {new Date(item.scheduleAt).getDate()}일
+    </Text>
+  ) : null;
+  const remind = normalizeRemind(item.remindBefore ?? []);
+  const badges = mode ? (
+    <View style={styles.cardBadgeRow}>
+      {mode !== 'vibe' && <Text style={styles.cardBadgeIcon}>🔔</Text>}
+      {mode !== 'sound' && (
+        <Image source={require('../assets/vibrate_icon.png')} style={styles.cardBadgeVibe} />
+      )}
+      {remind.length > 0 && (
+        <Text style={styles.cardRemindText} numberOfLines={1}>⏰ {remind.map(remindLabel).join('·')}</Text>
+      )}
+      {item.exactAlarm === false && <Text style={styles.cardRemindText}>정각 없음</Text>}
+    </View>
+  ) : <View />;
+  const extras = (
+    <>
+      {appendedNotes.map((note, i) => (
+        <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
+      ))}
+      {item.needsDate && (
+        // 사라지지 않는 꼬리표 — 사용자가 날짜·시간을 정할 때까지 남는다 (재촉 없음)
+        <TouchableOpacity
+          style={styles.needsDateRow}
+          onPress={() => onFixDate?.(item)}
+          activeOpacity={0.7}
+          accessibilityLabel="날짜 정하기"
+        >
+          <Text style={styles.needsDateText}>언제인지 아직 안 정했어요</Text>
+          <Text style={styles.needsDateBtn}>정하기</Text>
+        </TouchableOpacity>
+      )}
+      {item.appends && item.appends.length > 0 && (
+        <View style={styles.cardAppendRow}>
+          <MicIcon size={12} color={C.textSub} />
+          <Text style={styles.cardAppendedNote}>추가 {item.appends.length}건</Text>
+        </View>
+      )}
+    </>
+  );
+
+  if (stacked) {
+    return (
+      <TouchableOpacity
+        style={[styles.card, styles.cardStacked, isPast && styles.cardPast]}
+        onPress={() => onPress(item)}
+        activeOpacity={0.72}
+        testID="card-stacked"
+      >
+        <View style={styles.stackTop}>
+          <View style={[styles.stackBar, { backgroundColor: accentColor }]} />
+          <Text style={[styles.stackTime, isPast ? styles.cardTimePast : { color: accentColor }]} numberOfLines={1}>
+            {timeLabel}
+          </Text>
+          {dateSub}
+          <View style={{ flex: 1 }} />
+          {badges}
+        </View>
+        <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]} numberOfLines={2} ellipsizeMode="tail">
+          {mainTitle}
+        </Text>
+        {extras}
+        <View style={styles.stackActions}>
+          {item.uri ? (
+            <TouchableOpacity style={styles.stackBtn} onPress={toggle} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Text style={styles.stackBtnText}>{playing ? '⏸ 멈춤' : '▶ 듣기'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity style={styles.stackBtn} onPress={() => onAppend(item)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Text style={styles.stackBtnTextAccent}>＋ 추가</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -95,14 +182,10 @@ export function ScheduleCard({
       activeOpacity={0.72}
     >
       <View style={styles.cardTimeCol}>
-        <Text style={[styles.cardTime, isPast ? styles.cardTimePast : { color: accentColor }]}>
+        <Text style={[styles.cardTime, isPast ? styles.cardTimePast : { color: accentColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {timeLabel}
         </Text>
-        {showDate && item.scheduleAt ? (
-          <Text style={styles.cardDateSub}>
-            {new Date(item.scheduleAt).getMonth() + 1}월 {new Date(item.scheduleAt).getDate()}일
-          </Text>
-        ) : null}
+        {dateSub}
       </View>
 
       <View style={[styles.cardDivider, { backgroundColor: accentColor }]} />
@@ -112,40 +195,10 @@ export function ScheduleCard({
         <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]} numberOfLines={2} ellipsizeMode="tail">
           {mainTitle}
         </Text>
-        {appendedNotes.map((note, i) => (
-          <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
-        ))}
-        {item.needsDate && (
-          // 사라지지 않는 꼬리표 — 사용자가 날짜·시간을 정할 때까지 남는다 (재촉 없음)
-          <TouchableOpacity
-            style={styles.needsDateRow}
-            onPress={() => onFixDate?.(item)}
-            activeOpacity={0.7}
-            accessibilityLabel="날짜 정하기"
-          >
-            <Text style={styles.needsDateText}>언제인지 아직 안 정했어요</Text>
-            <Text style={styles.needsDateBtn}>정하기</Text>
-          </TouchableOpacity>
-        )}
-        {item.appends && item.appends.length > 0 && (
-          <View style={styles.cardAppendRow}>
-            <MicIcon size={12} color={C.textSub} />
-            <Text style={styles.cardAppendedNote}>추가 {item.appends.length}건</Text>
-          </View>
-        )}
+        {extras}
 
         <View style={styles.cardBottomRow}>
-          {mode ? (
-            <View style={styles.cardBadgeRow}>
-              {mode !== 'vibe' && <Text style={styles.cardBadgeIcon}>🔔</Text>}
-              {mode !== 'sound' && (
-                <Image
-                  source={require('../assets/vibrate_icon.png')}
-                  style={styles.cardBadgeVibe}
-                />
-              )}
-            </View>
-          ) : <View />}
+          {badges}
           <TouchableOpacity
             style={styles.cardAppendBtn}
             onPress={() => onAppend(item)}
@@ -170,7 +223,7 @@ export function ScheduleCard({
 }
 
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.surface,
@@ -179,7 +232,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.border,
   },
   cardPast: { opacity: 0.5 },
-  cardTimeCol: { width: 68, justifyContent: 'center' },
+  cardTimeCol: { width: Math.round(68 * scale), justifyContent: 'center' },
   cardTime: { fontSize: 14, fontWeight: '700' },
   cardTimePast: { color: C.textSub },
   cardDateSub: { color: C.textSub, fontSize: 11, marginTop: 2 },
@@ -190,6 +243,7 @@ const styles = StyleSheet.create({
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   cardBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   cardBadgeIcon: { fontSize: 12 },
+  cardRemindText: { color: C.textSub, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   cardBadgeVibe: { width: 14, height: 14, resizeMode: 'contain', opacity: 0.75 },
   cardAppendBtn: {
     paddingHorizontal: 10, paddingVertical: 4,
@@ -211,5 +265,14 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceHigh, borderRadius: 18,
   },
   cardPlayIcon: { fontSize: 14, color: C.textSub },
+  // 큰 글자용 세로 배치
+  cardStacked: { flexDirection: 'column', alignItems: 'stretch', paddingVertical: 14 },
+  stackTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  stackBar: { width: 4, height: 20, borderRadius: 2 },
+  stackTime: { fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  stackActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 },
+  stackBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: C.surfaceHigh },
+  stackBtnText: { color: C.text, fontSize: 13, fontWeight: '700' },
+  stackBtnTextAccent: { color: C.accent, fontSize: 13, fontWeight: '700' },
 
 });

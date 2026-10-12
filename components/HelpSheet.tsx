@@ -1,10 +1,14 @@
+import { useMemo } from 'react';
 // ─── 사용설명서 화면 ───────────────────────────────────────────────────────────
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { C } from '../lib/colors';
+import { useTheme, type Palette } from '../lib/theme';
 import { HELP_SECTIONS } from '../lib/helpContent';
 
 export function HelpSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaProvider>
@@ -33,7 +37,7 @@ export function HelpSheet({ visible, onClose }: { visible: boolean; onClose: () 
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

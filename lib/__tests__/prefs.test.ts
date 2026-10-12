@@ -27,13 +27,19 @@ const FILE = 'doc/mallo/prefs.json';
 beforeEach(() => mockStore.clear());
 
 describe('prefs', () => {
-  test('파일이 없으면 기본값(월 보기)', () => {
-    expect(loadPrefs()).toEqual({ calendarMode: 'month' });
+  test('파일이 없으면 기본값(월 보기·시스템 테마·보통 글자)', () => {
+    expect(loadPrefs()).toEqual({ calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [30] });
   });
-  test('저장한 달력 모드를 다시 읽는다', () => {
+  test('저장한 달력 모드를 다시 읽는다 (다른 값은 기본값 유지)', () => {
     savePrefs({ calendarMode: 'week' });
-    expect(JSON.parse(mockStore.get(FILE)!)).toEqual({ calendarMode: 'week' });
+    expect(JSON.parse(mockStore.get(FILE)!)).toEqual({ calendarMode: 'week', theme: 'system', fontScale: 'medium', defaultRemind: [30] });
     expect(loadPrefs().calendarMode).toBe('week');
+  });
+  test('테마·글자 크기를 저장하고 다시 읽는다, 이상한 값은 기본값', () => {
+    savePrefs({ theme: 'light', fontScale: 'xlarge' });
+    expect(loadPrefs()).toMatchObject({ theme: 'light', fontScale: 'xlarge', calendarMode: 'month' });
+    mockStore.set(FILE, JSON.stringify({ theme: 'sepia', fontScale: 'huge' }));
+    expect(loadPrefs()).toMatchObject({ theme: 'system', fontScale: 'medium' });
   });
   test('깨진 파일·이상한 값이면 기본값으로', () => {
     mockStore.set(FILE, '{not json');

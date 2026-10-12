@@ -1,9 +1,10 @@
 // ─── 전체 일정 조회: 기간 직접 선택 시트 (년 / 월 / 일 휠) ─────────────────────
 // 숫자를 타이핑하는 대신 휠을 굴려 고른다. 각 휠의 맨 위 "전체"를 고르면 그 항목은 조건에서 빠진다.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { C } from '../lib/colors';
+import { useTheme, type Palette } from '../lib/theme';
 import type { RecordFilter } from '../lib/filterRecords';
 import { ScrollPicker } from './ScrollPicker';
 
@@ -23,6 +24,8 @@ export function FilterSheet({
   onApply: (v: Pick<RecordFilter, 'year' | 'month' | 'day'>) => void;
   onClose: () => void;
 }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const [year, setYear] = useState(value.year ?? ANY);
   const [month, setMonth] = useState(value.month ?? ANY);
@@ -101,10 +104,10 @@ export function FilterSheet({
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: {
-    backgroundColor: '#13131F', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 20, paddingTop: 10,
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 14 },

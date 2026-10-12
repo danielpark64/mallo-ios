@@ -1,18 +1,8 @@
+import { installCrashLogger } from './lib/crashLog';
+installCrashLogger();
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Animated,
-  Keyboard,
-  LogBox,
-  Modal,
-  ScrollView,
-  SectionList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, Animated, Keyboard, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text } from './components/AppText';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
@@ -37,8 +27,11 @@ import {
   startOfMonth,
   startOfWeek,
   type DaySection,
+  daysWithPreAlarms, isPreAlarmItem, mergePreAlarms, preAlarmItems,
+  type DayListItem, type DayListSection,
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs, type CalendarMode } from './lib/prefs';
+import { normalizeRemind, parsePreRecordId } from './lib/reminders';
 import {
   EMPTY_FILTER,
   describePeriod,
@@ -59,7 +52,7 @@ import { useVoiceRecorder } from './lib/useVoiceRecorder';
 import { NO_FILE_NOTICE } from './lib/voiceCapture';
 import * as Notifications from 'expo-notifications';
 import {
-  cancelAlarm,
+  cancelAlarm, cancelAlarmGroup,
   cancelAlarmByRecordId,
   registerAndroidChannels,
   registerNotificationCategories,
@@ -67,7 +60,7 @@ import {
   resyncAlarms,
   scheduleAlarm,
 } from './lib/notifications';
-import { C } from './lib/colors';
+import { ThemeProvider, useFontScale, useResolvedTheme, useTheme, type Palette } from './lib/theme';
 import { copyRecords } from './lib/exportUtils';
 import { Calendar, type DateRange } from './components/Calendar';
 import { ExportPreview, type ExportKind } from './components/ExportPreview';
@@ -75,6 +68,7 @@ import { FilterSheet } from './components/FilterSheet';
 import { SettingsSheet } from './components/SettingsSheet';
 import { MicIcon } from './components/MicIcon';
 import { ScheduleCard } from './components/ScheduleCard';
+import { PreAlarmRow } from './components/PreAlarmRow';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
 
@@ -87,6 +81,8 @@ function formatDuration(sec: number) {
 // ─── 파형 ─────────────────────────────────────────────────────────────────────
 const BAR_COUNT = 30;
 function Waveform({ metering, isRecording }: { metering: number | undefined; isRecording: boolean }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const animValues = useRef(
     Array.from({ length: BAR_COUNT }, () => new Animated.Value(0.15))
   ).current;
@@ -137,6 +133,9 @@ function AllSchedulesList({
   onAppend: (r: ScheduleRecord) => void;
   onFixDate: (r: ScheduleRecord) => void;
 }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  const { scale: fontScale } = useFontScale();
   const [filter, setFilter] = useState<RecordFilter>(EMPTY_FILTER);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [preview, setPreview] = useState<ExportKind | null>(null);
@@ -178,7 +177,7 @@ function AllSchedulesList({
       <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { fontSize: 16 * fontScale }]}
           value={filter.keyword}
           onChangeText={(t) => setFilter((f) => ({ ...f, keyword: t }))}
           placeholder="내용으로 찾기"
@@ -302,13 +301,20 @@ function AllSchedulesList({
 // Provider와 실제 컨텐츠를 분리한다.
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppInner />
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <AppInner />
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
 
 function AppInner() {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  const resolvedTheme = useResolvedTheme();
+  const { scale: fontScale } = useFontScale();
+  const bigText = fontScale >= 1.3; // 큰 글자: 헤더 시계를 숨겨 설정·＋ 버튼 자리를 확보 (시계는 상태바에도 있다)
   const voice = useVoiceRecorder();
 
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
@@ -342,7 +348,7 @@ function AppInner() {
       ? { start: startOfWeek(t), end: endOfWeek(t) }
       : { start: startOfMonth(t), end: endOfMonth(t) };
   });
-  const periodListRef = useRef<SectionList<ScheduleRecord, DaySection>>(null);
+  const periodListRef = useRef<SectionList<DayListItem, DayListSection>>(null);
   // scrollToLocation이 아직 렌더 안 된 섹션 때문에 실패하면 대략 위치로 옮긴 뒤 한 번 더 시도
   const pendingScrollRef = useRef<number | null>(null);
 
@@ -376,6 +382,17 @@ function AppInner() {
       const data = response.notification.request.content.data as any;
       const recordId: string | undefined = data?.recordId;
       if (!recordId) return;
+      const pre = parsePreRecordId(recordId);
+      if (pre) {
+        // 미리 알림(한 번짜리): 끄기/닫기는 할 일 없음, 5분 뒤 다시는 같은 문구로 한 번만
+        await cancelAlarmByRecordId(recordId).catch(() => {});
+        if (response.actionIdentifier === 'snooze') {
+          const rec = recordsRef.current.find((r) => r.id === pre.recordId);
+          const body = response.notification.request.content.body || rec?.content || '미리 알림';
+          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true });
+        }
+        return;
+      }
       if (response.actionIdentifier === 'snooze') {
         // 스누즈: 남은 슬롯 취소 후 5분 뒤로 다시 예약
         await cancelAlarmByRecordId(recordId).catch(() => {});
@@ -398,11 +415,15 @@ function AppInner() {
   const liveParsed = useMemo(() => parseSchedule(voice.liveText), [voice.liveText]);
   const marked = useMemo(() => daysWithSchedules(records), [records]);
   // 달력에 보이는 달/주의 일정 전부를 날짜별로 묶어 아래 목록에 보여준다
+  const preMarked = useMemo(() => daysWithPreAlarms(records), [records]);
   const periodSections = useMemo(
-    () => groupByDay(schedulesBetween(records, visibleRange.start, visibleRange.end)),
+    () => mergePreAlarms(
+      groupByDay(schedulesBetween(records, visibleRange.start, visibleRange.end)),
+      preAlarmItems(records, visibleRange.start, visibleRange.end),
+    ),
     [records, visibleRange],
   );
-  const periodCount = periodSections.reduce((n, sec) => n + sec.data.length, 0);
+  const periodCount = periodSections.reduce((n, sec) => n + sec.data.filter((x) => !isPreAlarmItem(x)).length, 0);
   const periodLabel =
     calendarMode === 'week'
       ? formatWeekLabel(visibleRange.start)
@@ -411,6 +432,13 @@ function AppInner() {
   const handleCalendarMode = (m: CalendarMode) => {
     setCalendarMode(m);
     savePrefs({ calendarMode: m });
+  };
+  // 새 일정의 기본 미리 알림(설정). 일정에는 저장 시점 값이 확정돼 들어간다
+  const [defaultRemind, setDefaultRemind] = useState<number[]>(() => loadPrefs().defaultRemind);
+  const handleDefaultRemind = (list: number[]) => {
+    const next = normalizeRemind(list);
+    setDefaultRemind(next);
+    savePrefs({ defaultRemind: next });
   };
 
   const scrollToSection = useCallback((idx: number) => {
@@ -516,8 +544,9 @@ function AppInner() {
       const id = Date.now().toString();
       const savedUri = keepAudio(id);
       let notifIds: string[] | undefined;
+      const remindBefore = normalizeRemind(parsed.remindBefore ?? defaultRemind);
       if (parsed.date && parsed.hasTime) {
-        const ids = await scheduleAlarm(id, parsed.content || transcript, parsed.date);
+        const ids = await scheduleAlarm(id, parsed.content || transcript, parsed.date, 'both', { remindBefore });
         if (ids.length) notifIds = ids;
       }
       const record: ScheduleRecord = {
@@ -529,6 +558,8 @@ function AppInner() {
         notifIds,
         segments: capturedSegments.length ? [...capturedSegments] : undefined,
         alarmMode: 'both',
+        remindBefore,
+        exactAlarm: true,
         createdAt: Date.now(),
       };
       commit([record, ...records]);
@@ -564,7 +595,7 @@ function AppInner() {
           { text: '삭제', style: 'destructive', onPress: async () => {
             if (target.uri) deleteAudio(target.uri);
             for (const a of target.appends ?? []) if (a.uri) deleteAudio(a.uri);
-            if (target.notifIds?.length) await cancelAlarm(target.notifIds);
+            await cancelAlarmGroup(target.id, target.notifIds);
             commit(records.filter((r) => r.id !== target.id));
             setSelectedDate(recordedDate);
           }},
@@ -630,13 +661,27 @@ function AppInner() {
     setTimeout(() => openAppend(r), 450);
   };
 
+  // 상세 화면의 알림 칩: 즉시 저장하고 두 경로(네이티브·Expo) 알람을 다시 건다
+  const handleAlarmChange = async (rec: ScheduleRecord, remindBefore: number[], exactAlarm: boolean) => {
+    await cancelAlarmGroup(rec.id, rec.notifIds);
+    const at = rec.scheduleAt != null && rec.hasTime ? new Date(rec.scheduleAt) : null;
+    const ids = at && at.getTime() > Date.now()
+      ? await scheduleAlarm(rec.id, rec.content || rec.transcript, at, rec.alarmMode ?? 'both', { remindBefore, exactAlarm })
+      : [];
+    commit(recordsRef.current.map((r) =>
+      r.id === rec.id ? { ...r, remindBefore, exactAlarm, notifIds: ids.length ? ids : undefined } : r
+    ));
+  };
+
   const handleEditorSave = async (res: EditorResult) => {
     const display = formatDisplay(res.date, true, res.hasTime);
     const notifAt = res.hasTime && res.date.getTime() > Date.now() ? res.date : null;
     if (res.id) {
       const old = records.find((r) => r.id === res.id);
-      if (old?.notifIds?.length) await cancelAlarm(old.notifIds);
-      const newIds = notifAt ? await scheduleAlarm(res.id, res.content, notifAt, res.alarmMode) : [];
+      if (old) await cancelAlarmGroup(old.id, old.notifIds);
+      const newIds = notifAt
+        ? await scheduleAlarm(res.id, res.content, notifAt, res.alarmMode, { remindBefore: res.remindBefore, exactAlarm: res.exactAlarm })
+        : [];
       const notifIds = newIds.length ? newIds : undefined;
       const next = records.map((r) =>
         r.id === res.id
@@ -650,6 +695,8 @@ function AppInner() {
               needsDate: false, // 사용자가 날짜·시간을 정했으니 꼬리표 해제
               notifIds,
               alarmMode: res.alarmMode,
+              remindBefore: res.remindBefore,
+              exactAlarm: res.exactAlarm,
               // 내용이 바뀌면 기존 단어별 타임스탬프는 무효 → 카드 표시도 새 내용으로
               segments: res.content.trim() !== (r.content ?? '').trim() ? undefined : r.segments,
             }
@@ -658,12 +705,15 @@ function AppInner() {
       commit(next);
     } else {
       const id = Date.now().toString();
-      const newIds = notifAt ? await scheduleAlarm(id, res.content, notifAt, res.alarmMode) : [];
+      const newIds = notifAt
+        ? await scheduleAlarm(id, res.content, notifAt, res.alarmMode, { remindBefore: res.remindBefore, exactAlarm: res.exactAlarm })
+        : [];
       const notifIds = newIds.length ? newIds : undefined;
       const rec: ScheduleRecord = {
         id, uri: '', durationSec: 0, transcript: '',
         content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display,
-        hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode, createdAt: Date.now(),
+        hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode,
+        remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, createdAt: Date.now(),
       };
       commit([rec, ...records]);
     }
@@ -675,7 +725,7 @@ function AppInner() {
     const target = records.find((r) => r.id === id);
     if (target?.uri) deleteAudio(target.uri);
     for (const a of target?.appends ?? []) if (a.uri) deleteAudio(a.uri);
-    if (target?.notifIds?.length) await cancelAlarm(target.notifIds);
+    if (target) await cancelAlarmGroup(target.id, target.notifIds);
     commit(records.filter((r) => r.id !== id));
     setEditorOpen(false);
   };
@@ -710,14 +760,15 @@ function AppInner() {
     // absolute 포지션 FAB가 SafeAreaView의 padding 안에서 이중으로 계산되어
     // 기기별로 안전영역을 못 미치게 잡히는 경우가 있어 명시적으로 처리
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar style="light" />
+     <View style={styles.page}>
+      <StatusBar style={resolvedTheme === 'light' ? 'dark' : 'light'} />
 
       {/* ── 헤더 ── */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.appName}>말로</Text>
           {nextSchedule?.scheduleAt ? (
-            <Text style={styles.nextLabel} numberOfLines={1}>
+            <Text style={styles.nextLabel} numberOfLines={bigText ? 2 : 1}>
               다음 ·{' '}
               {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
               {formatTime(new Date(nextSchedule.scheduleAt))}
@@ -725,7 +776,9 @@ function AppInner() {
           ) : null}
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.clockText}>{formatTime(currentTime)}</Text>
+          {!bigText && (
+            <Text style={styles.clockText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatTime(currentTime)}</Text>
+          )}
           <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel="설정">
             <Text style={styles.settingsBtnText}>설정</Text>
           </TouchableOpacity>
@@ -786,12 +839,13 @@ function AppInner() {
                 selectedDate={selectedDate}
                 onSelectDate={handleSelectDate}
                 markedDays={marked}
+                preMarkedDays={preMarked}
                 mode={calendarMode}
                 onModeChange={handleCalendarMode}
                 onVisibleRangeChange={setVisibleRange}
               />
               <View style={styles.dayHeader}>
-                <Text style={styles.dayHeaderText}>{periodLabel} 일정</Text>
+                <Text style={styles.dayHeaderText} numberOfLines={2}>{periodLabel} 일정</Text>
                 <Text style={styles.dayCount}>{periodCount > 0 ? `${periodCount}건` : ''}</Text>
               </View>
             </>
@@ -817,7 +871,11 @@ function AppInner() {
               </View>
             );
           }}
-          renderItem={({ item }) => <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} />}
+          renderItem={({ item }) =>
+            isPreAlarmItem(item)
+              ? <PreAlarmRow item={item} onPress={openDetail} />
+              : <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} />
+          }
           SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         />
       ) : (
@@ -839,6 +897,8 @@ function AppInner() {
         records={records}
         calendarMode={calendarMode}
         onCalendarMode={handleCalendarMode}
+        defaultRemind={defaultRemind}
+        onDefaultRemind={handleDefaultRemind}
         onClose={() => setSettingsOpen(false)}
         onRestored={async (next) => {
           // 다른 폰의 알림 id는 이 폰에서 무효 → 전부 비우고 미래 일정 알람을 다시 건다
@@ -855,8 +915,10 @@ function AppInner() {
         onClose={() => setDetailId(null)}
         onEdit={openEditFromDetail}
         onAppend={openAppendFromDetail}
+        onAlarmChange={handleAlarmChange}
       />
 
+     </View>
       {/* ── 편집기 ── */}
       <ScheduleEditor
         visible={editorOpen}
@@ -864,6 +926,7 @@ function AppInner() {
         defaultDate={selectedDate}
         markedDays={marked}
         appendMode={appendMode}
+        defaultRemind={defaultRemind}
         onSave={handleEditorSave}
         onAppend={handleEditorAppend}
         onDelete={handleEditorDelete}
@@ -916,8 +979,10 @@ function AppInner() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  // 태블릿: 본문이 화면 전체로 퍼지지 않게 가운데 최대 폭 (카드 한 줄이 너무 길어지는 것 방지)
+  page: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center' },
 
   // 헤더
   header: {
@@ -926,8 +991,9 @@ const styles = StyleSheet.create({
   },
   appName: { color: C.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
   nextLabel: { color: C.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
+  headerLeft: { flex: 1, flexShrink: 1, marginRight: 8 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
+  clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5, flexShrink: 1, maxWidth: 120 },
   settingsBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: C.surfaceHigh },
   settingsBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
   addCircleBtn: {
@@ -935,7 +1001,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
   },
-  addCircleBtnText: { color: C.text, fontSize: 22, fontWeight: '300', lineHeight: 26 },
+  addCircleBtnText: { color: C.text, fontSize: 22, fontWeight: '300', includeFontPadding: false },
 
   // 탭 세그먼트
   segmentWrap: { paddingHorizontal: 20, paddingBottom: 10 },
@@ -956,8 +1022,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8,
   },
-  dayHeaderText: { color: C.text, fontSize: 17, fontWeight: '700' },
-  dayCount: { color: C.textSub, fontSize: 13, fontWeight: '500' },
+  dayHeaderText: { color: C.text, fontSize: 17, fontWeight: '700', flex: 1, marginRight: 8 },
+  dayCount: { color: C.textSub, fontSize: 13, fontWeight: '500', flexShrink: 0 },
   dayList: { flex: 1 },
   dayListContent: { paddingHorizontal: 16, paddingBottom: 120 },
   emptyDay: { paddingTop: 48, alignItems: 'center' },
@@ -1000,7 +1066,7 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: C.accent, borderColor: C.accent },
   chipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
   chipTextOn: { color: '#fff' },
-  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2, paddingBottom: 2 },
+  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 6, paddingTop: 2, paddingBottom: 2 },
   resultText: { color: C.textSub, fontSize: 13, fontWeight: '600' },
   resultActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   resultReset: { color: C.accent, fontSize: 13, fontWeight: '700', marginRight: 6 },
@@ -1023,7 +1089,7 @@ const styles = StyleSheet.create({
   // 녹음 오버레이
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#13131F', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, alignItems: 'center',
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 18 },

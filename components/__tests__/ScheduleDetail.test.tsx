@@ -411,3 +411,26 @@ describe('ScheduleDetail 글을 고친 추가 엔트리(단어 시각 없음)', 
     expect(screen.getByText('녹음 파일 없이 글만 저장된 항목이에요')).toBeTruthy();
   });
 });
+
+describe('ScheduleDetail 알림 칩', () => {
+  test('미래 일정이면 칩이 보이고, 누르면 바뀐 목록으로 onAlarmChange가 불린다', async () => {
+    const onAlarmChange = jest.fn();
+    const rec = { ...record, remindBefore: [30], exactAlarm: true };
+    const screen = await render(
+      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={onAlarmChange} />,
+    );
+    expect(screen.getByText('미리 알림 30분 전 · 정각 알림 켬')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('미리 알림 하루 전'));
+    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30, 1440], true);
+    await fireEvent.press(screen.getByLabelText('정각 알림'));
+    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30], false);
+  });
+  test('지난 일정은 칩 없이 안내만', async () => {
+    const rec = { ...record, scheduleAt: Date.now() - 3_600_000 };
+    const screen = await render(
+      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={() => {}} />,
+    );
+    expect(screen.getByText('지난 일정 (알림 없음)')).toBeTruthy();
+    expect(screen.queryByLabelText('정각 알림')).toBeNull();
+  });
+});

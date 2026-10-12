@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "scheme": "mallo",
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.danielpark.mallo",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ko",

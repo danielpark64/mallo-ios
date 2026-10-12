@@ -34,6 +34,8 @@ export type ScheduleRecord = {
   hasTime: boolean;
   notifIds?: string[];    // expo-notifications 식별자 배열 (main + +1분 + +2분 슬롯)
   alarmMode?: 'both' | 'sound' | 'vibe'; // 알람 방식
+  remindBefore?: number[];  // 미리 알림(분): 10·30·60·1440(하루 전). 저장 시점에 확정(기본값은 설정에서)
+  exactAlarm?: boolean;     // 정각 알람(+1·+2분 재알림) 여부. undefined = 켬
   segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
   appends?: AppendEntry[]; // "＋ 추가"로 붙은 독립 엔트리들
   needsDate?: boolean;    // 날짜·시간 없이 녹음돼 오늘(시간 미정)로 임시 저장됨 → 사용자가 정하면 해제

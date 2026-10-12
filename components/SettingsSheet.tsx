@@ -1,10 +1,13 @@
 // ─── 설정 화면 ─────────────────────────────────────────────────────────────────
 // 달력 기본 보기, 백업 · 폰 옮기기, 사용설명서, 앱 정보를 한곳에 모은다.
-import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState, useMemo } from 'react';
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import { C } from '../lib/colors';
+import { FONT_SCALE_LABEL, THEME_LABEL, useTheme, useThemeSetting, type Palette } from '../lib/theme';
+import type { FontScaleName, ThemeSetting } from '../lib/prefs';
+import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
 import type { CalendarMode } from '../lib/prefs';
 import type { ScheduleRecord } from '../lib/storage';
 import { BackupSheet } from './BackupSheet';
@@ -15,6 +18,8 @@ export function SettingsSheet({
   records,
   calendarMode,
   onCalendarMode,
+  defaultRemind,
+  onDefaultRemind,
   onRestored,
   onClose,
 }: {
@@ -22,9 +27,14 @@ export function SettingsSheet({
   records: ScheduleRecord[];
   calendarMode: CalendarMode;
   onCalendarMode: (m: CalendarMode) => void;
+  defaultRemind: number[];
+  onDefaultRemind: (list: number[]) => void;
   onRestored: (records: ScheduleRecord[]) => void;
   onClose: () => void;
 }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
+  const { themeSetting, setThemeSetting, fontScale, setFontScale } = useThemeSetting();
   const [backupOpen, setBackupOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -43,6 +53,64 @@ export function SettingsSheet({
           </View>
 
           <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+            <Text style={s.sectionLabel}>화면</Text>
+            <View style={s.card}>
+              <Text style={s.rowTitle}>테마</Text>
+              <View style={[s.segment, s.segmentWide]}>
+                {(['system', 'light', 'dark'] as ThemeSetting[]).map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[s.segBtn, s.segBtnGrow, themeSetting === t && s.segBtnOn]}
+                    onPress={() => themeSetting !== t && setThemeSetting(t)}
+                    accessibilityState={{ selected: themeSetting === t }}
+                    accessibilityLabel={`테마 ${THEME_LABEL[t]}`}
+                  >
+                    <Text style={[s.segText, themeSetting === t && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{THEME_LABEL[t]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={s.rowSub}>시스템은 폰 설정(다크/라이트)을 따라요</Text>
+              <View style={s.divider} />
+              <Text style={s.rowTitle}>글자 크기</Text>
+              <View style={[s.segment, s.segmentWide]}>
+                {(['small', 'medium', 'large', 'xlarge'] as FontScaleName[]).map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[s.segBtn, s.segBtnGrow, fontScale === f && s.segBtnOn]}
+                    onPress={() => fontScale !== f && setFontScale(f)}
+                    accessibilityState={{ selected: fontScale === f }}
+                    accessibilityLabel={`글자 ${FONT_SCALE_LABEL[f]}`}
+                  >
+                    <Text style={[s.segText, fontScale === f && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{FONT_SCALE_LABEL[f]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={s.rowSub}>일정 내용, 달력, 설명서 등 앱의 모든 글자에 적용돼요</Text>
+            </View>
+
+            <Text style={s.sectionLabel}>알람</Text>
+            <View style={s.card}>
+              <Text style={s.rowTitle}>기본 미리 알림</Text>
+              <Text style={s.rowSub}>새 일정에 자동으로 붙어요. 일정마다 편집기에서 바꿀 수 있어요</Text>
+              <View style={[s.segment, s.segmentWide, s.chipWrap]}>
+                {REMIND_OPTIONS.map((m) => {
+                  const on = defaultRemind.includes(m);
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={[s.segBtn, s.segBtnGrow, on && s.segBtnOn]}
+                      onPress={() => onDefaultRemind(normalizeRemind(on ? defaultRemind.filter((x) => x !== m) : [...defaultRemind, m]))}
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={`기본 미리 알림 ${remindLabel(m)}`}
+                    >
+                      <Text style={[s.segText, on && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{remindLabel(m)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={s.rowSub}>하루 전은 전날 저녁 8시에 울려요</Text>
+            </View>
+
             <Text style={s.sectionLabel}>달력</Text>
             <View style={s.card}>
               <View style={s.rowBetween}>
@@ -114,7 +182,7 @@ export function SettingsSheet({
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -132,10 +200,13 @@ const s = StyleSheet.create({
   rowValue: { color: C.textSub, fontSize: 14 },
   chevron: { color: C.textSub, fontSize: 22, fontWeight: '300' },
   segment: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: 9, padding: 3 },
+  segmentWide: { marginTop: 10, marginBottom: 8 },
+  chipWrap: { flexWrap: 'wrap' },
   segBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 7 },
+  segBtnGrow: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
   segBtnOn: { backgroundColor: C.accent },
   segText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
-  segTextOn: { color: '#fff' },
+  segTextOn: { color: C.onAccent },
   divider: { height: 1, backgroundColor: C.border, marginVertical: 12 },
   note: { color: C.textSub, fontSize: 13, lineHeight: 20 },
 });

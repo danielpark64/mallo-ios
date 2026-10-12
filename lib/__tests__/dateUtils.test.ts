@@ -75,3 +75,28 @@ describe('schedulesBetween / groupByDay', () => {
     expect(sections[3].data.map((r) => r.id)).toEqual(['e']);
   });
 });
+
+describe('하루 전 미리 알림 표시 항목', () => {
+  const { preAlarmItems, mergePreAlarms, daysWithPreAlarms, groupByDay, dayKey } = require('../dateUtils');
+  const now = new Date(2026, 9, 12, 10, 0).getTime();
+  const rec = (id: string, at: Date, remind: number[]) => ({
+    id, uri: '', durationSec: 0, transcript: '', content: `일정 ${id}`, scheduleAt: at.getTime(), scheduleDisplay: '',
+    hasDate: true, hasTime: true, createdAt: 1, remindBefore: remind,
+  });
+  test('하루 전이 있는 미래 일정만, 전날 20:00에 항목이 생기고 달력 키도 그날', () => {
+    const a = rec('a', new Date(2026, 9, 14, 9, 0), [1440, 30]);
+    const b = rec('b', new Date(2026, 9, 14, 9, 0), [30]);
+    const c = rec('c', new Date(2026, 9, 12, 21, 0), [1440]); // 전날 20:00이 이미 지남
+    const items = preAlarmItems([a, b, c], undefined, undefined, now);
+    expect(items.map((i: any) => i.id)).toEqual(['a#pre1440']);
+    expect(new Date(items[0].fireAt).getHours()).toBe(20);
+    expect(Array.from(daysWithPreAlarms([a, b, c], now))).toEqual([dayKey(new Date(2026, 9, 13))]);
+  });
+  test('섹션에 시각순으로 끼워 넣고, 없는 날은 섹션을 만든다', () => {
+    const a = rec('a', new Date(2026, 9, 14, 9, 0), [1440]);
+    const d = rec('d', new Date(2026, 9, 13, 18, 0), []);
+    const sections = mergePreAlarms(groupByDay([a, d]), preAlarmItems([a, d], undefined, undefined, now));
+    expect(sections.map((s: any) => s.key)).toEqual(['2026-10-13', '2026-10-14']);
+    expect(sections[0].data.map((x: any) => x.kind ?? x.id)).toEqual(['d', 'pre']);
+  });
+});

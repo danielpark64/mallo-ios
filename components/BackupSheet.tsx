@@ -1,10 +1,11 @@
 // ─── 백업 · 폰 옮기기 화면 ───────────────────────────────────────────────────────
 // 백업 만들기(일정 + 모든 녹음을 한 폴더로), 백업 목록에서 복원/삭제.
 // iOS는 파일 앱에 폴더가 그대로 보이고, Android는 고른 폴더로 내보내기/가져오기.
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState, useMemo } from 'react';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { C } from '../lib/colors';
+import { useTheme, type Palette } from '../lib/theme';
 import {
   createBackup,
   deleteBackup,
@@ -35,6 +36,8 @@ export function BackupSheet({
   /** 복원으로 합쳐진 새 목록 */
   onRestored: (records: ScheduleRecord[]) => void;
 }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -166,7 +169,7 @@ export function BackupSheet({
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

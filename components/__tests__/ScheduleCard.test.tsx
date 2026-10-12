@@ -11,6 +11,7 @@ jest.mock('expo-audio', () => ({
 }));
 
 import { ScheduleCard } from '../ScheduleCard';
+import { ThemeProvider } from '../../lib/theme';
 
 const item: ScheduleRecord = {
   id: 'r1', uri: 'file:///rec_r1.m4a', durationSec: 10, transcript: '내일 회의', content: '회의',
@@ -91,5 +92,30 @@ describe('ScheduleCard 재생', () => {
     expect(getByText('언제인지 아직 안 정했어요')).toBeTruthy();
     await fireEvent.press(getByLabelText('날짜 정하기'));
     expect(onFix).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' }));
+  });
+});
+
+describe('큰 글자(크게·아주 크게)에서는 세로 배치 카드', () => {
+  test('아주 크게: 시간 줄·내용·듣기/추가 버튼이 세로로 놓이고, 보통에서는 가로 배치', async () => {
+    const onAppend = jest.fn();
+    const big = await render(
+      <ThemeProvider initial={{ fontScale: 'xlarge' }}>
+        <ScheduleCard item={item} onPress={() => {}} onAppend={onAppend} />
+      </ThemeProvider>,
+    );
+    expect(big.getByTestId('card-stacked')).toBeTruthy();
+    expect(big.getByText('▶ 듣기')).toBeTruthy();
+    await fireEvent.press(big.getByText('＋ 추가'));
+    expect(onAppend).toHaveBeenCalledWith(item);
+    await fireEvent.press(big.getByText('▶ 듣기'));
+    expect(mockPlayer.play).toHaveBeenCalled();
+
+    const normal = await render(
+      <ThemeProvider initial={{ fontScale: 'medium' }}>
+        <ScheduleCard item={item} onPress={() => {}} onAppend={() => {}} />
+      </ThemeProvider>,
+    );
+    expect(normal.queryByTestId('card-stacked')).toBeNull();
+    expect(normal.queryByText('▶ 듣기')).toBeNull();
   });
 });

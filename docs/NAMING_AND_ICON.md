@@ -72,6 +72,33 @@
 | Sayday | 캘린더·음성→캘린더 앱 존재 | △ |
 | (새 후보 필요) | "말하면 적힌다/챙겨준다"를 담은 새 조합을 더 모을 것 — 예: Malhae(말해), Sayrim(세이림), Dalda(달다), Tellit(텔릿), Memoro(메모로) 등은 다음 조사 때 중복 확인 | 미결 |
 
+## 새 이름 후보 2차 조사 (2026-10-12)
+
+조사: App Store 검색 API(kr/us, 영문·한글) · Google Play 검색(KR/US) · 웹 검색 · 도메인 DNS. **상표(KIPRIS·USPTO) 미조회** — 최종 후보는 등록 전 직접 조회.
+판정: ◎ 양쪽 스토어·웹에 동명/유사 없음 / △ 유사·인접 분야 있음 / ✕ 동명 다수 또는 같은 분야 동명.
+
+| 후보 | 한글 | 뜻 | 부제 예 | Play | App Store | 웹/도메인 | 판정 |
+|---|---|---|---|---|---|---|---|
+| **Malnote** | 말노트 | 말+note, "말로 쓰는 노트" | 말하면 적히고 알려주는 일정 | 없음 | 없음 | Linux 'Malnotes'만(무관). .com/.app 미등록 | ◎ |
+| **Sayrim** | 세이림 | say+림(알림), "말하면 알림" | 말해두면 알려주는 일정 | 없음 | 없음 | 없음. .com/.app 미등록 | ◎ |
+| **Saykeep** | 세이킵 | say+keep, "말하면 챙겨둠" | Say it, we keep it | 없음 | 없음 | 없음. 도메인 사용 중, Google Keep 연상 | ◎ |
+| **Malday** | 말데이 | 말+day, "말로 적는 하루" | 말하면 그날에 적히는 일정 | 없음 | 없음 | 도메인 전부 미등록. 영어권 'mal-' 뉘앙스 | ◎ |
+| **Tellday** | 텔데이 | tell+day | Tell it, it's on the day | 없음 | 없음 | 도메인 사용 중 | ◎ |
+| Maldam | 말담 | 말을 담다 | 말을 담아두는 일정 | 없음 | 없음 | 영어권 읽기 어색 | ◎(보류) |
+| Sayrok | 세이록 | say+록(기록) | 말하면 기록되는 일정 | 'Sayro'만 | 없음 | 영어권 뜻 없음 | ◎(보류) |
+| Tellmo | 텔모 | tell+memo | 말하면 메모·알림 | 없음 | 없음 | Tellmi(영국 NHS)·TellMe 유사명 | ◎(주의) |
+| Malhae | 말해 | "말해" | 말해두면 챙겨주는 일정 | 한글 '말해' 교육앱 | 한글 '말해'(Keytalk) + 말해보카(1000만) | 검색어가 말해보카에 묻힘 | △ |
+| Malrok | 말록 | 말+록 | | 개발사 'Malrok Studio' 3개 | 없음 | | △ |
+| Saytime | 세이타임 | say+time | | Talking Clock 1만+ 등 | 'SayTime - 시간 기록' | | △ |
+| Tellnote | 텔노트 | tell+note | | 없음 | 'TellNotes AI'(타국) | Mac 'Tell Note' | △ |
+| Malmemo | 말메모 | | | 없음 | **'말메모 – 실시간 전사·녹음·요약'(2026-08, 같은 분야)** | | ✕ |
+| Saymo / Saynote / Sayplan | | say+memo/note/plan | | 각 2~3개 | 4~6개(음성→텍스트 포화) | | ✕ |
+| Tellit / Memoro / Remindo / Dalda | | | | 6~7개씩 | 4~6개씩 | | ✕ |
+
+**추천 순**: 1 Malnote(말노트) — 60대도 뜻이 바로 보임, 스토어·도메인 전부 비어 있음(알람 요소는 부제로 보완) · 2 Sayrim(세이림) — "말하면 알림", 한글 사용자에게 잘 통함 · 3 Saykeep(세이킵) · 4 Malday(말데이) · 5 Tellday(텔데이).
+의외의 충돌: '말메모'(온디바이스 음성메모+일정 자동분류, 우리와 가장 가까운 한국 앱), SayPlan, SayNote 6종, Remindo 12종 — say+note/memo/plan 계열은 포화.
+
 ## 결정 기록
 - 2026-10-12: 사용자 — "이름과 아이콘은 좀 더 고민, 틈나는 대로 후보를 모아 달라". 미결.
 - 2026-10-12: 스토어 조사 결과 '말로'·'Saylo'는 중복으로 탈락, '세이요'는 영문 Sayo 충돌. 새 후보 수집 필요.
+- 2026-10-12: 2차 후보 20개 조사 → ◎ 8개(Malnote·Sayrim·Saykeep·Malday·Tellday·Maldam·Sayrok·Tellmo). 1차 보류였던 Malhae·Memoro·Tellit·Dalda는 중복 탈락. 상표 조회 미실시.

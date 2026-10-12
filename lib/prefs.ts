@@ -1,11 +1,16 @@
 // ─── 사용자 환경설정 (expo-file-system JSON) ───────────────────────────────────
 // 달력 기본 보기(월/주)처럼 사용자가 고른 값을 앱 재시작 후에도 유지한다.
 import { Directory, File, Paths } from 'expo-file-system';
+import { DEFAULT_REMIND, normalizeRemind } from './reminders';
 
 export type CalendarMode = 'month' | 'week';
-export type Prefs = { calendarMode: CalendarMode };
+export type ThemeSetting = 'system' | 'light' | 'dark';
+export type FontScaleName = 'small' | 'medium' | 'large' | 'xlarge';
+export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[] };
 
-const DEFAULTS: Prefs = { calendarMode: 'month' };
+const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND] };
+const THEMES: ThemeSetting[] = ['system', 'light', 'dark'];
+const FONT_SCALES: FontScaleName[] = ['small', 'medium', 'large', 'xlarge'];
 const DIR = new Directory(Paths.document, 'mallo');
 const FILE = new File(DIR, 'prefs.json');
 
@@ -14,7 +19,13 @@ export function loadPrefs(): Prefs {
     if (!FILE.exists) return { ...DEFAULTS };
     const parsed = JSON.parse(FILE.textSync());
     const mode = parsed?.calendarMode;
-    return { ...DEFAULTS, ...(mode === 'month' || mode === 'week' ? { calendarMode: mode } : {}) };
+    return {
+      ...DEFAULTS,
+      ...(mode === 'month' || mode === 'week' ? { calendarMode: mode } : {}),
+      ...(THEMES.includes(parsed?.theme) ? { theme: parsed.theme as ThemeSetting } : {}),
+      ...(FONT_SCALES.includes(parsed?.fontScale) ? { fontScale: parsed.fontScale as FontScaleName } : {}),
+      ...(Array.isArray(parsed?.defaultRemind) ? { defaultRemind: normalizeRemind(parsed.defaultRemind) } : {}),
+    };
   } catch {
     return { ...DEFAULTS };
   }

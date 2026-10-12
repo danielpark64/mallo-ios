@@ -2,9 +2,10 @@
 // 변환된 결과를 먼저 보여주고, 그 화면에서 내보내기(공유 시트)·복사를 고른다.
 // PDF는 실제 PDF와 같은 내용·배치를 흰 종이 느낌의 카드로 그려 보여준다.
 import { useMemo } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { C } from '../lib/colors';
+import { useTheme, type Palette } from '../lib/theme';
 import { copyRecords, docSubtitle, exportRecordsPdf, exportRecordsTxt, recordRows, recordsToText } from '../lib/exportUtils';
 import type { ScheduleRecord } from '../lib/storage';
 
@@ -21,6 +22,8 @@ export function ExportPreview({
   records: ScheduleRecord[];
   onClose: () => void;
 }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   // Modal을 계속 마운트해 둬야 닫힐 때도 slide 애니메이션이 나온다. 본문은 visible일 때만 계산.
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -62,6 +65,8 @@ export function ExportPreview({
 }
 
 function PreviewBody({ kind, records }: { kind: ExportKind; records: ScheduleRecord[] }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const text = useMemo(() => (kind === 'txt' ? recordsToText(records) : ''), [kind, records]);
   const rows = useMemo(() => (kind === 'pdf' ? recordRows(records) : []), [kind, records]);
 
@@ -99,7 +104,7 @@ function PreviewBody({ kind, records }: { kind: ExportKind; records: ScheduleRec
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

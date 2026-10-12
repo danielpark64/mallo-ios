@@ -1,18 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Animated,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { Alert, Animated, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   ExpoSpeechRecognitionModule,
@@ -22,7 +10,8 @@ import { Calendar } from './Calendar';
 import { ScrollPicker } from './ScrollPicker';
 import { MicIcon } from './MicIcon';
 import { formatDayHeader } from '../lib/dateUtils';
-import { C } from '../lib/colors';
+import { useFontScale, useTheme, type Palette } from '../lib/theme';
+import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import { useVoiceRecorder } from '../lib/useVoiceRecorder';
 import { NO_FILE_NOTICE } from '../lib/voiceCapture';
@@ -35,6 +24,8 @@ export type EditorResult = {
   date: Date;
   hasTime: boolean;
   alarmMode: AlarmMode;
+  remindBefore: number[];
+  exactAlarm: boolean;
 };
 
 /** "추가" 저장 결과 — 메인과 동등하게 자기 녹음·전사·구간재생을 갖는 독립 엔트리 */
@@ -55,7 +46,7 @@ const MINUTES     = [0,5,10,15,20,25,30,35,40,45,50,55];
 
 // ─── 편집기 (전체화면) ─────────────────────────────────────────────────────────
 export function ScheduleEditor({
-  visible, record, defaultDate, markedDays, appendMode = false,
+  visible, record, defaultDate, markedDays, appendMode = false, defaultRemind,
   onSave, onAppend, onDelete, onClose,
 }: {
   visible: boolean;
@@ -63,16 +54,25 @@ export function ScheduleEditor({
   defaultDate: Date;
   markedDays: Set<string>;
   appendMode?: boolean;
+  /** 새 일정의 기본 미리 알림(설정값) */
+  defaultRemind?: number[];
   onSave: (r: EditorResult) => void;
   onAppend: (id: string, entry: AppendResult) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  const { scale: fontScale } = useFontScale();
   const [content, setContent] = useState('');
   const [date, setDate]       = useState(new Date());
   const [hour, setHour]       = useState(9);   // 0~23
   const [minute, setMinute]   = useState(0);
   const [alarmMode, setAlarmMode] = useState<AlarmMode>('both');
+  const [remindBefore, setRemindBefore] = useState<number[]>([]);
+  const [exactAlarm, setExactAlarm] = useState(true);
+  const toggleRemind = (m: number) =>
+    setRemindBefore((cur) => normalizeRemind(cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
   const [showCal, setShowCal]     = useState(false);
 
   // ── 내용 입력 STT (일반 수정/생성 — 텍스트만, 오디오 저장 없음) ──────────────────
@@ -190,12 +190,16 @@ export function ScheduleEditor({
       setHour(record.hasTime ? d.getHours() : 9);
       setMinute(record.hasTime ? d.getMinutes() : 0);
       setAlarmMode((record.alarmMode as AlarmMode) ?? 'both');
+      setRemindBefore(normalizeRemind(record.remindBefore ?? []));
+      setExactAlarm(record.exactAlarm !== false);
     } else {
       setContent('');
       setDate(new Date(defaultDate));
       setHour(9);
       setMinute(0);
       setAlarmMode('both');
+      setRemindBefore(normalizeRemind(defaultRemind ?? []));
+      setExactAlarm(true);
     }
     setShowCal(false);
   }, [visible, record, appendMode]);
@@ -221,7 +225,7 @@ export function ScheduleEditor({
     }
     const d = new Date(date);
     d.setHours(hour, minute, 0, 0);
-    onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode });
+    onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode, remindBefore, exactAlarm });
   };
 
   const handleDelete = () => {
@@ -356,6 +360,41 @@ export function ScheduleEditor({
           </ScrollView>
         )}
 
+        {!appendMode && (
+          <View style={styles.section}>
+            <Text style={styles.label}>알림</Text>
+            <View style={styles.remindRow}>
+              {REMIND_OPTIONS.map((m) => {
+                const on = remindBefore.includes(m);
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.quickChip, on && styles.quickChipOn]}
+                    onPress={() => toggleRemind(m)}
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`미리 알림 ${remindLabel(m)}`}
+                  >
+                    <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{remindLabel(m)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={[styles.quickChip, exactAlarm && styles.quickChipOn]}
+                onPress={() => setExactAlarm((v) => !v)}
+                accessibilityState={{ selected: exactAlarm }}
+                accessibilityLabel="정각 알림"
+              >
+                <Text style={[styles.quickChipText, exactAlarm && styles.quickChipTextOn]}>정각</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.remindHint}>
+              {remindBefore.length
+                ? `${remindBefore.map(remindLabel).join(' · ')}에 한 번씩 미리 알려요${exactAlarm ? ', 정각에도 울려요' : ''}`
+                : exactAlarm ? '정각에만 울려요 (못 들으면 1분·2분 뒤 다시)' : '알림 없음'}
+            </Text>
+          </View>
+        )}
+
         {/* 내용 입력 — 남은 공간 전부 차지 */}
         <View style={styles.contentArea}>
           <View style={styles.contentLabelRow}>
@@ -373,7 +412,7 @@ export function ScheduleEditor({
           )}
           <View style={styles.contentInputWrap}>
             <TextInput
-              style={styles.contentInput}
+              style={[styles.contentInput, { fontSize: 17 * fontScale, lineHeight: 24 * fontScale }]}
               value={content}
               onChangeText={(t) => {
                 if (sttOn) baseContentRef.current = t;
@@ -405,7 +444,7 @@ export function ScheduleEditor({
 }
 
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
 
   navBar: {
@@ -428,7 +467,9 @@ const styles = StyleSheet.create({
   quickChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
   quickChipOn: { backgroundColor: C.accent, borderColor: C.accent },
   quickChipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
-  quickChipTextOn: { color: '#fff' },
+  quickChipTextOn: { color: C.onAccent },
+  remindRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  remindHint: { color: C.textSub, fontSize: 12, marginTop: 8 },
   dateBtn: {
     backgroundColor: C.surface, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 14,

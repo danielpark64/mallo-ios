@@ -2,23 +2,12 @@
 // 카드 탭 → 상세. 메인 + 추가 엔트리 각각 단어칩 구간재생, 스피커/수화기 선택,
 // 전체 내용 복사/TXT/PDF 내보내기.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Modal,
-  PanResponder,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type GestureResponderEvent,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { Alert, Image, Modal, PanResponder, Platform, ScrollView, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { C } from '../lib/colors';
+import { useTheme, type Palette } from '../lib/theme';
+import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords } from '../lib/exportUtils';
 import { ExportPreview, type ExportKind } from './ExportPreview';
@@ -90,6 +79,8 @@ function EntryBlock({
   /** 끌어서 범위선택 중인지 — 부모 ScrollView가 이 동안 스크롤을 잠근다 */
   onSelectingChange?: (selecting: boolean) => void;
 }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
   // player.currentTime은 리렌더를 일으키지 않는 네이티브 getter → 구간 종료 감지/단어 하이라이트가
   // 동작하지 않았음. 상태 구독 훅으로 100ms마다 갱신되는 반응형 값을 쓴다.
@@ -434,13 +425,18 @@ export function ScheduleDetail({
   onClose,
   onEdit,
   onAppend,
+  onAlarmChange,
 }: {
   visible: boolean;
   record: ScheduleRecord | null;
   onClose: () => void;
   onEdit: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
+  /** 상세에서 알림 칩을 눌러 바로 바꿀 때 (저장·재예약은 부모가) */
+  onAlarmChange?: (r: ScheduleRecord, remindBefore: number[], exactAlarm: boolean) => void;
 }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
   const [route, setRoute] = useState<AudioRoute>('speaker');
   // 텍스트/PDF는 바로 공유하지 않고 미리보기 화면을 먼저 띄운다
   const [preview, setPreview] = useState<ExportKind | null>(null);
@@ -522,6 +518,45 @@ export function ScheduleDetail({
               </Text>
             </View>
           ) : null}
+          {record.hasTime && (() => {
+            const r = normalizeRemind(record.remindBefore ?? []);
+            const exact = record.exactAlarm !== false;
+            const past = record.scheduleAt != null && record.scheduleAt <= Date.now();
+            const change = (next: number[], ex: boolean) => onAlarmChange?.(record, normalizeRemind(next), ex);
+            return (
+              <View>
+                <Text style={s.remindLine}>
+                  {past ? '지난 일정 (알림 없음)' : r.length ? `미리 알림 ${r.map(remindLabel).join(' · ')} · 정각 알림 ${exact ? '켬' : '끔'}` : exact ? '미리 알림 없음 · 정각 알림 켬' : '알림 없음'}
+                </Text>
+                {!past && onAlarmChange && (
+                  <View style={s.remindChips}>
+                    {REMIND_OPTIONS.map((m) => {
+                      const on = r.includes(m);
+                      return (
+                        <TouchableOpacity
+                          key={m}
+                          style={[s.remindChip, on && s.remindChipOn]}
+                          onPress={() => change(on ? r.filter((x) => x !== m) : [...r, m], exact)}
+                          accessibilityState={{ selected: on }}
+                          accessibilityLabel={`미리 알림 ${remindLabel(m)}`}
+                        >
+                          <Text style={[s.remindChipText, on && s.remindChipTextOn]}>{remindLabel(m)}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    <TouchableOpacity
+                      style={[s.remindChip, exact && s.remindChipOn]}
+                      onPress={() => change(r, !exact)}
+                      accessibilityState={{ selected: exact }}
+                      accessibilityLabel="정각 알림"
+                    >
+                      <Text style={[s.remindChipText, exact && s.remindChipTextOn]}>정각</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
 
           {/* 내용 — 메인 + 추가 엔트리를 각각 독립적으로 재생/구간선택 */}
           <Text style={s.sectionLabel}>내용</Text>
@@ -589,7 +624,7 @@ export function ScheduleDetail({
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -614,6 +649,12 @@ const s = StyleSheet.create({
   badgeIcon: { fontSize: 14 },
   badgeVibe: { width: 16, height: 16, resizeMode: 'contain' },
   badgeText: { color: C.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },
+  remindLine: { color: C.textSub, fontSize: 13, marginTop: 6 },
+  remindChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  remindChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  remindChipOn: { backgroundColor: C.accent, borderColor: C.accent },
+  remindChipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
+  remindChipTextOn: { color: C.onAccent },
 
   sectionLabel: { color: C.accent, fontSize: 13, fontWeight: '700', marginTop: 24, marginBottom: 10 },
   contentText: { color: C.text, fontSize: 17, lineHeight: 26 },

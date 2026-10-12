@@ -1,10 +1,16 @@
 // ─── 휠 방식 숫자 선택기 (편집기 시간 피커 · 조회 년/월/일 공용) ───────────────────
 // 가운데 줄이 선택값. 위아래로 무한히 도는 것처럼 보이도록 항목을 여러 번 이어 붙인다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { C } from '../lib/colors';
+import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from './AppText';
+import { useFontScale, useTheme, type Palette } from '../lib/theme';
 
+/** 기본 줄 높이. 글자 크기 설정 배율을 곱해 쓴다 (usePickHeight) */
 export const PICK_H = 42;
+export function usePickHeight() {
+  const { scale } = useFontScale();
+  return Math.round(PICK_H * scale);
+}
 const TARGET_MID_OFFSET = 48;
 
 export function ScrollPicker({
@@ -15,6 +21,9 @@ export function ScrollPicker({
   onChange: (v: number) => void;
   label: (v: number) => string;
 }) {
+  const C = useTheme();
+  const H = usePickHeight();
+  const pick = useMemo(() => makeStyles(C, H), [C, H]);
   const flatRef        = useRef<FlatList>(null);
   const isScrolling    = useRef(false);
   const skipEffect     = useRef(false);
@@ -29,8 +38,8 @@ export function ScrollPicker({
   const midOff   = Math.floor(loopCount / 2) * items.length;
 
   const targetY = useCallback(
-    (v: number) => (midOff + items.indexOf(v)) * PICK_H,
-    [items, midOff]
+    (v: number) => (midOff + items.indexOf(v)) * H,
+    [items, midOff, H]
   );
 
   // initialScrollIndex: item n-1 을 뷰포트 상단에 → item n 이 중앙 하이라이트에 위치
@@ -58,7 +67,7 @@ export function ScrollPicker({
 
   const handleEnd = useCallback((y: number) => {
     isScrolling.current = false;
-    const idx    = Math.round(y / PICK_H);
+    const idx    = Math.round(y / H);
     const clipped = Math.max(0, Math.min(total - 1, idx));
     const newVal  = looped[clipped];
     if (newVal !== value) {
@@ -67,23 +76,23 @@ export function ScrollPicker({
     }
     // 끝 근처면 가운데로 순간이동
     const localIdx = items.indexOf(newVal);
-    const tgt = (midOff + localIdx) * PICK_H;
+    const tgt = (midOff + localIdx) * H;
     if (Math.abs(clipped - (midOff + localIdx)) > items.length * 2) {
       setTimeout(() => {
         flatRef.current?.scrollToOffset({ offset: tgt, animated: false });
       }, 50);
     }
-  }, [value, looped, total, items, midOff, onChange]);
+  }, [value, looped, total, items, midOff, onChange, H]);
 
   const getItemLayout = useCallback((_: any, i: number) => ({
-    length: PICK_H, offset: PICK_H * (i + 1), index: i,
-  }), []);
+    length: H, offset: H * (i + 1), index: i,
+  }), [H]);
 
   const renderItem = useCallback(({ item }: { item: number }) => (
     <TouchableOpacity style={pick.item} onPress={() => onChange(item)} activeOpacity={0.6}>
       <Text style={item === value ? pick.sel : pick.dim}>{label(item)}</Text>
     </TouchableOpacity>
-  ), [value, onChange, label]);
+  ), [value, onChange, label, pick]);
 
   return (
     <View style={pick.wrap} onLayout={() => setLaid(true)}>
@@ -96,11 +105,11 @@ export function ScrollPicker({
         getItemLayout={getItemLayout}
         initialScrollIndex={initScrollIndex}
         showsVerticalScrollIndicator={false}
-        snapToInterval={PICK_H}
+        snapToInterval={H}
         decelerationRate="fast"
         windowSize={3}
         nestedScrollEnabled
-        contentContainerStyle={{ paddingVertical: PICK_H }}
+        contentContainerStyle={{ paddingVertical: H }}
         onScrollBeginDrag={() => { isScrolling.current = true; }}
         onMomentumScrollEnd={(e: any) => {
           if (!isScrolling.current) return;
@@ -116,10 +125,10 @@ export function ScrollPicker({
   );
 }
 
-const pick = StyleSheet.create({
-  wrap:      { flex: 1, height: PICK_H * 3, overflow: 'hidden', position: 'relative' },
-  highlight: { position: 'absolute', top: PICK_H, left: 4, right: 4, height: PICK_H, backgroundColor: C.surfaceHigh, borderRadius: 10 },
-  item:      { height: PICK_H, justifyContent: 'center', alignItems: 'center' },
+const makeStyles = (C: Palette, H: number) => StyleSheet.create({
+  wrap:      { flex: 1, height: H * 3, overflow: 'hidden', position: 'relative' },
+  highlight: { position: 'absolute', top: H, left: 4, right: 4, height: H, backgroundColor: C.surfaceHigh, borderRadius: 10 },
+  item:      { height: H, justifyContent: 'center', alignItems: 'center' },
   sel:       { fontSize: 24, color: C.text, fontWeight: '700' },
   dim:       { fontSize: 15, color: C.textDim, fontWeight: '400' },
 });

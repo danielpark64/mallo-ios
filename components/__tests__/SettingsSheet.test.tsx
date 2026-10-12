@@ -7,9 +7,24 @@ jest.mock('../../lib/backup', () => ({
   exportBackupToFolderAndroid: jest.fn(), importBackupFromFolderAndroid: jest.fn(),
 }));
 
-import { SettingsSheet } from '../SettingsSheet';
+jest.mock('expo-file-system', () => {
+  const store = new Map<string, string>();
+  const join = (parts: any[]) => parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');
+  class Directory { uri: string; constructor(...parts: any[]) { this.uri = join(parts); } get exists() { return true; } create() {} }
+  class File {
+    uri: string; constructor(...parts: any[]) { this.uri = join(parts); }
+    get exists() { return store.has(this.uri); }
+    create() { if (!store.has(this.uri)) store.set(this.uri, ''); }
+    write(s: string) { store.set(this.uri, s); }
+    textSync() { return store.get(this.uri) ?? ''; }
+  }
+  return { Directory, File, Paths: { document: 'doc', cache: 'cache' } };
+});
 
-const base = { visible: true, records: [], onRestored: () => {}, onClose: () => {} };
+import { SettingsSheet } from '../SettingsSheet';
+import { ThemeProvider } from '../../lib/theme';
+
+const base = { visible: true, records: [], onRestored: () => {}, onClose: () => {}, defaultRemind: [30], onDefaultRemind: () => {} };
 
 describe('SettingsSheet', () => {
   test('버전과 항목이 보이고, 주 보기를 누르면 onCalendarMode("week")', async () => {
@@ -41,5 +56,27 @@ describe('SettingsSheet', () => {
     );
     await fireEvent.press(getByLabelText('백업 · 폰 옮기기'));
     expect(getByText('지금 백업 만들기')).toBeTruthy();
+  });
+});
+
+describe('SettingsSheet 화면 설정', () => {
+  test('테마·글자 크기 항목이 보이고 누르면 바뀐다', async () => {
+    const { getByLabelText, getByText } = await render(
+      <SettingsSheet {...base} calendarMode="month" onCalendarMode={() => {}} />
+    );
+    expect(getByText('테마')).toBeTruthy();
+    expect(getByText('글자 크기')).toBeTruthy();
+    expect(getByLabelText('테마 시스템').props.accessibilityState.selected).toBe(true);
+    expect(getByLabelText('글자 보통').props.accessibilityState.selected).toBe(true);
+    // 프로바이더 없이도(기본 컨텍스트) 렌더되고, 프로바이더 안에서는 누르면 선택이 옮겨간다
+    const { getByLabelText: g2 } = await render(
+      <ThemeProvider>
+        <SettingsSheet {...base} calendarMode="month" onCalendarMode={() => {}} />
+      </ThemeProvider>
+    );
+    await fireEvent.press(g2('테마 라이트'));
+    expect(g2('테마 라이트').props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(g2('글자 아주 크게'));
+    expect(g2('글자 아주 크게').props.accessibilityState.selected).toBe(true);
   });
 });

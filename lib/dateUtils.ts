@@ -129,3 +129,57 @@ export function groupByDay(records: ScheduleRecord[]): DaySection[] {
   if (undated.length) result.push({ key: 'undated', title: '날짜 미정', date: new Date(0), data: undated });
   return result;
 }
+
+// ─── 미리 알림(하루 전) 표시용 ───────────────────────────────────────────────
+// 하루 전 미리 알림은 실제 일정과 다른 날(전날 저녁 8시)에 울리므로 달력·그날 목록에 따로 보여준다.
+// 같은 날 미리 알림(10분·30분·1시간 전)은 카드 배지로 충분해 여기서 다루지 않는다.
+export type PreAlarmItem = { kind: 'pre'; id: string; record: ScheduleRecord; fireAt: number; minutes: number };
+export type DayListItem = ScheduleRecord | PreAlarmItem;
+export type DayListSection = { key: string; title: string; date: Date; data: DayListItem[] };
+
+export function isPreAlarmItem(x: DayListItem): x is PreAlarmItem {
+  return (x as PreAlarmItem).kind === 'pre';
+}
+
+/** 아직 안 울린 하루 전 미리 알림 항목(범위 안) */
+export function preAlarmItems(records: ScheduleRecord[], start?: Date, end?: Date, now: number = Date.now()): PreAlarmItem[] {
+  const out: PreAlarmItem[] = [];
+  for (const r of records) {
+    if (r.scheduleAt == null || !r.hasTime || r.scheduleAt <= now) continue;
+    if (!(r.remindBefore ?? []).includes(1440)) continue;
+    const at = new Date(r.scheduleAt);
+    at.setDate(at.getDate() - 1);
+    at.setHours(20, 0, 0, 0);
+    const fireAt = at.getTime();
+    if (fireAt <= now) continue;
+    if (start && fireAt < start.getTime()) continue;
+    if (end && fireAt > end.getTime()) continue;
+    out.push({ kind: 'pre', id: `${r.id}#pre1440`, record: r, fireAt, minutes: 1440 });
+  }
+  return out.sort((a, b) => a.fireAt - b.fireAt);
+}
+
+/** 하루 전 미리 알림이 있는 날 키 */
+export function daysWithPreAlarms(records: ScheduleRecord[], now: number = Date.now()): Set<string> {
+  return new Set(preAlarmItems(records, undefined, undefined, now).map((p) => dayKeyFromMs(p.fireAt)));
+}
+
+/** 날짜별 일정 섹션에 미리 알림 항목을 시각순으로 끼워 넣는다 (없는 날은 섹션을 만든다) */
+export function mergePreAlarms(sections: DaySection[], items: PreAlarmItem[]): DayListSection[] {
+  const map = new Map<string, DayListSection>();
+  for (const s of sections) map.set(s.key, { ...s, data: [...s.data] });
+  for (const p of items) {
+    const d = new Date(p.fireAt);
+    const key = dayKey(d);
+    if (!map.has(key)) map.set(key, { key, title: formatDayHeader(d), date: startOfDay(d), data: [] });
+    const sec = map.get(key)!;
+    const timeOf = (x: DayListItem) => (isPreAlarmItem(x) ? x.fireAt : x.scheduleAt ?? 0);
+    const idx = sec.data.findIndex((x) => timeOf(x) > p.fireAt);
+    if (idx < 0) sec.data.push(p); else sec.data.splice(idx, 0, p);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.key === 'undated') return 1;
+    if (b.key === 'undated') return -1;
+    return a.date.getTime() - b.date.getTime();
+  });
+}
