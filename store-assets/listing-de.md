@@ -21,7 +21,7 @@ Probier „Abendessen mit Freunden nächsten Freitag um 19 Uhr“, „Teammeetin
 • du die Hände voll hast – beim Autofahren, beim Kochen – und einen Termin sofort festhalten willst
 • du lieber hörst, was du wirklich gesagt hast, als eine kurze Notiz zu lesen
 • du eine einfache Alarm- und Termin-App für deine Eltern suchst
-• du eine schlanke App ohne Anmeldung und ohne Werbung möchtest
+• du eine schlanke App möchtest, die ohne Anmeldung sofort funktioniert
 
 🔁 Hör genau, was du gesagt hast
 Jeder Termin behält seine Aufnahme. Tippe auf einer Karte auf ▶, um deine eigene Stimme zu hören, oder öffne die Detailansicht und tippe auf ein einzelnes Wort, um nur diese Stelle noch einmal abzuspielen. Halte gedrückt und ziehe über mehrere Wörter, um den gewünschten Abschnitt in Schleife zu hören.
@@ -42,8 +42,8 @@ Suche nach Inhalt oder filtere nach heute, dieser Woche, diesem Monat oder einem
 💾 Backup und Umzug aufs neue Handy
 Sichere alle Termine und Aufnahmen in einem Ordner und wähle diesen Ordner auf deinem neuen Handy aus, um alles zurückzuholen.
 
-🚫 Keine Werbung · Keine Anmeldung · Keine Internetberechtigung
-Es gibt kein Konto und keinen Login. Deine Termine und Aufnahmen bleiben auf deinem Handy. Die App fordert nicht einmal Internetzugriff an und kann deine Daten daher nirgendwohin senden. (Die Umwandlung von Sprache in Text übernimmt der Spracherkennungsdienst auf deinem Handy.)
+🚫 Keine Anmeldung · Keine Internetberechtigung · Kein Werbe-Tracking
+Es gibt kein Konto und keinen Login. Deine Termine und Aufnahmen bleiben auf deinem Handy. Die App fordert nicht einmal Internetzugriff an und kann deine Daten daher nirgendwohin senden. (Die Umwandlung von Sprache in Text übernimmt der Spracherkennungsdienst auf deinem Handy.) Am Ende der Liste gibt es ein kleines Banner, das auf den Kanal und eine weitere App des Entwicklers hinweist. Es wird kein Werbenetzwerk verwendet, daher werden keine Daten für Werbung erhoben.
 
 🪶 Schont dein Handy
 SayRam arbeitet nur, während du aufnimmst oder abspielst. Nichts läuft dauerhaft im Hintergrund.

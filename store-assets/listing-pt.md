@@ -21,7 +21,7 @@ Experimente "jantar com os amigos na sexta que vem às sete", "reunião da equip
 • Suas mãos estão ocupadas (dirigindo, cozinhando) e você precisa guardar um plano agora
 • Você prefere ouvir o que realmente disse a ler uma anotação curta
 • Você quer um app simples de alarme e agenda para seus pais
-• Você quer um app leve, sem cadastro e sem anúncios
+• Você quer um app leve, para usar na hora, sem cadastro
 
 🔁 Ouça exatamente o que você disse
 Cada compromisso guarda a sua gravação. Toque em ▶ no cartão para ouvir a sua própria voz, ou abra a tela de detalhes e toque em uma palavra para repetir só aquele trecho. Toque e segure, depois arraste pelas palavras, para repetir em loop a parte de que você precisa.
@@ -42,8 +42,8 @@ Busque pelo conteúdo ou filtre por hoje, esta semana, este mês ou qualquer per
 💾 Backup e troca de celular
 Faça backup de todos os compromissos e gravações em uma única pasta e, no celular novo, escolha essa pasta para trazer tudo de volta.
 
-🚫 Sem anúncios · Sem cadastro · Sem permissão de internet
-Não há conta nem login. Seus compromissos e gravações ficam no seu celular. O app nem sequer solicita acesso à internet, então não tem como enviar seus dados para lugar nenhum. (A conversão de fala em texto é feita pelo serviço de reconhecimento de voz do seu celular.)
+🚫 Sem cadastro · Sem permissão de internet · Sem rastreamento de anúncios
+Não há conta nem login. Seus compromissos e gravações ficam no seu celular. O app nem sequer solicita acesso à internet, então não tem como enviar seus dados para lugar nenhum. (A conversão de fala em texto é feita pelo serviço de reconhecimento de voz do seu celular.) No fim da lista há um pequeno banner que apresenta o canal e outro app do desenvolvedor. Nenhuma rede de anúncios é usada, então nada é coletado para publicidade.
 
 🪶 Leve no seu celular
 O SayRam só trabalha enquanto você grava ou reproduz. Nada fica rodando em segundo plano.

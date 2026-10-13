@@ -21,7 +21,7 @@ Try "dinner with friends next Friday at 7", "team meeting in 3 days at 10am", or
 • Your hands are busy — driving, cooking — and you need to save a plan right now
 • You'd rather hear what you actually said than read a short note
 • You want a simple alarm and schedule app for your parents
-• You want a light app with no sign-up and no ads
+• You want a light app you can use right away, with no sign-up
 
 🔁 Hear exactly what you said
 Every schedule keeps its recording. Tap ▶ on a card to hear your own voice, or open the detail screen and tap a single word to replay just that part. Long-press and drag across words to loop the section you need.
@@ -42,8 +42,8 @@ Search by content, or filter by today, this week, this month or any period. Prev
 💾 Backup and move to a new phone
 Back up all schedules and recordings to one folder, then pick that folder on your new phone to bring everything back.
 
-🚫 No ads · No sign-up · No internet permission
-There is no account and no login. Your schedules and recordings stay on your phone. The app does not even request internet access, so it cannot send your data anywhere. (Turning speech into text is handled by the speech recognition service on your phone.)
+🚫 No sign-up · No internet permission · No ad tracking
+There is no account and no login. Your schedules and recordings stay on your phone. The app does not even request internet access, so it cannot send your data anywhere. (Turning speech into text is handled by the speech recognition service on your phone.) There is one small banner at the bottom of the list that points to the developer's channel and other app. No ad network is used, so nothing is collected for advertising.
 
 🪶 Light on your phone
 SayRam only works while you record or play back. Nothing keeps running in the background.
@@ -61,4 +61,5 @@ Productivity
 
 ## Notes
 - No unverifiable claims ("world's first", "#1") — these can violate Play's metadata policy.
+- Do not claim "no ads": the promo banner at the bottom of the list counts as ads under Play's definition. "No ad tracking / no ad network" is the accurate claim.
 - "No internet permission" is a fact about the shipped build. If the permission is ever added back, update this paragraph and the Data safety form together.

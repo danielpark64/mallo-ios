@@ -1,4 +1,6 @@
-# v1.0.0 (versionCode 1) 출시노트 — Play "이번 버전의 새로운 기능" (언어별 500자 이내)
+# v1.0.0 (versionCode 1) 출시노트 — Play "이번 버전의 새로운 기능"
+
+언어별 500자 이내. 콘솔의 출시 노트 칸에 아래 블록을 통째로 붙여 넣으면 언어별로 나뉩니다.
 
 <ko-KR>
 세이람 첫 버전이에요.
@@ -15,3 +17,60 @@ The first release of SayRam.
 • Early reminders: 10 min, 30 min, 1 hour or a day before
 • Month/week calendar, search, text & PDF export, backup
 </en-US>
+
+<ja-JP>
+SayRamの最初のリリースです。
+• 話すだけで日付と時刻を聞き取り、予定とアラームを設定
+• 自分の声を聞き直し、単語をタップしてその部分だけ再生
+• 事前リマインダー：10分前・30分前・1時間前・1日前
+• 月／週カレンダー、検索、テキスト・PDFエクスポート、バックアップ
+</ja-JP>
+
+<zh-CN>
+SayRam 首个版本。
+• 开口说——SayRam 听懂日期和时间，自动设好日程和闹钟
+• 重听自己的原声，或点某个词只听那一段
+• 提前提醒：提前 10 分钟、30 分钟、1 小时或 1 天
+• 月/周日历、搜索、文本和 PDF 导出、备份
+</zh-CN>
+
+<zh-TW>
+SayRam 首個版本。
+• 開口說——SayRam 聽懂日期和時間，自動設好行程和鬧鐘
+• 重聽自己的原音，或點某個詞只聽那一段
+• 提前提醒：提前 10 分鐘、30 分鐘、1 小時或 1 天
+• 月/週行事曆、搜尋、文字與 PDF 匯出、備份
+</zh-TW>
+
+<es-ES>
+La primera versión de SayRam.
+• Dilo: SayRam entiende la fecha y la hora y crea el evento y la alarma
+• Vuelve a oír tu propia voz o toca una palabra para oír solo esa parte
+• Avisos anticipados: 10 min, 30 min, 1 hora o un día antes
+• Calendario mensual/semanal, búsqueda, exportación a texto y PDF, copia de seguridad
+</es-ES>
+
+<fr-FR>
+La première version de SayRam.
+• Dites-le : SayRam comprend la date et l'heure et crée l'événement et l'alarme
+• Réécoutez votre propre voix, ou touchez un mot pour n'entendre que ce passage
+• Rappels anticipés : 10 min, 30 min, 1 heure ou un jour avant
+• Calendrier mois/semaine, recherche, export texte et PDF, sauvegarde
+</fr-FR>
+
+<de-DE>
+Die erste Version von SayRam.
+• Einfach sagen – SayRam erkennt Datum und Uhrzeit und legt Termin und Alarm an
+• Hör deine eigene Stimme noch einmal oder tippe auf ein Wort, um nur diese Stelle zu hören
+• Vorab-Erinnerungen: 10 Min., 30 Min., 1 Stunde oder einen Tag vorher
+• Monats-/Wochenkalender, Suche, Text- und PDF-Export, Backup
+</de-DE>
+
+<pt-BR>
+A primeira versão do SayRam.
+• É só falar — o SayRam entende a data e a hora e cria o compromisso e o alarme
+• Ouça de novo a sua própria voz ou toque em uma palavra para ouvir só aquele trecho
+• Lembretes antecipados: 10 min, 30 min, 1 hora ou um dia antes
+• Calendário mensal/semanal, busca, exportação em texto e PDF, backup
+</pt-BR>
+

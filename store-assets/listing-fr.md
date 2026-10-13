@@ -21,7 +21,7 @@ Essayez « dîner entre amis vendredi prochain à 19h », « réunion d'équipe 
 • Vous avez les mains prises (au volant, en cuisine) et devez noter quelque chose tout de suite
 • Vous préférez réentendre ce que vous avez vraiment dit plutôt que lire une courte note
 • Vous cherchez une appli d'alarme et d'agenda simple pour vos parents
-• Vous voulez une appli légère, sans inscription et sans publicité
+• Vous voulez une appli légère, utilisable tout de suite, sans inscription
 
 🔁 Réécoutez exactement ce que vous avez dit
 Chaque événement conserve son enregistrement. Touchez ▶ sur une carte pour entendre votre propre voix, ou ouvrez l'écran de détail et touchez un mot pour ne réécouter que ce passage. Faites un appui long puis glissez sur les mots pour lire en boucle la partie dont vous avez besoin.
@@ -42,8 +42,8 @@ Recherchez par contenu ou filtrez par aujourd'hui, cette semaine, ce mois-ci ou 
 💾 Sauvegarde et changement de téléphone
 Sauvegardez tous vos événements et enregistrements dans un seul dossier, puis sélectionnez ce dossier sur votre nouveau téléphone pour tout retrouver.
 
-🚫 Sans publicité · Sans inscription · Sans autorisation Internet
-Pas de compte, pas de connexion. Vos événements et enregistrements restent sur votre téléphone. L'application ne demande même pas l'accès à Internet : elle ne peut donc envoyer vos données nulle part. (La conversion de la voix en texte est assurée par le service de reconnaissance vocale de votre téléphone.)
+🚫 Sans inscription · Sans autorisation Internet · Sans suivi publicitaire
+Pas de compte, pas de connexion. Vos événements et enregistrements restent sur votre téléphone. L'application ne demande même pas l'accès à Internet : elle ne peut donc envoyer vos données nulle part. (La conversion de la voix en texte est assurée par le service de reconnaissance vocale de votre téléphone.) En bas de la liste, une petite bannière présente la chaîne et une autre appli du développeur. Aucun réseau publicitaire n'est utilisé : rien n'est collecté à des fins de publicité.
 
 🪶 Légère pour votre téléphone
 SayRam ne travaille que pendant l'enregistrement ou la lecture. Rien ne tourne en continu en arrière-plan.

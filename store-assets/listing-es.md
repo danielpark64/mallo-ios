@@ -21,7 +21,7 @@ Prueba con «cena con amigos el viernes que viene a las siete», «reunión de e
 • Tienes las manos ocupadas (conduciendo, cocinando) y necesitas guardar un plan ahora mismo
 • Prefieres oír lo que dijiste de verdad antes que leer una nota breve
 • Buscas una app sencilla de alarmas y agenda para tus padres
-• Quieres una app ligera, sin registro y sin anuncios
+• Quieres una app ligera que puedas usar al instante, sin registro
 
 🔁 Escucha exactamente lo que dijiste
 Cada evento conserva su grabación. Toca ▶ en una tarjeta para oír tu propia voz, o abre la pantalla de detalle y toca una palabra para volver a oír solo esa parte. Mantén pulsado y arrastra sobre las palabras para repetir en bucle el fragmento que necesites.
@@ -42,8 +42,8 @@ Busca por contenido o filtra por hoy, esta semana, este mes o cualquier periodo.
 💾 Copia de seguridad y cambio de móvil
 Guarda una copia de todos tus eventos y grabaciones en una carpeta y, en tu nuevo móvil, elige esa carpeta para recuperarlo todo.
 
-🚫 Sin anuncios · Sin registro · Sin permiso de Internet
-No hay cuenta ni inicio de sesión. Tus eventos y grabaciones se quedan en tu teléfono. La app ni siquiera solicita acceso a Internet, así que no puede enviar tus datos a ningún sitio. (La conversión de voz a texto la realiza el servicio de reconocimiento de voz de tu teléfono.)
+🚫 Sin registro · Sin permiso de Internet · Sin rastreo publicitario
+No hay cuenta ni inicio de sesión. Tus eventos y grabaciones se quedan en tu teléfono. La app ni siquiera solicita acceso a Internet, así que no puede enviar tus datos a ningún sitio. (La conversión de voz a texto la realiza el servicio de reconocimiento de voz de tu teléfono.) Al final de la lista hay un pequeño banner que presenta el canal y otra app del desarrollador. No se usa ninguna red publicitaria, así que no se recopila nada con fines de publicidad.
 
 🪶 Ligera para tu teléfono
 SayRam solo trabaja mientras grabas o reproduces. Nada se queda funcionando en segundo plano.

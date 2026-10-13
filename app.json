@@ -9,7 +9,7 @@
     "scheme": "mallo",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.danielpark.mallo",
+      "bundleIdentifier": "com.danielpark.sayram",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ko",
         "CFBundleLocalizations": [
