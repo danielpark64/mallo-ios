@@ -51,6 +51,13 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.USE_FULL_SCREEN_INTENT"
+      ],
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -68,7 +75,9 @@
         }
       ],
       "expo-sharing",
-      "./plugins/withIosSceneDelegate.js"
+      "./plugins/withIosSceneDelegate.js",
+      "./plugins/withAndroidReleaseSigning.js",
+      "./plugins/withLocalizedAppName.js"
     ]
   }
 }

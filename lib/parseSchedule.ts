@@ -284,7 +284,8 @@ function stripContent(text: string, matched: string[]): string {
   let out = text;
   // 긴 매칭부터 제거(부분 겹침 방지)
   for (const m of [...matched].sort((a, b) => b.length - a.length)) {
-    out = out.replace(m, ' ');
+    // 같은 토큰이 되풀이되면("7시에 7시에" — 말을 더듬어 인식이 겹친 경우) 전부 지운다
+    out = out.split(m).join(' ');
   }
   out = out
     .replace(/정각/g, ' ')

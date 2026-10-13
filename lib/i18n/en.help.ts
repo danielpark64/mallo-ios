@@ -2,6 +2,8 @@
 // lib/helpContent.ts 의 제목·문단 전체. HelpSheet가 t(sec.title)·t(p)로 찾는다.
 // 한국어 말하기 예시는 영어권 사용자용 예시("tomorrow at 3pm" 등)로 바꿨다.
 export const EN_HELP: Record<string, string> = {
+  '워치: 폰에 알람이 오면 연결된 워치에도 함께 표시됩니다. 워치에서 "알람 끄기"를 누르거나 알림을 닫으면 폰의 알람도 꺼지고 남은 재알림이 취소됩니다.': 'Watch: when an alarm arrives on your phone it also shows on a connected watch. Tap "Stop alarm" on the watch or dismiss the notification and the phone alarm stops and the remaining repeats are cancelled.',
+  '접는 폰(플립)과 다른 앱 사용 중: 설정 › 알람 › "알람 화면 항상 띄우기"를 켜 두면, 폰을 접은 상태의 커버 화면이나 다른 앱을 쓰는 중에도 알람 끄기 화면이 뜹니다(Android).': 'Foldables and while using other apps: turn on Settings › Alarm › "Always show the alarm screen" so the alarm screen appears on the cover screen of a folded phone or while you use another app (Android).',
   '지난 일정은 "지난 일정 N건 보기"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 전체 일정 화면에서 검색·기간 조건을 쓰면 접지 않습니다.': 'Past schedules are folded under "Show N past" so upcoming ones stay on top. Tap to expand; with a search or period filter on All Schedules, nothing is folded.',
   '세이람은 말로 적는 일정 · 알람 앱입니다. 마이크를 누르고 말하면 날짜와 시간을 알아듣고 일정으로 저장합니다.':
     'SayRam is a schedule and alarm app you talk to. Tap the mic and speak; it picks out the date and time and saves a schedule.',

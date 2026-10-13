@@ -1,6 +1,7 @@
 // ─── 일정 상세 보기 (전체화면 모달) ────────────────────────────────────────────
 // 카드 탭 → 상세. 메인 + 추가 엔트리 각각 단어칩 구간재생, 스피커/수화기 선택,
 // 전체 내용 복사/TXT/PDF 내보내기.
+import { voiceAlarmOn, voiceAlarmSupported, voiceUriOf } from '../lib/voiceAlarm';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Modal, PanResponder, Platform, ScrollView, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 import { Text } from './AppText';
@@ -427,6 +428,7 @@ export function ScheduleDetail({
   onClose,
   onEdit,
   onAppend,
+  onDelete,
   onAlarmChange,
 }: {
   visible: boolean;
@@ -434,8 +436,10 @@ export function ScheduleDetail({
   onClose: () => void;
   onEdit: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
+  /** 휴지통 — 확인 창과 실제 삭제는 부모가 */
+  onDelete?: (r: ScheduleRecord) => void;
   /** 상세에서 알림 칩을 눌러 바로 바꿀 때 (저장·재예약은 부모가) */
-  onAlarmChange?: (r: ScheduleRecord, remindBefore: number[], exactAlarm: boolean) => void;
+  onAlarmChange?: (r: ScheduleRecord, remindBefore: number[], exactAlarm: boolean, voiceAlarm?: boolean) => void;
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -492,9 +496,16 @@ export function ScheduleDetail({
             <Text style={s.navCloseText}>{t('닫기')}</Text>
           </TouchableOpacity>
           <Text style={s.navTitle}>{t('일정 상세')}</Text>
-          <TouchableOpacity style={s.navBtn} onPress={() => onEdit(record)}>
-            <Text style={s.navEditText}>{t('수정')}</Text>
-          </TouchableOpacity>
+          <View style={s.navRight}>
+            {onDelete && (
+              <TouchableOpacity style={s.navBtn} onPress={() => onDelete(record)} accessibilityRole="button" accessibilityLabel={t('일정 삭제')}>
+                <Text style={s.navDeleteIcon}>🗑</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={s.navBtn} onPress={() => onEdit(record)}>
+              <Text style={s.navEditText}>{t('수정')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -512,9 +523,9 @@ export function ScheduleDetail({
               <Text style={s.needsDateBtn}>{t('정하기')}</Text>
             </TouchableOpacity>
           )}
-          {mode ? (
+          {mode && record.hasTime && !record.needsDate ? (
             <View style={s.badgeRow}>
-              {mode !== 'vibe' && <Text style={s.badgeIcon}>🔔</Text>}
+              {mode !== 'vibe' && <Text style={s.badgeIcon}>{voiceUriOf(record) ? '🎙' : '🔔'}</Text>}
               {mode !== 'sound' && (
                 <Image source={require('../assets/vibrate_icon.png')} style={s.badgeVibe} />
               )}
@@ -527,7 +538,9 @@ export function ScheduleDetail({
             const r = normalizeRemind(record.remindBefore ?? []);
             const exact = record.exactAlarm !== false;
             const past = record.scheduleAt != null && record.scheduleAt <= Date.now();
-            const change = (next: number[], ex: boolean) => onAlarmChange?.(record, normalizeRemind(next), ex);
+            const voice = voiceAlarmOn(record);
+            const showVoice = voiceAlarmSupported() && !!record.uri && record.alarmMode !== 'vibe';
+            const change = (next: number[], ex: boolean, v: boolean = voice) => onAlarmChange?.(record, normalizeRemind(next), ex, v);
             return (
               <View>
                 <Text style={s.remindLine}>
@@ -561,6 +574,16 @@ export function ScheduleDetail({
                     >
                       <Text style={[s.remindChipText, exact && s.remindChipTextOn]}>{t('정각')}</Text>
                     </TouchableOpacity>
+                    {showVoice && (
+                      <TouchableOpacity
+                        style={[s.remindChip, voice && s.remindChipOn]}
+                        onPress={() => change(r, exact, !voice)}
+                        accessibilityState={{ selected: voice }}
+                        accessibilityLabel={t('알람 소리 내 목소리')}
+                      >
+                        <Text style={[s.remindChipText, voice && s.remindChipTextOn]}>{t('🎙 내 목소리')}</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>
@@ -643,7 +666,9 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   navBtn: { paddingHorizontal: 10, paddingVertical: 8 },
   navCloseText: { color: C.textSub, fontSize: 16, fontWeight: '600' },
   navEditText: { color: C.accent, fontSize: 16, fontWeight: '700' },
-  navTitle: { color: C.text, fontSize: 16, fontWeight: '700' },
+  navTitle: { position: 'absolute', left: 70, right: 100, textAlign: 'center', color: C.text, fontSize: 16, fontWeight: '700' },
+  navRight: { flexDirection: 'row', alignItems: 'center' },
+  navDeleteIcon: { fontSize: 18 },
 
   body: { paddingHorizontal: 20, paddingBottom: 48 },
   when: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 18 },
@@ -655,8 +680,8 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   },
   needsDateText: { color: C.red, fontSize: 13, fontWeight: '600', flex: 1 },
   needsDateBtn: { color: '#fff', fontSize: 13, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  badgeIcon: { fontSize: 14 },
-  badgeVibe: { width: 16, height: 16, resizeMode: 'contain' },
+  badgeIcon: { fontSize: 16 },
+  badgeVibe: { width: 22, height: 22, resizeMode: 'contain' },
   badgeText: { color: C.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },
   remindLine: { color: C.textSub, fontSize: 13, marginTop: 6 },
   remindChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },

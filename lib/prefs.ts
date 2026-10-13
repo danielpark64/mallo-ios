@@ -7,9 +7,9 @@ export type CalendarMode = 'month' | 'week';
 export type ThemeSetting = 'system' | 'light' | 'dark';
 export type FontScaleName = 'small' | 'medium' | 'large' | 'xlarge';
 export type LanguageSetting = 'system' | 'ko' | 'en' | 'ja' | 'zh-Hans' | 'zh-Hant' | 'es' | 'fr' | 'de' | 'pt';
-export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[]; language: LanguageSetting };
+export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[]; language: LanguageSetting; /** 새 일정의 알람을 내 목소리로 (기본 꺼짐) */ voiceAlarm: boolean };
 
-const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND], language: 'system' };
+const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND], language: 'system', voiceAlarm: false };
 const LANGUAGES: LanguageSetting[] = ['system', 'ko', 'en', 'ja', 'zh-Hans', 'zh-Hant', 'es', 'fr', 'de', 'pt'];
 const THEMES: ThemeSetting[] = ['system', 'light', 'dark'];
 const FONT_SCALES: FontScaleName[] = ['small', 'medium', 'large', 'xlarge'];
@@ -28,6 +28,7 @@ export function loadPrefs(): Prefs {
       ...(FONT_SCALES.includes(parsed?.fontScale) ? { fontScale: parsed.fontScale as FontScaleName } : {}),
       ...(Array.isArray(parsed?.defaultRemind) ? { defaultRemind: normalizeRemind(parsed.defaultRemind) } : {}),
       ...(LANGUAGES.includes(parsed?.language) ? { language: parsed.language as LanguageSetting } : {}),
+      ...(typeof parsed?.voiceAlarm === 'boolean' ? { voiceAlarm: parsed.voiceAlarm } : {}),
     };
   } catch {
     return { ...DEFAULTS };

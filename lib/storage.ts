@@ -38,6 +38,7 @@ export type ScheduleRecord = {
   exactAlarm?: boolean;     // 정각 알람(+1·+2분 재알림) 여부. undefined = 켬
   segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
   appends?: AppendEntry[]; // "＋ 추가"로 붙은 독립 엔트리들
+  voiceAlarm?: boolean;   // 알람 소리를 이 일정만 따로 정함: true=내 목소리, false=기본 알람음, 없음=설정을 따름 (lib/voiceAlarm.ts)
   needsDate?: boolean;    // 날짜·시간 없이 녹음돼 오늘(시간 미정)로 임시 저장됨 → 사용자가 정하면 해제
   createdAt: number;      // 생성 시각(epoch ms)
 };

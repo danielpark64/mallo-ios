@@ -1,23 +1,22 @@
 // ─── 일정 카드 (달력 탭 / 전체 일정 탭 공용) ──────────────────────────────────────
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { voiceUriOf } from '../lib/voiceAlarm';
+import { useMemo } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from './AppText';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
+import { useSharedPlayer } from '../lib/sharedPlayer';
 import { normalizeRemind, remindLabel } from '../lib/reminders';
-import { formatTime } from '../lib/dateUtils';
+import { formatTime, isPastItem } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
 import { MicIcon } from './MicIcon';
 import { useT } from '../lib/i18n';
-
-// 동시 재생 방지: 새 카드가 재생을 시작하면 이전 카드를 멈춤
-let activeCardStopper: (() => void) | null = null;
 
 export function ScheduleCard({
   item,
   onPress,
   onAppend,
   onFixDate,
+  onLongPress,
   showDate = false,
 }: {
   item: ScheduleRecord;
@@ -25,60 +24,17 @@ export function ScheduleCard({
   onAppend: (r: ScheduleRecord) => void;
   /** 날짜·시간 없이 녹음돼 임시로 오늘에 둔 일정의 "정하기" — 편집기를 연다 */
   onFixDate?: (r: ScheduleRecord) => void;
+  /** 길게 누르기 — 수정·삭제 메뉴를 바로 띄운다 */
+  onLongPress?: (r: ScheduleRecord) => void;
   showDate?: boolean;
 }) {
   const C = useTheme();
   const { t } = useT();
   const { scale } = useFontScale();
   const styles = useMemo(() => makeStyles(C, scale), [C, scale]);
-  const player = useAudioPlayer(item.uri || undefined, { updateInterval: 100 });
-  // useAudioPlayer()가 돌려주는 player 객체의 currentTime/playing은 리렌더를 일으키지 않는
-  // 네이티브 getter라 useEffect 의존성으로 쓸 수 없다 → 상태 구독 훅으로 반응형 값 사용
-  const status = useAudioPlayerStatus(player);
-  const [playing, setPlaying] = useState(false);
-  // 재생 시작 직후엔 status가 아직 이전 재생(끝 지점)의 값이라 "끝남"으로 오판할 수 있음 → 잠깐 무시
-  const playStartedAtRef = useRef(0);
-
-  const stopSelfRef = useRef<() => void>(() => {});
-  stopSelfRef.current = () => {
-    try { player.pause(); } catch {}
-    setPlaying(false);
-  };
-  const stableStop = useRef(() => stopSelfRef.current()).current;
-
-  const claimPlayback = () => {
-    if (activeCardStopper && activeCardStopper !== stableStop) activeCardStopper();
-    activeCardStopper = stableStop;
-  };
-
-  useEffect(() => () => {
-    if (activeCardStopper === stableStop) activeCardStopper = null;
-  }, []);
-
-  const toggle = () => {
-    if (playing) {
-      player.pause();
-      setPlaying(false);
-    } else {
-      claimPlayback();
-      // 일시정지 중이면 이어서, 처음/끝이면 처음부터
-      const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
-      if (status.currentTime <= 0 || atEnd || !(status.duration > 0)) {
-        player.seekTo(0);
-      }
-      playStartedAtRef.current = Date.now();
-      player.play();
-      setPlaying(true);
-    }
-  };
-
-  // 재생이 끝나면 ▶ 아이콘으로 복귀 (이전엔 리렌더가 없어 ⏸ 상태로 남아 있었음)
-  useEffect(() => {
-    if (!playing) return;
-    if (Date.now() - playStartedAtRef.current < 300) return;
-    const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
-    if (status.didJustFinish || atEnd) setPlaying(false);
-  }, [status.didJustFinish, status.currentTime, status.duration, playing]);
+  const shared = useSharedPlayer();
+  const playing = shared.playingId === item.id;
+  const toggle = () => { if (item.uri) shared.toggle(item.id, item.uri); };
 
   const timeLabel = item.needsDate
     ? t('날짜 미정')
@@ -87,7 +43,8 @@ export function ScheduleCard({
   // 메모는 아래 별도 줄로 표시하므로 제목에서는 본문만 (중복 표시 방지)
   const mainTitle = title.split('\n• ')[0];
   const mode = (item as any).alarmMode as 'sound' | 'vibe' | 'both' | undefined;
-  const isPast = item.scheduleAt != null && item.scheduleAt < Date.now();
+  // 시간 미정(그날 0시 저장)은 그 날이 끝나야 지난 것, 날짜 미정은 지난 것으로 보지 않는다
+  const isPast = !item.needsDate && isPastItem(item);
   // 구버전 데이터 호환용 — 새 데이터는 appends[]를 사용
   const appendedNotes = (item.content || '').includes('\n• ')
     ? (item.content || '').split('\n• ').slice(1)
@@ -104,9 +61,11 @@ export function ScheduleCard({
     </Text>
   ) : null;
   const remind = normalizeRemind(item.remindBefore ?? []);
-  const badges = mode ? (
+  // 알람이 걸리는 일정(시간 있음)에만 소리·진동·미리 알림 표시
+  const badges = mode && item.hasTime && !item.needsDate ? (
     <View style={styles.cardBadgeRow}>
-      {mode !== 'vibe' && <Text style={styles.cardBadgeIcon}>🔔</Text>}
+      {/* 소리: 기본 알람음이면 종, 내 목소리 알람이면 마이크 */}
+      {mode !== 'vibe' && <Text style={styles.cardBadgeIcon}>{voiceUriOf(item) ? '🎙' : '🔔'}</Text>}
       {mode !== 'sound' && (
         <Image source={require('../assets/vibrate_icon.png')} style={styles.cardBadgeVibe} />
       )}
@@ -147,6 +106,8 @@ export function ScheduleCard({
       <TouchableOpacity
         style={[styles.card, styles.cardStacked, isPast && styles.cardPast]}
         onPress={() => onPress(item)}
+        onLongPress={onLongPress ? () => onLongPress(item) : undefined}
+        delayLongPress={400}
         activeOpacity={0.72}
         testID="card-stacked"
       >
@@ -156,7 +117,6 @@ export function ScheduleCard({
             {timeLabel}
           </Text>
           {dateSub}
-          <View style={{ flex: 1 }} />
           {badges}
         </View>
         <Text style={[styles.cardTitle, isPast && styles.cardTitlePast]} numberOfLines={2} ellipsizeMode="tail">
@@ -181,6 +141,8 @@ export function ScheduleCard({
     <TouchableOpacity
       style={[styles.card, isPast && styles.cardPast]}
       onPress={() => onPress(item)}
+      onLongPress={onLongPress ? () => onLongPress(item) : undefined}
+      delayLongPress={400}
       activeOpacity={0.72}
     >
       <View style={styles.cardTimeCol}>
@@ -243,10 +205,12 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   cardTitle: { color: C.text, fontSize: 16, fontWeight: '500', lineHeight: 22 },
   cardTitlePast: { color: C.textSub },
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-  cardBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardBadgeIcon: { fontSize: 12 },
-  cardRemindText: { color: C.textSub, fontSize: 11, fontWeight: '600', marginLeft: 4 },
-  cardBadgeVibe: { width: 14, height: 14, resizeMode: 'contain', opacity: 0.75 },
+  // 미리 알림을 여러 개 켜면 글이 길어진다 → 줄어들거나 다음 줄로 내려가되 시간은 절대 밀어내지 않는다
+  cardBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, flexWrap: 'wrap', rowGap: 2, maxWidth: '100%' },
+  cardBadgeIcon: { fontSize: 15 },
+  cardRemindText: { color: C.textSub, fontSize: 11, fontWeight: '600', marginLeft: 4, flexShrink: 1 },
+  // 종 옆에서 점처럼 보이지 않게 종보다 크게 (2026-10-13 사용자 피드백)
+  cardBadgeVibe: { width: 22, height: 22, resizeMode: 'contain' },
   cardAppendBtn: {
     paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: 8, backgroundColor: C.surfaceHigh,
@@ -269,9 +233,10 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   cardPlayIcon: { fontSize: 14, color: C.textSub },
   // 큰 글자용 세로 배치
   cardStacked: { flexDirection: 'column', alignItems: 'stretch', paddingVertical: 14 },
-  stackTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  stackTop: { flexDirection: 'row', alignItems: 'center', gap: 8, rowGap: 4, marginBottom: 8, flexWrap: 'wrap' },
   stackBar: { width: 4, height: 20, borderRadius: 2 },
-  stackTime: { fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  // 시간은 줄이지 않는다(예전엔 미리 알림 4개를 켜면 '…'로 사라졌다 — 2026-10-13 32 피드백)
+  stackTime: { fontSize: 15, fontWeight: '800', flexShrink: 0 },
   stackActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 },
   stackBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: C.surfaceHigh },
   stackBtnText: { color: C.text, fontSize: 13, fontWeight: '700' },

@@ -67,7 +67,7 @@ describe('SettingsSheet 화면 설정', () => {
     expect(getByText('테마')).toBeTruthy();
     expect(getByText('글자 크기')).toBeTruthy();
     expect(getByLabelText('테마 시스템').props.accessibilityState.selected).toBe(true);
-    expect(getByLabelText('글자 보통').props.accessibilityState.selected).toBe(true);
+    expect(getByLabelText('글자 크기 보통').props.accessibilityState.selected).toBe(true);
     // 프로바이더 없이도(기본 컨텍스트) 렌더되고, 프로바이더 안에서는 누르면 선택이 옮겨간다
     const { getByLabelText: g2 } = await render(
       <ThemeProvider>
@@ -76,8 +76,8 @@ describe('SettingsSheet 화면 설정', () => {
     );
     await fireEvent.press(g2('테마 라이트'));
     expect(g2('테마 라이트').props.accessibilityState.selected).toBe(true);
-    await fireEvent.press(g2('글자 아주 크게'));
-    expect(g2('글자 아주 크게').props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(g2('글자 크기 아주 크게'));
+    expect(g2('글자 크기 아주 크게').props.accessibilityState.selected).toBe(true);
   });
 
   test('언어 항목: 시스템/한국어/English 세그먼트, English를 고르면 문구가 영어로 바뀐다', async () => {
@@ -90,12 +90,12 @@ describe('SettingsSheet 화면 설정', () => {
     expect(getByText('언어')).toBeTruthy();
     expect(getByLabelText('언어 대한민국').props.accessibilityState.selected).toBe(true);
     await fireEvent.press(getByLabelText('언어 English'));
-    expect(getByLabelText('언어 English').props.accessibilityState.selected).toBe(true);
+    expect(getByLabelText('Language English').props.accessibilityState.selected).toBe(true);
     expect(getByText('Settings')).toBeTruthy();
     expect(getByText('Language')).toBeTruthy();
     expect(getByText('Extra large')).toBeTruthy();
     expect(queryByText('설정')).toBeNull();
-    // 접근성 라벨은 한국어 키 그대로라 테스트·스크린리더 식별이 안정적
-    expect(getByLabelText('테마 시스템')).toBeTruthy();
+    // 접근성 라벨도 앱 언어를 따라간다 (스크린리더가 화면 언어로 읽도록)
+    expect(getByLabelText('Theme System')).toBeTruthy();
   });
 });

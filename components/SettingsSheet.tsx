@@ -1,8 +1,8 @@
 // ─── 설정 화면 ─────────────────────────────────────────────────────────────────
 // 화면(테마·글자 크기·언어), 알람, 달력 기본 보기, 백업 · 폰 옮기기, 사용설명서, 앱 정보를 한곳에 모은다.
 // 문구는 모두 t()로 감싸 설정 언어(시스템/한국어/English)를 따른다.
-import { useState, useMemo } from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState, useMemo, useEffect } from 'react';
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View, AppState, Platform } from 'react-native';
 import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -10,8 +10,10 @@ import { FONT_SCALE_LABEL, THEME_LABEL, useTheme, useThemeSetting, type Palette 
 import type { FontScaleName, LanguageSetting, ThemeSetting } from '../lib/prefs';
 import { LANGS, LANGUAGE_LABEL, useT } from '../lib/i18n';
 import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
+import { canDrawOverlays, requestOverlayPermission } from '../lib/nativeAlarm';
 import type { CalendarMode } from '../lib/prefs';
 import type { ScheduleRecord } from '../lib/storage';
+import { voiceAlarmSupported } from '../lib/voiceAlarm';
 import { BackupSheet } from './BackupSheet';
 import { HelpSheet } from './HelpSheet';
 
@@ -22,6 +24,8 @@ export function SettingsSheet({
   onCalendarMode,
   defaultRemind,
   onDefaultRemind,
+  defaultVoice = false,
+  onDefaultVoice,
   onRestored,
   onClose,
 }: {
@@ -31,6 +35,9 @@ export function SettingsSheet({
   onCalendarMode: (m: CalendarMode) => void;
   defaultRemind: number[];
   onDefaultRemind: (list: number[]) => void;
+  /** 새 일정의 알람 소리: false = 기본 알람음, true = 내 목소리 */
+  defaultVoice?: boolean;
+  onDefaultVoice?: (on: boolean) => void;
   onRestored: (records: ScheduleRecord[]) => void;
   onClose: () => void;
 }) {
@@ -39,6 +46,14 @@ export function SettingsSheet({
   const { themeSetting, setThemeSetting, fontScale, setFontScale } = useThemeSetting();
   const { t, setting: langSetting, setSetting: setLangSetting } = useT();
   const [backupOpen, setBackupOpen] = useState(false);
+  // "다른 앱 위에 표시" 허용 여부 — 설정 앱에서 돌아오면 다시 확인한다
+  const [overlayOk, setOverlayOk] = useState(() => canDrawOverlays());
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (visible) setOverlayOk(canDrawOverlays());
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') setOverlayOk(canDrawOverlays()); });
+    return () => sub.remove();
+  }, [visible]);
   const [helpOpen, setHelpOpen] = useState(false);
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const withAudio = records.filter((r) => r.uri).length;
@@ -66,7 +81,7 @@ export function SettingsSheet({
                     style={[s.segBtn, s.segBtnGrow, themeSetting === th && s.segBtnOn]}
                     onPress={() => themeSetting !== th && setThemeSetting(th)}
                     accessibilityState={{ selected: themeSetting === th }}
-                    accessibilityLabel={`테마 ${THEME_LABEL[th]}`}
+                    accessibilityLabel={`${t('테마')} ${t(THEME_LABEL[th])}`}
                   >
                     <Text style={[s.segText, themeSetting === th && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t(THEME_LABEL[th])}</Text>
                   </TouchableOpacity>
@@ -82,7 +97,7 @@ export function SettingsSheet({
                     style={[s.segBtn, s.segBtnGrow, fontScale === f && s.segBtnOn]}
                     onPress={() => fontScale !== f && setFontScale(f)}
                     accessibilityState={{ selected: fontScale === f }}
-                    accessibilityLabel={`글자 ${FONT_SCALE_LABEL[f]}`}
+                    accessibilityLabel={`${t('글자 크기')} ${t(FONT_SCALE_LABEL[f])}`}
                   >
                     <Text style={[s.segText, fontScale === f && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t(FONT_SCALE_LABEL[f])}</Text>
                   </TouchableOpacity>
@@ -98,7 +113,7 @@ export function SettingsSheet({
                     style={[s.segBtn, s.langChip, langSetting === l && s.segBtnOn]}
                     onPress={() => langSetting !== l && setLangSetting(l)}
                     accessibilityState={{ selected: langSetting === l }}
-                    accessibilityLabel={`언어 ${LANGUAGE_LABEL[l]}`}
+                    accessibilityLabel={`${t('언어')} ${l === 'system' ? t(LANGUAGE_LABEL[l]) : LANGUAGE_LABEL[l]}`}
                   >
                     <Text style={[s.segText, langSetting === l && s.segTextOn]} numberOfLines={1}>{t(LANGUAGE_LABEL[l])}</Text>
                   </TouchableOpacity>
@@ -120,7 +135,7 @@ export function SettingsSheet({
                       style={[s.segBtn, s.segBtnGrow, on && s.segBtnOn]}
                       onPress={() => onDefaultRemind(normalizeRemind(on ? defaultRemind.filter((x) => x !== m) : [...defaultRemind, m]))}
                       accessibilityState={{ selected: on }}
-                      accessibilityLabel={`기본 미리 알림 ${remindLabel(m)}`}
+                      accessibilityLabel={`${t('기본 미리 알림')} ${remindLabel(m)}`}
                     >
                       <Text style={[s.segText, on && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{remindLabel(m)}</Text>
                     </TouchableOpacity>
@@ -128,6 +143,49 @@ export function SettingsSheet({
                 })}
               </View>
               <Text style={s.rowSub}>{t('하루 전은 전날 저녁 8시에 울려요')}</Text>
+              {onDefaultVoice && voiceAlarmSupported() && (
+                <>
+                  <View style={s.divider} />
+                  <Text style={s.rowTitle}>{t('알람 소리')}</Text>
+                  <Text style={s.rowSub}>{t('내 목소리를 고르면 알람이 울릴 때 그 일정을 말한 녹음 앞부분을 들려줘요. 일정마다 바꿀 수 있어요')}</Text>
+                  <View style={[s.segment, s.segmentWide]}>
+                    {([false, true] as const).map((v) => (
+                      <TouchableOpacity
+                        key={String(v)}
+                        style={[s.segBtn, s.segBtnGrow, defaultVoice === v && s.segBtnOn]}
+                        onPress={() => defaultVoice !== v && onDefaultVoice(v)}
+                        accessibilityState={{ selected: defaultVoice === v }}
+                        accessibilityLabel={`${t('알람 소리')} ${t(v ? '내 목소리' : '기본 알람음')}`}
+                      >
+                        <Text style={[s.segText, defaultVoice === v && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                          {t(v ? '🎙 내 목소리' : '🔔 기본 알람음')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+              {Platform.OS === 'android' && (
+                <>
+                  <View style={s.divider} />
+                  <TouchableOpacity
+                    style={s.rowBetween}
+                    onPress={() => { if (!overlayOk) requestOverlayPermission(); }}
+                    activeOpacity={overlayOk ? 1 : 0.7}
+                    accessibilityLabel="알람 화면 항상 띄우기"
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle}>{t('알람 화면 항상 띄우기')}</Text>
+                      <Text style={s.rowSub}>
+                        {overlayOk
+                          ? t('다른 앱을 쓰는 중에도, 접은 폴더블의 커버 화면에도 알람 끄기 화면이 떠요')
+                          : t('눌러서 "다른 앱 위에 표시"를 켜면 다른 앱을 쓰는 중이나 접은 폴더블의 커버 화면에도 알람 끄기 화면이 떠요')}
+                      </Text>
+                    </View>
+                    <Text style={[s.rowValue, overlayOk && { color: C.green }]}>{overlayOk ? t('켜짐') : t('꺼짐 ›')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
 
             <Text style={s.sectionLabel}>{t('달력')}</Text>

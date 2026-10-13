@@ -26,9 +26,18 @@ export function parseBackupDate(name: string): number {
   return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
 }
 
-function baseName(uri: string): string {
-  const n = uri.split('/').pop() ?? '';
-  try { return decodeURIComponent(n); } catch { return n; }
+/**
+ * 주소에서 파일(폴더) 이름만 뽑는다.
+ * Android 시스템 폴더(SAF) 주소는 경로의 '/'가 %2F로 인코딩돼 있다
+ *   content://…/document/primary%3ADownload%2F세이람백업_…%2Frecords.json
+ * 그래서 반드시 **디코딩을 먼저** 하고 나서 '/'(와 저장소 구분자 ':')로 자른다.
+ * (2026-10-13 노트 실기기: 디코딩보다 먼저 잘라 records.json을 못 찾아 "폴더에서 가져오기"가 항상 실패했다)
+ */
+export function baseName(uri: string): string {
+  let s = uri;
+  try { s = decodeURIComponent(uri); } catch {}
+  s = s.replace(/\/+$/, '');
+  return s.split(/[/:]/).pop() ?? '';
 }
 
 /** 레코드(메인 + 추가)가 참조하는 녹음 파일 이름들 (중복 제거) */

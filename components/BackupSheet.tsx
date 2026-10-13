@@ -159,10 +159,10 @@ export function BackupSheet({
                     <Text style={s.itemTitle}>{fmt(b.createdAt) || b.name}</Text>
                     <Text style={s.itemSub}>{t('일정 {n}건 · 녹음 {a}개', { n: b.count, a: b.audioFiles })}</Text>
                   </View>
-                  <TouchableOpacity style={s.itemBtn} onPress={() => restore(b)} accessibilityLabel={`${b.name} 복원`}>
+                  <TouchableOpacity style={s.itemBtn} onPress={() => restore(b)} accessibilityLabel={`${b.name} ${t('복원')}`}>
                     <Text style={s.itemBtnText}>{t('복원')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={s.itemDel} onPress={() => remove(b)} accessibilityLabel={`${b.name} 삭제`}>
+                  <TouchableOpacity style={s.itemDel} onPress={() => remove(b)} accessibilityLabel={`${b.name} ${t('삭제')}`}>
                     <Text style={s.itemDelText}>{t('삭제')}</Text>
                   </TouchableOpacity>
                 </View>

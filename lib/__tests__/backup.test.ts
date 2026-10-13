@@ -35,7 +35,7 @@ jest.mock('expo-file-system', () => {
 });
 jest.mock('expo-file-system/legacy', () => ({ StorageAccessFramework: {}, EncodingType: { Base64: 'base64' } }));
 
-import { audioNamesOf, backupName, createBackup, deleteBackup, listBackups, mergeRecords, parseBackupDate, restoreBackup } from '../backup';
+import { audioNamesOf, backupName, baseName, createBackup, deleteBackup, listBackups, mergeRecords, parseBackupDate, restoreBackup } from '../backup';
 import type { ScheduleRecord } from '../storage';
 
 const rec = (id: string, uri: string, appendUri?: string): ScheduleRecord => ({
@@ -109,5 +109,18 @@ describe('createBackup / listBackups / restoreBackup / deleteBackup', () => {
     expect(listBackups()).toHaveLength(1);
     deleteBackup(b.uri);
     expect(listBackups()).toHaveLength(0);
+  });
+});
+
+describe('baseName — 주소에서 파일 이름 뽑기', () => {
+  test('일반 파일 주소', () => {
+    expect(baseName('file:///data/user/0/app/files/mallo/rec_1.m4a')).toBe('rec_1.m4a');
+    expect(baseName('doc/mallo-backups/%EC%84%B8%EC%9D%B4%EB%9E%8C%EB%B0%B1%EC%97%85_2026-10-13_0500/')).toBe('세이람백업_2026-10-13_0500');
+  });
+  test('Android 시스템 폴더(SAF) 주소: %2F로 인코딩된 경로에서도 파일 이름만 나온다', () => {
+    const tree = 'content://com.android.externalstorage.documents/tree/primary%3ADownload%2F%EC%84%B8%EC%9D%B4%EB%9E%8C%EB%B0%B1%EC%97%85_2026-10-13_0500/document/primary%3ADownload%2F%EC%84%B8%EC%9D%B4%EB%9E%8C%EB%B0%B1%EC%97%85_2026-10-13_0500%2F';
+    expect(baseName(tree + 'records.json')).toBe('records.json');
+    expect(baseName(tree + 'rec_1791800000002_a0.m4a')).toBe('rec_1791800000002_a0.m4a');
+    expect(baseName('content://com.android.externalstorage.documents/tree/primary%3Arecords.json')).toBe('records.json');
   });
 });

@@ -57,3 +57,12 @@ describe('parseSchedule', () => {
     if (exp.content !== undefined) expect(r.content).toBe(exp.content);
   });
 });
+
+describe('겹쳐 말한 시간 표현', () => {
+  test('"7시에 7시에"처럼 같은 시각이 두 번 인식돼도 내용에 남지 않는다', () => {
+    const base = new Date(2026, 9, 12, 9, 0);
+    const p = parseSchedule('저녁 밥은 송내역 옆에서 7시에 7시에 맛난 거 먹을 거야', base);
+    expect(p.hasTime).toBe(true);
+    expect(p.content).toBe('밥은 송내역 옆에서 맛난 거 먹을 거야');
+  });
+});

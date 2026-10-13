@@ -421,9 +421,9 @@ describe('ScheduleDetail 알림 칩', () => {
     );
     expect(screen.getByText('미리 알림 30분 전 · 정각 알림 켬')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('미리 알림 하루 전'));
-    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30, 1440], true);
+    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30, 1440], true, false);
     await fireEvent.press(screen.getByLabelText('정각 알림'));
-    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30], false);
+    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30], false, false);
   });
   test('지난 일정은 칩 없이 안내만', async () => {
     const rec = { ...record, scheduleAt: Date.now() - 3_600_000 };

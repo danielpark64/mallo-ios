@@ -1,3 +1,4 @@
+import { prepareVoiceAlarm, resetVoiceAlarms, voiceUriOf } from './voiceAlarm';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
@@ -85,18 +86,24 @@ export async function registerAndroidChannels() {
 }
 
 export async function registerNotificationCategories() {
+  // 버튼 구성 = 워치에서 사용자가 보게 될 버튼(폰 알림이 그대로 워치로 브릿지된다).
+  // iOS: 앱을 앞으로 열지 않는 백그라운드 액션으로 둔다 — 잠금 화면·애플워치에서 폰 잠금을 풀지 않고도
+  //      "알람 끄기"가 바로 처리된다(교대알람과 같은 구성). 앱은 백그라운드로 깨어나 응답 리스너가 남은 재알림을 취소한다.
+  // Android: 이 Expo 알림은 네이티브가 못 울렸을 때의 보조 경로다. 앱 프로세스가 죽어 있어도 응답이 확실히
+  //      JS에 닿도록 앱을 앞으로 연다(평소 끄기는 네이티브 알림 버튼·워치 → AlarmService가 직접 처리).
+  const foreground = Platform.OS === 'android';
   await Notifications.setNotificationCategoryAsync(
     'alarm',
     [
       {
         identifier: 'stop',
         buttonTitle: t('알람 끄기'),
-        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: true },
+        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: foreground },
       },
       {
         identifier: 'snooze',
         buttonTitle: t('5분 후 다시'),
-        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: true },
+        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: foreground },
       },
     ],
     // iOS: 워치/배너에서 스와이프로 닫기만 해도 응답 이벤트가 오도록 (재알림 취소 누락 방지)
@@ -121,6 +128,8 @@ export type AlarmOptions = {
   exactAlarm?: boolean;
   /** 한 번만(스누즈 등): 정각 슬롯 1개만 건다 */
   single?: boolean;
+  /** "내 목소리" 알람으로 울릴 녹음 경로 (lib/voiceAlarm.ts voiceUriOf). 없으면 기본 알람음 */
+  voiceUri?: string | null;
 };
 
 export async function scheduleAlarm(
@@ -132,6 +141,9 @@ export async function scheduleAlarm(
 ): Promise<string[]> {
   const ids: string[] = [];
   const useNative = isNativeAlarmAvailable();
+  // 내 목소리 알람: Android는 네이티브에 파일을 알려 두고, iOS는 변환한 소리 파일 이름을 받는다
+  const voiceSound = await prepareVoiceAlarm(recordId, mode === 'vibe' ? null : opts.voiceUri);
+  const sound = mode === 'vibe' ? undefined : (voiceSound ?? SOUND);
 
   // ── 미리 알림: 각각 한 번, 정각 알람과 독립(식별자 recordId#preN) ──
   for (const m of normalizeRemind(opts.remindBefore ?? [])) {
@@ -149,7 +161,7 @@ export async function scheduleAlarm(
         content: {
           title: t('세이람 · 미리 알림'),
           body,
-          sound: mode === 'vibe' ? undefined : SOUND,
+          sound,
           categoryIdentifier: 'alarm',
           data: { recordId: subId, baseRecordId: recordId, pre: m },
         },
@@ -173,8 +185,8 @@ export async function scheduleAlarm(
     title: t('세이람'),
     body: content,
     // iOS: sound 있으면 자동 진동, sound 없으면 무진동
-    // both/sound → alarm_long.wav (iOS는 소리+진동 자동), vibe → 무음(배너만)
-    sound: mode === 'vibe' ? undefined : SOUND,
+    // both/sound → alarm_long.wav 또는 내 목소리 (iOS는 소리+진동 자동), vibe → 무음(배너만)
+    sound,
     categoryIdentifier: 'alarm',
     data: { recordId },
   };
@@ -252,6 +264,8 @@ export async function resyncAlarms(
     alarmMode?: AlarmMode;
     remindBefore?: number[];
     exactAlarm?: boolean;
+    uri?: string;
+    voiceAlarm?: boolean;
   }>
 ): Promise<void> {
   try {
@@ -262,6 +276,9 @@ export async function resyncAlarms(
     const future = records
       .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt > now)
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
+    // 내 목소리 알람: 네이티브 예약을 비운 직후에 정리한다(그 전에 지우면 그 사이 울리는 알람이 기본음이 된다).
+    // 앞으로 울릴 일정 것만 남긴다 — 지난 일정의 iOS 소리 파일(건당 1~2MB)이 쌓이지 않게.
+    resetVoiceAlarms(future.filter((r) => voiceUriOf(r)).map((r) => r.id));
     let budget = 60; // 64개 한도에서 여유분 확보
     for (const r of future) {
       // 이 일정이 쓸 슬롯 수(정각 3 + 미리 알림 N)만큼 예산이 남아 있을 때만 등록
@@ -273,7 +290,7 @@ export async function resyncAlarms(
         r.content || r.transcript,
         new Date(r.scheduleAt!),
         r.alarmMode ?? 'both',
-        { remindBefore: r.remindBefore, exactAlarm: r.exactAlarm }
+        { remindBefore: r.remindBefore, exactAlarm: r.exactAlarm, voiceUri: voiceUriOf(r) }
       );
       budget -= ids.length;
     }

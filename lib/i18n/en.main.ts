@@ -69,6 +69,14 @@ export const EN_MAIN: Record<string, string> = {
 
   // ── 녹음 시트 ──
   '듣고 있어요': 'Listening',
+  '다시 녹음할까요?': 'Record again?',
+  '앞에서 한 녹음과 그 글이 새 녹음으로 바뀌어요.': 'Your earlier recording and its text will be replaced by the new one.',
+  '다시 녹음': 'Record again',
+  '🎙 지금 말씀하세요': '🎙 Speak now',
+  '준비 중…': 'Getting ready…',
+  '입력 완료': 'Done',
+  '말씀하시면 여기에 바로 적혀요': 'Speak and your words appear here',
+  '일정': 'Schedule',
   '말씀해보세요…\n예: "내일 오후 3시에 회의"': 'Go ahead and speak…\ne.g. "Meeting tomorrow at 3 pm"',
   '⏳ 날짜·시간을 기다리는 중…': '⏳ Waiting for a date or time…',
 

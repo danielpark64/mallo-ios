@@ -1,7 +1,7 @@
 import { installCrashLogger } from './lib/crashLog';
 installCrashLogger();
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Keyboard, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Keyboard, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View, AppState } from 'react-native';
 import { Text } from './components/AppText';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -32,6 +32,7 @@ import {
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs, type CalendarMode } from './lib/prefs';
 import { normalizeRemind, parsePreRecordId } from './lib/reminders';
+import { setNativeAlarmLabels } from './lib/nativeAlarm';
 import { LanguageProvider, useT } from './lib/i18n';
 import {
   EMPTY_FILTER,
@@ -61,6 +62,8 @@ import {
   resyncAlarms,
   scheduleAlarm,
 } from './lib/notifications';
+import { SharedPlayerProvider, useSharedPlayer } from './lib/sharedPlayer';
+import { removeVoiceAlarm, setVoiceAlarmDefault, voiceAlarmOn, voiceAlarmToStore, voiceUriOf } from './lib/voiceAlarm';
 import { ThemeProvider, useFontScale, useResolvedTheme, useTheme, type Palette } from './lib/theme';
 import { copyRecords } from './lib/exportUtils';
 import { Calendar, type DateRange } from './components/Calendar';
@@ -68,58 +71,13 @@ import { ExportPreview, type ExportKind } from './components/ExportPreview';
 import { FilterSheet } from './components/FilterSheet';
 import { SettingsSheet } from './components/SettingsSheet';
 import { MicIcon } from './components/MicIcon';
+import { Waveform, formatDuration } from './components/Waveform';
 import { ScheduleCard } from './components/ScheduleCard';
 import { PreAlarmRow } from './components/PreAlarmRow';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
 
-function formatDuration(sec: number) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
-// ─── 파형 ─────────────────────────────────────────────────────────────────────
-const BAR_COUNT = 30;
-function Waveform({ metering, isRecording }: { metering: number | undefined; isRecording: boolean }) {
-  const C = useTheme();
-  const styles = useMemo(() => makeStyles(C), [C]);
-  const animValues = useRef(
-    Array.from({ length: BAR_COUNT }, () => new Animated.Value(0.15))
-  ).current;
-  const barsRef = useRef<number[]>(Array(BAR_COUNT).fill(0.15));
-
-  useEffect(() => {
-    if (!isRecording) return;
-    const timer = setInterval(() => {
-      const meteringLevel =
-        metering !== undefined ? Math.max(0, Math.min(1, (metering + 60) / 60)) : 0;
-      const level = Math.min(1, meteringLevel + 0.15 + Math.random() * 0.15);
-      barsRef.current = [...barsRef.current.slice(1), level];
-      barsRef.current.forEach((v, i) => {
-        Animated.spring(animValues[i], { toValue: v, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
-      });
-    }, 80);
-    return () => clearInterval(timer);
-  }, [isRecording, metering]);
-
-  return (
-    <View style={styles.waveform}>
-      {animValues.map((anim, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.bar,
-            {
-              transform: [{ scaleY: anim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 1] }) }],
-              opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }),
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
 
 // ─── 전체 일정 탭 ──────────────────────────────────────────────────────────────
 // 검색창 + 기간 칩(전체/오늘/이번 주/이번 달/직접 선택)으로 바로 걸러진다. "조회하기" 버튼 없음.
@@ -128,11 +86,13 @@ function AllSchedulesList({
   onPress,
   onAppend,
   onFixDate,
+  onLongPress,
 }: {
   records: ScheduleRecord[];
   onPress: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
   onFixDate: (r: ScheduleRecord) => void;
+  onLongPress?: (r: ScheduleRecord) => void;
 }) {
   const C = useTheme();
   const { t, lang } = useT();
@@ -306,7 +266,7 @@ function AllSchedulesList({
             </View>
           );
         }}
-        renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} />}
+        renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} onLongPress={onLongPress} />}
         SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
       />
 
@@ -333,9 +293,11 @@ export default function App() {
   return (
     <LanguageProvider>
       <ThemeProvider>
-        <SafeAreaProvider>
-          <AppInner />
-        </SafeAreaProvider>
+        <SharedPlayerProvider>
+          <SafeAreaProvider>
+            <AppInner />
+          </SafeAreaProvider>
+        </SharedPlayerProvider>
       </ThemeProvider>
     </LanguageProvider>
   );
@@ -346,8 +308,25 @@ function AppInner() {
   const { t, lang } = useT();
   const styles = useMemo(() => makeStyles(C), [C]);
   const resolvedTheme = useResolvedTheme();
+  // 앱 언어가 정해지거나 바뀌면 알림 버튼(워치 포함)·Android 채널 이름·네이티브 울림 화면 글자를 그 언어로 맞춘다
+  useEffect(() => {
+    registerNotificationCategories().catch(() => {});
+    registerAndroidChannels().catch(() => {});
+    setNativeAlarmLabels({ stop: t('알람 끄기'), snooze: t('5분 후 다시'), ringing: t('알람이 울리는 중'), app: t('세이람') });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
   const { scale: fontScale } = useFontScale();
-  const bigText = fontScale >= 1.3; // 큰 글자: 헤더 시계를 숨겨 설정·＋ 버튼 자리를 확보 (시계는 상태바에도 있다)
+  const bigText = fontScale >= 1.3;
+  // 헤더 시계 자리: 제목·시계·버튼의 실제 폭을 재서 한 줄에 들어가면 오른쪽에, 모자라면 제목 아래로 자동 이동
+  const [headerW, setHeaderW] = useState(0);
+  const [titleW, setTitleW] = useState(0);
+  const [clockW, setClockW] = useState(0);
+  const [btnsW, setBtnsW] = useState(0);
+  const [nextW, setNextW] = useState(0); // "다음 · …" 줄의 자연 폭 — 시계에 밀려 잘리지 않게 같이 본다
+  const HEADER_GAPS = 12 + 8 + 12; // 시계-버튼 간격, 왼쪽 블록 여백, 여유
+  const leftW = Math.max(titleW, nextW);
+  const clockBelow = headerW > 0 && leftW > 0 && clockW > 0 && btnsW > 0
+    && leftW + clockW + btnsW + HEADER_GAPS > headerW;
   const voice = useVoiceRecorder();
 
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
@@ -358,11 +337,24 @@ function AppInner() {
   });
 
   const [showRecorder, setShowRecorder] = useState(false);
+  const sharedPlayer = useSharedPlayer();
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
-    const t = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(t);
+    // 앱이 앞에 있을 때만, 분이 바뀌는 순간에 맞춰 1분에 한 번 갱신
+    // (Android는 백그라운드에서도 JS 타이머가 돌아 배터리를 쓴다 / 고정 60초 간격이면 최대 59초 늦게 바뀐다)
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const tick = () => {
+      setCurrentTime(new Date());
+      timer = setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
+    };
+    const start = () => { if (!timer) timer = setTimeout(tick, 60000 - (Date.now() % 60000) + 50); };
+    const stop = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    start();
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') { setCurrentTime(new Date()); start(); } else stop();
+    });
+    return () => { stop(); sub.remove(); };
   }, []);
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -422,7 +414,7 @@ function AppInner() {
         if (response.actionIdentifier === 'snooze') {
           const rec = recordsRef.current.find((r) => r.id === pre.recordId);
           const body = response.notification.request.content.body || rec?.content || t('미리 알림');
-          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true });
+          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true, voiceUri: voiceUriOf(rec) });
         }
         return;
       }
@@ -431,7 +423,7 @@ function AppInner() {
         await cancelAlarmByRecordId(recordId).catch(() => {});
         const rec = recordsRef.current.find((r) => r.id === recordId);
         const body = rec?.content || rec?.transcript || response.notification.request.content.body || t('알람');
-        await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both');
+        await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { voiceUri: voiceUriOf(rec) });
       } else {
         // 알람 끄기 버튼 / 알림 탭 / 스와이프 닫기 → 남은 재알림(+1/+2분) 취소
         cancelAlarmByRecordId(recordId).catch(() => {});
@@ -475,6 +467,15 @@ function AppInner() {
     const next = normalizeRemind(list);
     setDefaultRemind(next);
     savePrefs({ defaultRemind: next });
+  };
+  // 새 일정의 알람 소리 기본값(설정): 꺼짐 = 기본 알람음, 켜짐 = 내 목소리
+  const [defaultVoice, setDefaultVoice] = useState<boolean>(() => { const on = loadPrefs().voiceAlarm; setVoiceAlarmDefault(on); return on; });
+  const handleDefaultVoice = (on: boolean) => {
+    setVoiceAlarmDefault(on);
+    setDefaultVoice(on);
+    savePrefs({ voiceAlarm: on });
+    // 설정은 모든 일정에 적용된다(일정마다 따로 정한 것 제외) → 이미 걸린 알람도 새 소리로 다시 건다
+    resyncAlarms(recordsRef.current).catch(() => {});
   };
 
   const scrollToSection = useCallback((idx: number) => {
@@ -520,6 +521,7 @@ function AppInner() {
       Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'));
       return;
     }
+    sharedPlayer.stop(); // 카드 재생 소리가 녹음에 섞이지 않게
     setShowRecorder(true);
     await voice.start();
   };
@@ -559,8 +561,9 @@ function AppInner() {
     if (!parsed.hasDate && !parsed.hasTime && !isDeleteIntentEarly) {
       const auto = fallbackToToday();
       const id = Date.now().toString();
+      const uri = keepAudio(id);
       const record: ScheduleRecord = {
-        id, uri: keepAudio(id), durationSec, transcript,
+        id, uri, durationSec, transcript,
         content: parsed.content || transcript,
         scheduleAt: auto.date.getTime(), scheduleDisplay: auto.display,
         hasDate: auto.hasDate, hasTime: auto.hasTime, needsDate: true,
@@ -582,7 +585,7 @@ function AppInner() {
       let notifIds: string[] | undefined;
       const remindBefore = normalizeRemind(parsed.remindBefore ?? defaultRemind);
       if (parsed.date && parsed.hasTime) {
-        const ids = await scheduleAlarm(id, parsed.content || transcript, parsed.date, 'both', { remindBefore });
+        const ids = await scheduleAlarm(id, parsed.content || transcript, parsed.date, 'both', { remindBefore, voiceUri: voiceUriOf({ uri: savedUri, alarmMode: 'both' }) });
         if (ids.length) notifIds = ids;
       }
       const record: ScheduleRecord = {
@@ -629,6 +632,8 @@ function AppInner() {
         [
           { text: t('취소'), style: 'cancel' },
           { text: t('삭제'), style: 'destructive', onPress: async () => {
+            sharedPlayer.stop();
+            removeVoiceAlarm(target.id);
             if (target.uri) deleteAudio(target.uri);
             for (const a of target.appends ?? []) if (a.uri) deleteAudio(a.uri);
             await cancelAlarmGroup(target.id, target.notifIds);
@@ -698,14 +703,15 @@ function AppInner() {
   };
 
   // 상세 화면의 알림 칩: 즉시 저장하고 두 경로(네이티브·Expo) 알람을 다시 건다
-  const handleAlarmChange = async (rec: ScheduleRecord, remindBefore: number[], exactAlarm: boolean) => {
+  const handleAlarmChange = async (rec: ScheduleRecord, remindBefore: number[], exactAlarm: boolean, voiceOn: boolean = voiceAlarmOn(rec)) => {
+    const voiceAlarm = voiceAlarmToStore(voiceOn);
     await cancelAlarmGroup(rec.id, rec.notifIds);
     const at = rec.scheduleAt != null && rec.hasTime ? new Date(rec.scheduleAt) : null;
     const ids = at && at.getTime() > Date.now()
-      ? await scheduleAlarm(rec.id, rec.content || rec.transcript, at, rec.alarmMode ?? 'both', { remindBefore, exactAlarm })
+      ? await scheduleAlarm(rec.id, rec.content || rec.transcript, at, rec.alarmMode ?? 'both', { remindBefore, exactAlarm, voiceUri: voiceUriOf({ ...rec, voiceAlarm }) })
       : [];
     commit(recordsRef.current.map((r) =>
-      r.id === rec.id ? { ...r, remindBefore, exactAlarm, notifIds: ids.length ? ids : undefined } : r
+      r.id === rec.id ? { ...r, remindBefore, exactAlarm, voiceAlarm, notifIds: ids.length ? ids : undefined } : r
     ));
   };
 
@@ -716,7 +722,10 @@ function AppInner() {
       const old = records.find((r) => r.id === res.id);
       if (old) await cancelAlarmGroup(old.id, old.notifIds);
       const newIds = notifAt
-        ? await scheduleAlarm(res.id, res.content, notifAt, res.alarmMode, { remindBefore: res.remindBefore, exactAlarm: res.exactAlarm })
+        ? await scheduleAlarm(res.id, res.content, notifAt, res.alarmMode, {
+            remindBefore: res.remindBefore, exactAlarm: res.exactAlarm,
+            voiceUri: voiceUriOf({ uri: old?.uri, voiceAlarm: !!res.voiceAlarm, alarmMode: res.alarmMode }),
+          })
         : [];
       const notifIds = newIds.length ? newIds : undefined;
       const next = records.map((r) =>
@@ -733,6 +742,7 @@ function AppInner() {
               alarmMode: res.alarmMode,
               remindBefore: res.remindBefore,
               exactAlarm: res.exactAlarm,
+              voiceAlarm: r.uri ? voiceAlarmToStore(!!res.voiceAlarm) : r.voiceAlarm,
               // 내용이 바뀌면 기존 단어별 타임스탬프는 무효 → 카드 표시도 새 내용으로
               segments: res.content.trim() !== (r.content ?? '').trim() ? undefined : r.segments,
             }
@@ -741,15 +751,27 @@ function AppInner() {
       commit(next);
     } else {
       const id = Date.now().toString();
+      // 새 일정 화면의 마이크로 말했다면 그 녹음을 메인 녹음으로 남긴다 (마이크 FAB로 만든 일정과 같게)
+      let uri = '';
+      if (res.capture?.uri) {
+        try { uri = persistAudio(res.capture.uri, id); }
+        catch (e) { console.warn('오디오 저장 실패:', e); }
+      }
+      const voiceOn = !!res.voiceAlarm && !!uri;
+      const voiceAlarm = uri ? voiceAlarmToStore(!!res.voiceAlarm) : undefined;
       const newIds = notifAt
-        ? await scheduleAlarm(id, res.content, notifAt, res.alarmMode, { remindBefore: res.remindBefore, exactAlarm: res.exactAlarm })
+        ? await scheduleAlarm(id, res.content, notifAt, res.alarmMode, {
+            remindBefore: res.remindBefore, exactAlarm: res.exactAlarm,
+            voiceUri: voiceUriOf({ uri, voiceAlarm: voiceOn, alarmMode: res.alarmMode }),
+          })
         : [];
       const notifIds = newIds.length ? newIds : undefined;
       const rec: ScheduleRecord = {
-        id, uri: '', durationSec: 0, transcript: '',
+        id, uri, durationSec: uri ? res.capture!.durationSec : 0, transcript: res.capture?.transcript ?? '',
+        segments: uri ? res.capture!.segments : undefined,
         content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display,
         hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode,
-        remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, createdAt: Date.now(),
+        remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, voiceAlarm, createdAt: Date.now(),
       };
       commit([rec, ...records]);
     }
@@ -757,7 +779,24 @@ function AppInner() {
     setEditorOpen(false);
   };
 
+  // 삭제 진입점 3곳(편집기 휴지통·상세 휴지통·카드 길게 누르기)이 같은 확인 창을 쓴다
+  const confirmDelete = (r: ScheduleRecord) => {
+    Alert.alert(t('일정 삭제'), t('이 일정을 삭제할까요?') + `\n\n"${(r.content || r.transcript || '').slice(0, 60)}"`, [
+      { text: t('취소'), style: 'cancel' },
+      { text: t('삭제'), style: 'destructive', onPress: async () => { setDetailId(null); await handleEditorDelete(r.id); } },
+    ]);
+  };
+  const openCardMenu = (r: ScheduleRecord) => {
+    Alert.alert((r.content || r.transcript || t('일정')).slice(0, 60), undefined, [
+      { text: t('수정'), onPress: () => openEdit(r) },
+      { text: t('삭제'), style: 'destructive', onPress: () => confirmDelete(r) },
+      { text: t('취소'), style: 'cancel' },
+    ]);
+  };
+
   const handleEditorDelete = async (id: string) => {
+    sharedPlayer.stop(); // 지우는 일정이 재생 중일 수 있다
+    removeVoiceAlarm(id);
     const target = records.find((r) => r.id === id);
     if (target?.uri) deleteAudio(target.uri);
     for (const a of target?.appends ?? []) if (a.uri) deleteAudio(a.uri);
@@ -800,9 +839,12 @@ function AppInner() {
       <StatusBar style={resolvedTheme === 'light' ? 'dark' : 'light'} />
 
       {/* ── 헤더 ── */}
-      <View style={styles.header}>
+      <View style={styles.header} onLayout={(e) => setHeaderW(Math.floor(e.nativeEvent.layout.width - 40))}>
         <View style={styles.headerLeft}>
-          <Text style={styles.appName}>{t('세이람')}</Text>
+          <Text style={styles.appName} onLayout={(e) => setTitleW(Math.ceil(e.nativeEvent.layout.width))}>{t('세이람')}</Text>
+          {clockBelow && (
+            <Text style={styles.clockUnderTitle} numberOfLines={1}>{formatTime(currentTime)}</Text>
+          )}
           {nextSchedule?.scheduleAt ? (
             <Text style={styles.nextLabel} numberOfLines={bigText ? 2 : 1}>
               {t('다음 ·')}{' '}
@@ -810,18 +852,32 @@ function AppInner() {
               {formatTime(new Date(nextSchedule.scheduleAt))}
             </Text>
           ) : null}
+          {nextSchedule?.scheduleAt ? (
+            // 자연 폭 측정용(보이지 않음)
+            <Text style={[styles.nextLabel, styles.measure]} numberOfLines={1} onLayout={(e) => setNextW(Math.ceil(e.nativeEvent.layout.width))}>
+              {t('다음 ·')}{' '}
+              {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
+              {formatTime(new Date(nextSchedule.scheduleAt))}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
-          {!bigText && (
-            <Text style={styles.clockText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatTime(currentTime)}</Text>
+          {!clockBelow && (
+            <Text style={styles.clockText} numberOfLines={1}>{formatTime(currentTime)}</Text>
           )}
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel={t('설정')}>
-            <Text style={styles.settingsBtnText}>{t('설정')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
-            <Text style={styles.addCircleBtnText}>＋</Text>
-          </TouchableOpacity>
+          <View style={styles.headerBtns} onLayout={(e) => setBtnsW(Math.ceil(e.nativeEvent.layout.width))}>
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel={t('설정')}>
+              <Text style={styles.settingsBtnText}>{t('설정')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addCircleBtn} onPress={openNew} activeOpacity={0.75}>
+              <Text style={styles.addCircleBtnText}>＋</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+        {/* 시계의 자연 폭 측정용(보이지 않음) */}
+        <Text style={[styles.clockText, styles.measure]} numberOfLines={1} onLayout={(e) => setClockW(Math.ceil(e.nativeEvent.layout.width))}>
+          {formatTime(currentTime)}
+        </Text>
       </View>
 
       {/* ── 탭 세그먼트 ── */}
@@ -917,13 +973,13 @@ function AppInner() {
           renderItem={({ item }) =>
             isPreAlarmItem(item)
               ? <PreAlarmRow item={item} onPress={openDetail} />
-              : <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} />
+              : <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} />
           }
           SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         />
       ) : (
         <View style={styles.allWrap}>
-          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} />
+          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} />
         </View>
       )}
 
@@ -942,6 +998,8 @@ function AppInner() {
         onCalendarMode={handleCalendarMode}
         defaultRemind={defaultRemind}
         onDefaultRemind={handleDefaultRemind}
+        defaultVoice={defaultVoice}
+        onDefaultVoice={handleDefaultVoice}
         onClose={() => setSettingsOpen(false)}
         onRestored={async (next) => {
           // 다른 폰의 알림 id는 이 폰에서 무효 → 전부 비우고 미래 일정 알람을 다시 건다
@@ -958,6 +1016,7 @@ function AppInner() {
         onClose={() => setDetailId(null)}
         onEdit={openEditFromDetail}
         onAppend={openAppendFromDetail}
+        onDelete={confirmDelete}
         onAlarmChange={handleAlarmChange}
       />
 
@@ -970,6 +1029,7 @@ function AppInner() {
         markedDays={marked}
         appendMode={appendMode}
         defaultRemind={defaultRemind}
+        defaultVoice={defaultVoice}
         onSave={handleEditorSave}
         onAppend={handleEditorAppend}
         onDelete={handleEditorDelete}
@@ -981,7 +1041,9 @@ function AppInner() {
         <View style={styles.overlay}>
           <View style={[styles.sheet, { paddingBottom: 44 + insets.bottom }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>{t('듣고 있어요')}</Text>
+            <Text style={[styles.sheetTitle, !voice.listening && styles.sheetTitleWait]} accessibilityLiveRegion="polite">
+              {t(voice.listening ? '🎙 지금 말씀하세요' : '준비 중…')}
+            </Text>
             <Waveform metering={voice.recorderState.metering} isRecording={voice.recorderState.isRecording} />
             {!voice.fileRecording && <Text style={styles.sheetNotice}>{NO_FILE_NOTICE}</Text>}
             <View style={styles.transcriptBox}>
@@ -1032,11 +1094,14 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10,
   },
-  appName: { color: C.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  appName: { color: C.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5, alignSelf: 'flex-start' }, // 폭 측정을 위해 내용 폭만 차지
   nextLabel: { color: C.accent, fontSize: 12, fontWeight: '500', marginTop: 3 },
   headerLeft: { flex: 1, flexShrink: 1, marginRight: 8 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0 },
-  clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5, flexShrink: 1, maxWidth: 120 },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
+  measure: { position: 'absolute', opacity: 0, left: 0, top: 0 },
+  clockUnderTitle: { color: C.textSub, fontSize: 14, fontWeight: '400', marginTop: 2 },
   settingsBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: C.surfaceHigh },
   settingsBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
   addCircleBtn: {
@@ -1139,10 +1204,9 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, alignItems: 'center',
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 18 },
-  sheetTitle: { color: C.red, fontSize: 15, fontWeight: '600', marginBottom: 16 },
+  sheetTitle: { color: C.red, fontSize: 17, fontWeight: '700', marginBottom: 16 },
+  sheetTitleWait: { color: C.textDim, fontWeight: '500' },
   sheetNotice: { color: C.textSub, fontSize: 12, textAlign: 'center', marginTop: -4, marginBottom: 8, paddingHorizontal: 20 },
-  waveform: { flexDirection: 'row', alignItems: 'center', height: 56, gap: 3, marginBottom: 16 },
-  bar: { width: 4, height: 48, borderRadius: 2, backgroundColor: C.red },
   transcriptBox: {
     backgroundColor: C.surface, borderRadius: 16, padding: 16, width: '100%',
     minHeight: 100, marginBottom: 16, justifyContent: 'center',

@@ -1,6 +1,12 @@
 // 영어 사전 — settings 그룹 (키 = 한국어 원문)
 // 설정 화면(SettingsSheet)·백업 화면(BackupSheet)·테마/글자 크기 라벨(lib/theme.tsx)·백업 오류(lib/backup.ts).
 export const EN_SETTINGS: Record<string, string> = {
+  '알람 화면 항상 띄우기': 'Always show the alarm screen',
+  '다른 앱을 쓰는 중에도, 접은 폴더블의 커버 화면에도 알람 끄기 화면이 떠요': 'The alarm screen appears even while you use another app, and on the cover screen of a folded phone',
+  '눌러서 "다른 앱 위에 표시"를 켜면 다른 앱을 쓰는 중이나 접은 폴더블의 커버 화면에도 알람 끄기 화면이 떠요': 'Tap and turn on "Display over other apps" so the alarm screen appears while you use another app or on the cover screen of a folded phone',
+  '켜짐': 'On',
+  '꺼짐 ›': 'Off ›',
+  '알람이 울리는 중': 'Alarm ringing',
   // ── 설정 화면 ──
   '설정': 'Settings',
   '화면': 'Display',
@@ -72,4 +78,11 @@ export const EN_SETTINGS: Record<string, string> = {
   // lib/backup.ts 오류
   '백업 목록 파일이 올바르지 않아요': 'The backup list file is not valid',
   '고른 폴더에 records.json이 없어요. 백업 폴더(말로백업_…)를 골라주세요.': 'No records.json in the chosen folder. Please pick a backup folder (말로백업_…).',
+  '내 목소리': 'My voice',
+  '기본 알람음': 'Default alarm',
+  '알람 소리': 'Alarm sound',
+  '알람 소리 내 목소리': 'Alarm sound: my voice',
+  '내 목소리를 고르면 알람이 울릴 때 그 일정을 말한 녹음 앞부분을 들려줘요. 일정마다 바꿀 수 있어요': 'With My voice, the alarm plays the start of what you recorded for that schedule. You can change it per schedule.',
+  '🎙 내 목소리': '🎙 My voice',
+  '🔔 기본 알람음': '🔔 Default alarm',
 };

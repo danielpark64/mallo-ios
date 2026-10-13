@@ -6,12 +6,12 @@ jest.mock('expo-audio', () => {
     record: jest.fn(),
     stop: jest.fn(async () => {}),
     uri: 'file:///tmp/rec.m4a',
+    getStatus: jest.fn(() => ({ isRecording: true, durationMillis: 4200, metering: -20 })),
   };
   return {
     RecordingPresets: { HIGH_QUALITY: {} },
     setAudioModeAsync: jest.fn(async () => {}),
     useAudioRecorder: () => recorder,
-    useAudioRecorderState: () => ({ isRecording: true, durationMillis: 4200, metering: -20 }),
     __recorder: recorder,
   };
 });
@@ -49,13 +49,38 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('녹음 파일 모드', () => {
+  test('준비하는 사이 취소되면 녹음기와 인식을 뒤늦게 켜지 않는다 (화면 없이 마이크만 도는 것 방지)', async () => {
+    let release: () => void = () => {};
+    mockRecorder.prepareToRecordAsync.mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    const { result } = await renderHook(() => useVoiceRecorder({ fileRecording: true }));
+    let started: Promise<void> = Promise.resolve();
+    await act(async () => { started = result.current.start(); });
+    await act(async () => { await result.current.cancel(); });
+    await act(async () => { release(); await started; });
+    await wait(150);
+    expect(mockRecorder.record).not.toHaveBeenCalled();
+    expect(mockStt.start).not.toHaveBeenCalled();
+  });
+
+  test("인식기의 'start' 신호가 와야 listening이 켜지고(화면의 '지금 말씀하세요'), 멈추면 꺼진다", async () => {
+    const { result } = await renderHook(() => useVoiceRecorder({ fileRecording: true }));
+    await act(async () => { await result.current.start(); });
+    expect(result.current.listening).toBe(false); // 아직 준비 중
+    await wait(150);
+    expect(mockStt.start).toHaveBeenCalledTimes(1);
+    await act(async () => { mockHandlers.start({}); });
+    expect(result.current.listening).toBe(true);
+    await act(async () => { await result.current.stop(); });
+    expect(result.current.listening).toBe(false);
+  });
+
   test('녹음기와 음성 인식을 둘 다 시작하고, 멈추면 파일 uri와 녹음기 길이를 돌려준다', async () => {
     const { result } = await renderHook(() => useVoiceRecorder({ fileRecording: true }));
     expect(result.current.fileRecording).toBe(true);
     await act(async () => { await result.current.start(); });
     expect(mockRecorder.record).toHaveBeenCalledTimes(1);
     expect(mockSetAudioMode).toHaveBeenCalledWith(expect.objectContaining({ allowsRecording: true }));
-    await wait(400); // startSTT는 300ms 뒤 시작
+    await wait(150); // startSTT는 60ms 뒤 시작 (말 첫머리가 잘리지 않게 짧게)
     expect(mockStt.start).toHaveBeenCalledWith(expect.objectContaining({ lang: 'ko-KR', continuous: true }));
     await fireResult('내일 오후 세 시 치과');
     expect(result.current.liveText).toBe('내일 오후 세 시 치과');

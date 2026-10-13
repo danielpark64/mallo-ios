@@ -19,6 +19,9 @@ type MalloAlarmNative = {
   openExactAlarmSettings(): void;
   canDrawOverlays(): boolean;
   requestOverlayPermission(): void;
+  setLabels?(stop: string, snooze: string, ringing: string, app: string): void;
+  setVoice?(recordId: string, path: string): void;
+  clearVoices?(): void;
   listScheduled(): Array<{ key: string; recordId: string; at: number }>;
 };
 
@@ -120,4 +123,27 @@ export function requestOverlayPermission(): void {
   const native = getNative();
   if (!native) return;
   try { native.requestOverlayPermission(); } catch {}
+}
+
+/**
+ * 네이티브 울림 화면·알림 버튼 글자를 앱 언어에 맞춘다. 네이티브는 앱 언어 설정을 모르므로(잠금해제 전·앱 미기동
+ * 상태에서도 울린다) 언어가 정해지거나 바뀔 때마다 넘겨 저장해 둔다. iOS·구버전 네이티브는 no-op.
+ */
+export function setNativeAlarmLabels(labels: { stop: string; snooze: string; ringing: string; app: string }): void {
+  const native = getNative();
+  if (!native?.setLabels) return;
+  try { native.setLabels(labels.stop, labels.snooze, labels.ringing, labels.app); } catch {}
+}
+
+/** "내 목소리" 알람: 이 일정이 울릴 때 쓸 녹음 파일(null이면 기본 알람음). lib/voiceAlarm.ts 밖에서 직접 쓰지 말 것. */
+export function setNativeAlarmVoice(recordId: string, uri: string | null): void {
+  const native = getNative();
+  if (!native?.setVoice) return;
+  try { native.setVoice(recordId, uri ?? ''); } catch {}
+}
+
+export function clearNativeAlarmVoices(): void {
+  const native = getNative();
+  if (!native?.clearVoices) return;
+  try { native.clearVoices(); } catch {}
 }

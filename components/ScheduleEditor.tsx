@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { Alert, Animated, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -8,6 +8,9 @@ import {
 } from 'expo-speech-recognition';
 import { Calendar } from './Calendar';
 import { ScrollPicker } from './ScrollPicker';
+import { Waveform, formatDuration } from './Waveform';
+import { useSharedPlayer } from '../lib/sharedPlayer';
+import { voiceAlarmOn, voiceAlarmSupported } from '../lib/voiceAlarm';
 import { MicIcon } from './MicIcon';
 import { formatDayHeader } from '../lib/dateUtils';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
@@ -28,6 +31,10 @@ export type EditorResult = {
   alarmMode: AlarmMode;
   remindBefore: number[];
   exactAlarm: boolean;
+  /** 알람을 이 일정의 녹음 앞부분으로 (녹음이 없으면 저장 때 무시된다) */
+  voiceAlarm?: boolean;
+  /** 새 일정 화면의 마이크로 말한 녹음 — 메인 녹음으로 저장된다 (내용을 고쳤으면 segments 없이) */
+  capture?: { uri: string; durationSec: number; transcript: string; segments?: TranscriptSegment[] };
 };
 
 /** "추가" 저장 결과 — 메인과 동등하게 자기 녹음·전사·구간재생을 갖는 독립 엔트리 */
@@ -48,7 +55,7 @@ const MINUTES     = [0,5,10,15,20,25,30,35,40,45,50,55];
 
 // ─── 편집기 (전체화면) ─────────────────────────────────────────────────────────
 export function ScheduleEditor({
-  visible, record, defaultDate, markedDays, appendMode = false, defaultRemind,
+  visible, record, defaultDate, markedDays, appendMode = false, defaultRemind, defaultVoice = false,
   onSave, onAppend, onDelete, onClose,
 }: {
   visible: boolean;
@@ -58,6 +65,8 @@ export function ScheduleEditor({
   appendMode?: boolean;
   /** 새 일정의 기본 미리 알림(설정값) */
   defaultRemind?: number[];
+  /** 새 일정의 알람 소리 기본값(설정): true = 내 목소리 */
+  defaultVoice?: boolean;
   onSave: (r: EditorResult) => void;
   onAppend: (id: string, entry: AppendResult) => void;
   onDelete: (id: string) => void;
@@ -76,6 +85,7 @@ export function ScheduleEditor({
   const [alarmMode, setAlarmMode] = useState<AlarmMode>('both');
   const [remindBefore, setRemindBefore] = useState<number[]>([]);
   const [exactAlarm, setExactAlarm] = useState(true);
+  const [voiceAlarm, setVoiceAlarm] = useState(false);
   const toggleRemind = (m: number) =>
     setRemindBefore((cur) => normalizeRemind(cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
   const [showCal, setShowCal]     = useState(false);
@@ -88,8 +98,23 @@ export function ScheduleEditor({
 
   // ── 추가 모드 녹음 — 메인과 동일하게 오디오+전사+구간타임스탬프를 실제로 캡처 ─────────
   const appendVoice = useVoiceRecorder();
+  const player = useSharedPlayer();
   const [appendRecording, setAppendRecording] = useState(false);
   const [appendCapture, setAppendCapture] = useState<AppendResult | null>(null);
+  // 녹음까지 남기는 마이크: 내용 추가 + 새 일정. (기존 일정 수정은 글만 받아 적는다 — 원래 녹음을 바꾸지 않기 위해)
+  const captureMode = appendMode || !record;
+
+  // 키보드가 올라오면 날짜·시간·알림 칸을 접어 내용 칸이 키보드 위에 온전히 보이게 한다
+  // (접지 않으면 내용 칸이 키보드 뒤로 밀려 쓰는 글이 안 보인다 — 2026-10-13 폰 사용 피드백)
+  const [kbOpen, setKbOpen] = useState(false);
+  useEffect(() => {
+    const showEv = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEv = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const a = Keyboard.addListener(showEv, () => setKbOpen(true));
+    const b = Keyboard.addListener(hideEv, () => setKbOpen(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
+  useEffect(() => { if (!visible) setKbOpen(false); }, [visible]);
 
   // 마이크 pulse 애니메이션
   useEffect(() => {
@@ -133,6 +158,7 @@ export function ScheduleEditor({
   });
 
   const startStt = () => {
+    Keyboard.dismiss();
     baseContentRef.current = content; // 현재 내용 보존
     sttRef.current = true;
     setSttOn(true);
@@ -152,26 +178,75 @@ export function ScheduleEditor({
     else startStt();
   };
 
-  // 추가 모드: 마이크를 누르면 실제 오디오 녹음 + STT를 동시에 캡처
+  // 녹음 캡처(내용 추가·새 일정): 마이크를 누르면 실제 오디오 녹음 + STT를 동시에 캡처
+  // 한 화면에서 녹음은 하나만 남는다(녹음 파일을 이어 붙일 수 없다). 다시 녹음하면 앞 녹음과 그 글을 새 것으로 바꾸고,
+  // 새 녹음에서 아무 말도 못 알아들었으면 앞 녹음과 글을 그대로 되돌린다.
+  const voiceBusyRef = useRef(false); // 시작·정지 처리 중 연타 방지
+  const prevTakeRef = useRef<{ capture: AppendResult; content: string } | null>(null);
+
+  const beginCapture = async () => {
+    if (voiceBusyRef.current) return;
+    voiceBusyRef.current = true;
+    if (appendCapture) {
+      prevTakeRef.current = { capture: appendCapture, content };
+      // 앞 녹음이 적어 준 글을 빼고 새로 받는다 (직접 친 글은 남긴다)
+      const i = content.lastIndexOf(appendCapture.transcript);
+      if (i >= 0) setContent((content.slice(0, i) + content.slice(i + appendCapture.transcript.length)).replace(/\s+/g, ' ').trim());
+      setAppendCapture(null);
+    } else {
+      prevTakeRef.current = null;
+    }
+    Keyboard.dismiss();
+    player.stop(); // 카드 재생 소리가 녹음에 섞이지 않게
+    setAppendRecording(true); // 파형·실시간 글이 바로 보이게 먼저 켠다
+    try { await appendVoice.start(); }
+    catch { setAppendRecording(false); restorePrevTake(); }
+    finally { voiceBusyRef.current = false; }
+  };
+
+  const restorePrevTake = () => {
+    const prev = prevTakeRef.current;
+    prevTakeRef.current = null;
+    if (!prev) return;
+    setAppendCapture(prev.capture);
+    setContent(prev.content);
+  };
+
   const toggleAppendVoice = async () => {
-    if (appendRecording) {
+    if (!appendRecording) {
+      if (appendCapture) {
+        Alert.alert(t('다시 녹음할까요?'), t('앞에서 한 녹음과 그 글이 새 녹음으로 바뀌어요.'), [
+          { text: t('취소'), style: 'cancel' },
+          { text: t('다시 녹음'), onPress: beginCapture },
+        ]);
+        return;
+      }
+      await beginCapture();
+      return;
+    }
+    if (voiceBusyRef.current) return;
+    voiceBusyRef.current = true;
+    try {
       const res = await appendVoice.stop();
-      setAppendRecording(false);
       if (res.transcript) {
-        const capture: AppendResult = {
+        prevTakeRef.current = null;
+        setAppendCapture({
           content: res.transcript,
           transcript: res.transcript,
           uri: res.uri ?? '', // Android 12 이하는 녹음 파일 없음 (lib/voiceCapture.ts)
           durationSec: res.durationSec,
           segments: res.segments.length ? res.segments : undefined,
-        };
-        setAppendCapture(capture);
+        });
         setContent((c) => (c ? c.trimEnd() + ' ' + res.transcript : res.transcript));
+      } else {
+        restorePrevTake();
       }
-    } else {
-      setAppendCapture(null);
-      await appendVoice.start();
-      setAppendRecording(true);
+    } catch {
+      try { await appendVoice.cancel(); } catch {}
+      restorePrevTake();
+    } finally {
+      setAppendRecording(false);
+      voiceBusyRef.current = false;
     }
   };
 
@@ -197,6 +272,7 @@ export function ScheduleEditor({
       setAlarmMode((record.alarmMode as AlarmMode) ?? 'both');
       setRemindBefore(normalizeRemind(record.remindBefore ?? []));
       setExactAlarm(record.exactAlarm !== false);
+      setVoiceAlarm(voiceAlarmOn(record)); // 일정에 따로 정한 값이 없으면 설정을 따른다
     } else {
       setContent('');
       setDate(new Date(defaultDate));
@@ -205,12 +281,13 @@ export function ScheduleEditor({
       setAlarmMode('both');
       setRemindBefore(normalizeRemind(defaultRemind ?? []));
       setExactAlarm(true);
+      setVoiceAlarm(defaultVoice);
     }
     setShowCal(false);
   }, [visible, record, appendMode]);
 
   const handleSave = () => {
-    if (appendMode && appendRecording) {
+    if (captureMode && appendRecording) {
       Alert.alert(t('녹음 중이에요'), t('마이크를 다시 눌러 녹음을 마친 뒤 저장해주세요.'));
       return;
     }
@@ -230,7 +307,15 @@ export function ScheduleEditor({
     }
     const d = new Date(date);
     d.setHours(hour, minute, 0, 0);
-    onSave({ id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode, remindBefore, exactAlarm });
+    const matches = appendCapture && content.trim() === appendCapture.transcript.trim();
+    onSave({
+      id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode, remindBefore, exactAlarm,
+      // 진동 전용이어도 선택은 남겨 둔다(울릴 때 voiceUriOf가 걸러 준다) — 소리 모드로 되돌리면 그대로 살아난다
+      voiceAlarm: voiceAlarm && hasVoiceSource,
+      capture: !record && appendCapture
+        ? { uri: appendCapture.uri, durationSec: appendCapture.durationSec, transcript: appendCapture.transcript, segments: matches ? appendCapture.segments : undefined }
+        : undefined,
+    });
   };
 
   const handleDelete = () => {
@@ -247,6 +332,10 @@ export function ScheduleEditor({
   const meridiem = t(hour < 12 ? '오전' : '오후');
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
   const timeStr = `${h12}:${minute.toString().padStart(2, '0')}`;
+
+  // 내 목소리 알람 칩: 들려줄 녹음이 있고(기존 녹음 또는 방금 한 녹음), 소리가 나는 모드일 때만 보인다
+  const hasVoiceSource = record ? !!record.uri : !!appendCapture?.uri;
+  const showVoiceChip = !appendMode && voiceAlarmSupported() && hasVoiceSource && alarmMode !== 'vibe';
 
   const navTitle = t(appendMode ? '내용 추가' : record ? '일정 수정' : '새 일정');
 
@@ -265,7 +354,7 @@ export function ScheduleEditor({
           <Text style={styles.navTitle} numberOfLines={1}>{navTitle}</Text>
           <View style={styles.navRight}>
             {record && !appendMode && (
-              <TouchableOpacity style={styles.navIconBtn} onPress={handleDelete}>
+              <TouchableOpacity style={styles.navIconBtn} onPress={handleDelete} accessibilityRole="button" accessibilityLabel={t('일정 삭제')}>
                 <Text style={styles.navDeleteIcon}>🗑</Text>
               </TouchableOpacity>
             )}
@@ -275,7 +364,7 @@ export function ScheduleEditor({
           </View>
         </View>
 
-        {appendMode ? (
+        {appendMode ? (kbOpen ? null :
           <>
             {/* 추가 모드: 기존 내용 잠금 표시 */}
             <View style={styles.appendInfoRow}>
@@ -288,7 +377,7 @@ export function ScheduleEditor({
               <Text style={styles.lockedText}>{record?.content || record?.transcript}</Text>
             </ScrollView>
           </>
-        ) : (
+        ) : kbOpen ? null : (
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <Text style={styles.label}>{t('날짜')}</Text>
@@ -365,7 +454,7 @@ export function ScheduleEditor({
           </ScrollView>
         )}
 
-        {!appendMode && (
+        {!appendMode && !kbOpen && (
           <View style={styles.section}>
             <Text style={styles.label}>{t('알림')}</Text>
             <View style={styles.remindRow}>
@@ -391,6 +480,16 @@ export function ScheduleEditor({
               >
                 <Text style={[styles.quickChipText, exactAlarm && styles.quickChipTextOn]}>{t('정각')}</Text>
               </TouchableOpacity>
+              {showVoiceChip && (
+                <TouchableOpacity
+                  style={[styles.quickChip, voiceAlarm && styles.quickChipOn]}
+                  onPress={() => setVoiceAlarm((v) => !v)}
+                  accessibilityState={{ selected: voiceAlarm }}
+                  accessibilityLabel={t('알람 소리 내 목소리')}
+                >
+                  <Text style={[styles.quickChipText, voiceAlarm && styles.quickChipTextOn]}>{t('🎙 내 목소리')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <Text style={styles.remindHint}>
               {remindBefore.length
@@ -405,36 +504,56 @@ export function ScheduleEditor({
           <View style={styles.contentLabelRow}>
             <Text style={styles.label}>{t(appendMode ? '추가할 내용' : '내용')}</Text>
             {sttOn && <Text style={styles.sttHint}>{t('🎤 듣는 중… 탭하면 중지')}</Text>}
-            {appendRecording && <Text style={styles.sttHint}>{t('🎤 녹음 중… 탭하면 완료')}</Text>}
+            {appendRecording && (
+              <Text style={styles.sttHint} accessibilityLiveRegion="polite">
+                {appendVoice.listening
+                  ? `${t('🎙 지금 말씀하세요')} · ${formatDuration(Math.floor((appendVoice.recorderState.durationMillis ?? 0) / 1000))}`
+                  : t('준비 중…')}
+              </Text>
+            )}
+            {kbOpen && !sttOn && !appendRecording && (
+              <TouchableOpacity style={styles.kbDoneBtn} onPress={() => Keyboard.dismiss()} accessibilityRole="button">
+                <Text style={styles.kbDoneText}>{t('입력 완료')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {appendMode && appendCapture?.uri && !appendRecording && (
+          {appendRecording && (
+            <Waveform compact metering={appendVoice.recorderState.metering} isRecording={appendVoice.recorderState.isRecording} />
+          )}
+          {captureMode && appendCapture?.uri && !appendRecording && (
             <Text style={styles.appendCaptureHint}>
               {t('녹음 저장됨 ({sec}초) · 내용을 고치면 구간재생은 빠지고 녹음은 그대로 남아요', { sec: appendCapture.durationSec })}
             </Text>
           )}
-          {appendMode && appendCapture && !appendCapture.uri && !appendRecording && (
+          {captureMode && appendCapture && !appendCapture.uri && !appendRecording && (
             <Text style={styles.appendCaptureHint}>{t(NO_FILE_NOTICE)}</Text>
           )}
           <View style={styles.contentInputWrap}>
             <TextInput
               style={[styles.contentInput, { fontSize: 17 * fontScale, lineHeight: 24 * fontScale }]}
-              value={content}
+              value={appendRecording && appendVoice.liveText
+                ? (content ? content.trimEnd() + ' ' : '') + appendVoice.liveText
+                : content}
+              editable={!appendRecording}
               onChangeText={(t) => {
                 if (sttOn) baseContentRef.current = t;
                 setContent(t);
               }}
-              placeholder={t(appendMode ? '이어붙일 내용을 말하거나 입력하세요' : '할 일을 입력하세요')}
+              placeholder={t(appendRecording ? '말씀하시면 여기에 바로 적혀요' : appendMode ? '이어붙일 내용을 말하거나 입력하세요' : '할 일을 입력하세요')}
               placeholderTextColor={C.textDim}
               multiline
               textAlignVertical="top"
             />
             <TouchableOpacity
               style={styles.micBtn}
-              onPress={appendMode ? toggleAppendVoice : toggleStt}
+              testID="editor-mic"
+              accessibilityRole="button"
+              accessibilityLabel={t((captureMode ? appendRecording : sttOn) ? '완료' : '마이크')}
+              onPress={captureMode ? toggleAppendVoice : toggleStt}
               activeOpacity={0.7}
             >
               <Animated.View style={{ transform: [{ scale: micAnim }] }}>
-                {(appendMode ? appendRecording : sttOn)
+                {(captureMode ? appendRecording : sttOn)
                   ? <View style={styles.recDot} />
                   : <MicIcon size={22} color={C.text} />}
               </Animated.View>
@@ -516,7 +635,9 @@ const makeStyles = (C: Palette) => StyleSheet.create({
 
   contentArea: { flex: 1, paddingHorizontal: 20, paddingBottom: 20 },
   contentLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sttHint: { color: C.red, fontSize: 12, marginTop: 14 },
+  sttHint: { color: C.red, fontSize: 13, fontWeight: '700', marginTop: 14 },
+  kbDoneBtn: { marginTop: 8, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: C.accent },
+  kbDoneText: { color: C.onAccent, fontSize: 13, fontWeight: '700' },
   appendCaptureHint: { color: C.accent, fontSize: 12, marginBottom: 8, lineHeight: 16 },
   contentInputWrap: { flex: 1, position: 'relative' },
   contentInput: {

@@ -136,7 +136,7 @@ object AlarmStore {
         key = o.getString("key"),
         recordId = o.optString("rid", ""),
         triggerAtMs = o.getLong("at"),
-        title = o.optString("title", "말로"),
+        title = o.optString("title", "세이람"),
         body = o.optString("body", ""),
         soundOn = o.optBoolean("snd", true),
         vibOn = o.optBoolean("vib", true),
