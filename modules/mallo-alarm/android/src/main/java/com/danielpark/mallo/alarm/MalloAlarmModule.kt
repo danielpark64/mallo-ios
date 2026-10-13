@@ -85,6 +85,7 @@ class MalloAlarmModule : Module() {
             AlarmLabels.save(context, stop, snooze, ringing, app)
         }
 
+        // [VOICE_ALARM] 보류된 기능 (setVoice/clearVoices)
         /** "내 목소리" 알람: 이 일정이 울릴 때 쓸 녹음 파일. path가 비면 기본 알람음으로 되돌린다. */
         Function("setVoice") { recordId: String, path: String ->
             AlarmVoice.set(context, recordId, path)

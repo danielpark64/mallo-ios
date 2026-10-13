@@ -265,6 +265,7 @@ class AlarmService : Service() {
         prepare()
     }
 
+    // [VOICE_ALARM] 보류된 기능 — AlarmVoice가 비어 있는 동안에는 호출되지 않는다(항상 기본 알람음).
     /**
      * "내 목소리" 알람. 기본 알람음을 잠깐 울려 주의를 끈 뒤 녹음 앞부분을 두 번 들려주고, 이를 되풀이한다.
      * 파일이 없거나 못 읽으면(삭제됨·잠금해제 전 등) false → 호출자가 기본 알람음으로 울린다.
@@ -354,6 +355,7 @@ class AlarmService : Service() {
 
     private fun startRinging(soundOn: Boolean, vibOn: Boolean, recordId: String) {
         if (soundOn) {
+            // [VOICE_ALARM] 상용에서는 항상 null → 아래 기본 알람음 분기
             val voicePath = AlarmVoice.get(this, recordId)
             val voiceStarted = voicePath != null && startVoiceCycle(voicePath)
             if (!voiceStarted) {

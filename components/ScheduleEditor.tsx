@@ -333,6 +333,7 @@ export function ScheduleEditor({
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
   const timeStr = `${h12}:${minute.toString().padStart(2, '0')}`;
 
+  // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
   // 내 목소리 알람 칩: 들려줄 녹음이 있고(기존 녹음 또는 방금 한 녹음), 소리가 나는 모드일 때만 보인다
   const hasVoiceSource = record ? !!record.uri : !!appendCapture?.uri;
   const showVoiceChip = !appendMode && voiceAlarmSupported() && hasVoiceSource && alarmMode !== 'vibe';
@@ -370,7 +371,7 @@ export function ScheduleEditor({
             <View style={styles.appendInfoRow}>
               <Text style={styles.appendInfoText}>
                 {record ? formatDayHeader(new Date(record.scheduleAt ?? Date.now())) : ''}
-                {record?.hasTime && record.scheduleAt ? ` · ${timeStr}` : ''}
+                {record?.hasTime && record.scheduleAt ? ` · ${meridiem} ${timeStr}` : ''}
               </Text>
             </View>
             <ScrollView style={styles.lockedBox} contentContainerStyle={{ padding: 14 }}>
@@ -378,7 +379,7 @@ export function ScheduleEditor({
             </ScrollView>
           </>
         ) : kbOpen ? null : (
-          <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <Text style={styles.label}>{t('날짜')}</Text>
               {/* 빠른 선택 — 날짜 없이 녹음한 일정을 고칠 때 한 번에 끝나도록 */}
@@ -480,6 +481,7 @@ export function ScheduleEditor({
               >
                 <Text style={[styles.quickChipText, exactAlarm && styles.quickChipTextOn]}>{t('정각')}</Text>
               </TouchableOpacity>
+              {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
               {showVoiceChip && (
                 <TouchableOpacity
                   style={[styles.quickChip, voiceAlarm && styles.quickChipOn]}
@@ -633,7 +635,8 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   },
   lockedText: { color: C.textSub, fontSize: 15, lineHeight: 22 },
 
-  contentArea: { flex: 1, paddingHorizontal: 20, paddingBottom: 20 },
+  // 글자를 아주 크게 써도 내용 칸이 한 줄로 찌그러지지 않게 최소 높이를 지키고, 위쪽 칸들이 대신 스크롤된다
+  contentArea: { flex: 1, minHeight: 170, paddingHorizontal: 20, paddingBottom: 20 },
   contentLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sttHint: { color: C.red, fontSize: 13, fontWeight: '700', marginTop: 14 },
   kbDoneBtn: { marginTop: 8, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: C.accent },

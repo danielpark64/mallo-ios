@@ -135,6 +135,7 @@ export function setNativeAlarmLabels(labels: { stop: string; snooze: string; rin
   try { native.setLabels(labels.stop, labels.snooze, labels.ringing, labels.app); } catch {}
 }
 
+// [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
 /** "내 목소리" 알람: 이 일정이 울릴 때 쓸 녹음 파일(null이면 기본 알람음). lib/voiceAlarm.ts 밖에서 직접 쓰지 말 것. */
 export function setNativeAlarmVoice(recordId: string, uri: string | null): void {
   const native = getNative();

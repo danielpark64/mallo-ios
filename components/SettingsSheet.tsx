@@ -143,6 +143,7 @@ export function SettingsSheet({
                 })}
               </View>
               <Text style={s.rowSub}>{t('하루 전은 전날 저녁 8시에 울려요')}</Text>
+              {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
               {onDefaultVoice && voiceAlarmSupported() && (
                 <>
                   <View style={s.divider} />

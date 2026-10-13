@@ -141,6 +141,7 @@ export async function scheduleAlarm(
 ): Promise<string[]> {
   const ids: string[] = [];
   const useNative = isNativeAlarmAvailable();
+  // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
   // 내 목소리 알람: Android는 네이티브에 파일을 알려 두고, iOS는 변환한 소리 파일 이름을 받는다
   const voiceSound = await prepareVoiceAlarm(recordId, mode === 'vibe' ? null : opts.voiceUri);
   const sound = mode === 'vibe' ? undefined : (voiceSound ?? SOUND);
@@ -276,6 +277,7 @@ export async function resyncAlarms(
     const future = records
       .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt > now)
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
+    // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
     // 내 목소리 알람: 네이티브 예약을 비운 직후에 정리한다(그 전에 지우면 그 사이 울리는 알람이 기본음이 된다).
     // 앞으로 울릴 일정 것만 남긴다 — 지난 일정의 iOS 소리 파일(건당 1~2MB)이 쌓이지 않게.
     resetVoiceAlarms(future.filter((r) => voiceUriOf(r)).map((r) => r.id));

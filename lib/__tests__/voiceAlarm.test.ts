@@ -16,10 +16,27 @@ const mockAlarm = core.__alarm as Record<string, jest.Mock>;
 const mockVoice = core.__voice as Record<string, jest.Mock>;
 
 import { Platform } from 'react-native';
-import { prepareVoiceAlarm, removeVoiceAlarm, resetVoiceAlarms, setVoiceAlarmDefault, voiceAlarmOn, voiceAlarmToStore, voiceUriOf } from '../voiceAlarm';
+import { prepareVoiceAlarm, removeVoiceAlarm, resetVoiceAlarms, setVoiceAlarmDefault, VOICE_ALARM, voiceAlarmOn, voiceAlarmSupported, voiceAlarmToStore, voiceUriOf } from '../voiceAlarm';
 
 const setOS = (os: 'ios' | 'android') => { (Platform as { OS: string }).OS = os; };
-beforeEach(() => { jest.clearAllMocks(); setVoiceAlarmDefault(false); });
+// [VOICE_ALARM] 상용에서는 꺼져 있다. 아래 테스트는 기능을 켠 상태의 동작을 지키기 위한 것.
+beforeEach(() => { jest.clearAllMocks(); setVoiceAlarmDefault(false); VOICE_ALARM.enabled = true; });
+afterAll(() => { VOICE_ALARM.enabled = false; });
+
+describe('기능이 꺼져 있을 때(상용 기본값)', () => {
+  beforeEach(() => { VOICE_ALARM.enabled = false; });
+  test('칩·설정이 보이지 않고, 켜 둔 일정도 기본 알람음으로 울린다', async () => {
+    setVoiceAlarmDefault(true);
+    expect(voiceAlarmSupported()).toBe(false);
+    expect(voiceUriOf({ uri: 'file:///a.m4a', voiceAlarm: true, alarmMode: 'both' })).toBeNull();
+    setOS('android');
+    expect(await prepareVoiceAlarm('r1', 'file:///a.m4a')).toBeNull();
+    expect(mockAlarm.setVoice).toHaveBeenCalledWith('r1', ''); // 예전에 걸어 둔 목소리도 지운다
+    setOS('ios');
+    expect(await prepareVoiceAlarm('r1', 'file:///a.m4a')).toBeNull();
+    expect(mockVoice.makeSound).not.toHaveBeenCalled();
+  });
+});
 
 describe('voiceUriOf', () => {
   test('켜져 있고 녹음이 있고 소리 나는 모드일 때만 녹음 경로를 돌려준다', () => {

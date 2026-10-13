@@ -128,8 +128,8 @@ export function BackupSheet({
               <View style={s.hintBox}>
                 <Text style={s.hintTitle}>{t('다른 폰으로 옮기려면')}</Text>
                 <Text style={s.hintText}>
-                  {t('1. 파일 앱 › 나의 iPhone › 말로 › mallo-backups 폴더에서 백업 폴더를 iCloud Drive나 컴퓨터로 복사해 두세요.')}{'\n'}
-                  {t('2. 새 폰에서 같은 자리(나의 iPhone › 말로 › mallo-backups)에 그 폴더를 넣고, 이 화면의 목록에서 복원을 누르세요.')}
+                  {t('1. 파일 앱 › 나의 iPhone › 세이람 › mallo-backups 폴더에서 백업 폴더를 iCloud Drive나 컴퓨터로 복사해 두세요.')}{'\n'}
+                  {t('2. 새 폰에서 같은 자리(나의 iPhone › 세이람 › mallo-backups)에 그 폴더를 넣고, 이 화면의 목록에서 복원을 누르세요.')}
                 </Text>
               </View>
             ) : (

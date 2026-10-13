@@ -7,6 +7,7 @@ export type CalendarMode = 'month' | 'week';
 export type ThemeSetting = 'system' | 'light' | 'dark';
 export type FontScaleName = 'small' | 'medium' | 'large' | 'xlarge';
 export type LanguageSetting = 'system' | 'ko' | 'en' | 'ja' | 'zh-Hans' | 'zh-Hant' | 'es' | 'fr' | 'de' | 'pt';
+// [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
 export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[]; language: LanguageSetting; /** 새 일정의 알람을 내 목소리로 (기본 꺼짐) */ voiceAlarm: boolean };
 
 const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND], language: 'system', voiceAlarm: false };

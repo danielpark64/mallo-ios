@@ -71,6 +71,7 @@ import { ExportPreview, type ExportKind } from './components/ExportPreview';
 import { FilterSheet } from './components/FilterSheet';
 import { SettingsSheet } from './components/SettingsSheet';
 import { MicIcon } from './components/MicIcon';
+import { PromoBanner } from './components/PromoBanner';
 import { Waveform, formatDuration } from './components/Waveform';
 import { ScheduleCard } from './components/ScheduleCard';
 import { PreAlarmRow } from './components/PreAlarmRow';
@@ -226,7 +227,7 @@ function AllSchedulesList({
             {!isFilterActive(filter) && collapsed.pastCount > 0 && (
               <View style={styles.pastToggleRow}>
                 {collapsed.hiddenCount > 0 && (
-                  <TouchableOpacity style={[styles.pastToggle, { flex: 1 }]} onPress={() => setPastShown((n) => n + PAST_PAGE)} activeOpacity={0.7} accessibilityLabel="지난 일정 보기">
+                  <TouchableOpacity style={[styles.pastToggle, { flex: 1 }]} onPress={() => setPastShown((n) => n + PAST_PAGE)} activeOpacity={0.7} accessibilityLabel={t('지난 일정 보기')}>
                     <Text style={styles.pastToggleText}>
                       {pastShown === 0
                         ? t('지난 일정 {n}건 보기 ▾', { n: collapsed.pastCount })
@@ -235,7 +236,7 @@ function AllSchedulesList({
                   </TouchableOpacity>
                 )}
                 {pastShown > 0 && (
-                  <TouchableOpacity style={[styles.pastToggle, { flex: 1 }]} onPress={() => setPastShown(0)} activeOpacity={0.7} accessibilityLabel="지난 일정 접기">
+                  <TouchableOpacity style={[styles.pastToggle, { flex: 1 }]} onPress={() => setPastShown(0)} activeOpacity={0.7} accessibilityLabel={t('지난 일정 접기')}>
                     <Text style={styles.pastToggleText}>{t('지난 일정 접기 ▴')}</Text>
                   </TouchableOpacity>
                 )}
@@ -268,6 +269,7 @@ function AllSchedulesList({
         }}
         renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} onLongPress={onLongPress} />}
         SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
+        ListFooterComponent={<PromoBanner />}
       />
 
       <FilterSheet
@@ -468,6 +470,7 @@ function AppInner() {
     setDefaultRemind(next);
     savePrefs({ defaultRemind: next });
   };
+  // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
   // 새 일정의 알람 소리 기본값(설정): 꺼짐 = 기본 알람음, 켜짐 = 내 목소리
   const [defaultVoice, setDefaultVoice] = useState<boolean>(() => { const on = loadPrefs().voiceAlarm; setVoiceAlarmDefault(on); return on; });
   const handleDefaultVoice = (on: boolean) => {
@@ -911,6 +914,7 @@ function AppInner() {
           sections={periodListSections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.dayListContent}
+          ListFooterComponent={<PromoBanner />}
           stickySectionHeadersEnabled={false}
           showsVerticalScrollIndicator={false}
           onScrollToIndexFailed={(info) => {
@@ -941,7 +945,7 @@ function AppInner() {
                 <Text style={styles.dayCount}>{periodCount > 0 ? t('{n}건', { n: periodCount }) : ''}</Text>
               </View>
               {periodCollapsed.pastCount > 0 && (
-                <TouchableOpacity style={styles.pastToggle} onPress={() => setShowPastPeriod((v) => !v)} activeOpacity={0.7} accessibilityLabel="지난 일정 보기">
+                <TouchableOpacity style={styles.pastToggle} onPress={() => setShowPastPeriod((v) => !v)} activeOpacity={0.7} accessibilityLabel={t(showPastPeriod ? '지난 일정 접기' : '지난 일정 보기')}>
                   <Text style={styles.pastToggleText}>
                     {showPastPeriod ? t('지난 일정 접기 ▴') : t('지난 일정 {n}건 보기 ▾', { n: periodCollapsed.pastCount })}
                   </Text>

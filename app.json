@@ -34,7 +34,7 @@
       }
     },
     "android": {
-      "package": "com.danielpark.mallo",
+      "package": "com.danielpark.sayram",
       "adaptiveIcon": {
         "backgroundColor": "#141430",
         "foregroundImage": "./assets/android-icon-foreground.png",

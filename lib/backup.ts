@@ -1,6 +1,6 @@
 // ─── 전체 백업 / 복원 (폰 옮기기용) ───────────────────────────────────────────────
 // 일정 목록(records.json)과 모든 녹음 파일(m4a)을 한 폴더로 모아 둔다.
-// iOS: Documents/mallo-backups/<백업명>/ — 파일 앱(나의 iPhone › 말로)에 그대로 보이므로
+// iOS: Documents/mallo-backups/<백업명>/ — 파일 앱(나의 iPhone › 세이람)에 그대로 보이므로
 //      iCloud Drive로 복사해 두고, 새 폰에서 같은 자리에 넣은 뒤 "복원"하면 된다.
 // Android: 같은 폴더 구조를 사용자가 고른 폴더(드라이브·다운로드)로 내보내고/가져온다(SAF).
 import { Directory, File, Paths } from 'expo-file-system';

@@ -112,4 +112,17 @@ export const EN_MAIN: Record<string, string> = {
 
   // ── 마이크 아이콘 ──
   '마이크': 'Microphone',
+  '지난 일정 보기': 'Show past',
+  '지난 일정 접기': 'Hide past',
+  '수수뮤직과 기분좋은 하루': 'A good day with SusuMusic',
+  '채널 바로가기': 'Visit the channel',
+  '교대근무라면 교대알람': 'On shifts? Try Shift Alarm',
+  '근무표대로 울리는 알람 앱 보러 가기': 'See the alarm app that follows your roster',
+  '개발자 응원하기': 'Support the developer',
+  '작은 후원으로 응원해주세요': 'Cheer us on with a small tip',
+  '세이람이 마음에 드셨다면\n아래 계좌로 작은 후원을 보내주세요\n큰 힘이 됩니다 🙏': 'If you like SayRam,\na small tip to the account below\nmeans a lot 🙏',
+  '예금주 {name}': 'Account holder {name}',
+  '✓ 복사됐어요': '✓ Copied',
+  '계좌번호 복사': 'Copy account number',
+  '자발적인 후원이며, 앱 이용에는 아무 영향이 없어요': 'Tips are voluntary and do not change how the app works',
 };

@@ -2,6 +2,7 @@ package com.danielpark.mallo.alarm
 
 import android.content.Context
 
+// [VOICE_ALARM] 보류된 기능 — 상용에서는 JS(lib/voiceAlarm.ts VOICE_ALARM.enabled=false)가 경로를 넣지 않아 항상 비어 있다.
 /**
  * "내 목소리" 알람: 일정(recordId)마다 알람 소리로 쓸 녹음 파일 경로를 적어 둔다.
  *

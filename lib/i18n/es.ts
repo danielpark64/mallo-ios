@@ -226,9 +226,9 @@ export const ES: Record<string, string> = {
     'Reúne los {n} eventos y sus grabaciones en una sola carpeta. Si cambia de teléfono o reinstala la app, con esa carpeta basta para recuperarlo todo.',
   '지금 백업 만들기': 'Hacer copia ahora',
   '다른 폰으로 옮기려면': 'Para pasar a otro teléfono',
-  '1. 파일 앱 › 나의 iPhone › 말로 › mallo-backups 폴더에서 백업 폴더를 iCloud Drive나 컴퓨터로 복사해 두세요.':
+  '1. 파일 앱 › 나의 iPhone › 세이람 › mallo-backups 폴더에서 백업 폴더를 iCloud Drive나 컴퓨터로 복사해 두세요.':
     '1. En la app Archivos › En mi iPhone › SayRam › mallo-backups, copie la carpeta de la copia a iCloud Drive o a un ordenador.',
-  '2. 새 폰에서 같은 자리(나의 iPhone › 말로 › mallo-backups)에 그 폴더를 넣고, 이 화면의 목록에서 복원을 누르세요.':
+  '2. 새 폰에서 같은 자리(나의 iPhone › 세이람 › mallo-backups)에 그 폴더를 넣고, 이 화면의 목록에서 복원을 누르세요.':
     '2. En el teléfono nuevo, ponga esa carpeta en el mismo lugar (En mi iPhone › SayRam › mallo-backups) y toque Restaurar en la lista de esta pantalla.',
   '드라이브·다운로드 같은 폴더로 내보내 두고, 새 폰에서 그 폴더를 골라 가져오세요.':
     'Exporte a una carpeta como Drive o Descargas y, en el teléfono nuevo, elija esa carpeta para importar.',
@@ -340,7 +340,7 @@ export const ES: Record<string, string> = {
   '9. 백업과 폰 옮기기': '9. Copia de seguridad y cambio de teléfono',
   '설정 › 백업 · 폰 옮기기 › "지금 백업 만들기"를 누르면 일정 전부와 녹음 파일이 한 폴더에 모입니다.':
     'Ajustes › Copia de seguridad · Cambiar de teléfono › "Hacer copia ahora" reúne todos los eventos y grabaciones en una sola carpeta.',
-  'iPhone: 파일 앱 › 나의 iPhone › 말로 › mallo-backups 폴더에 백업이 보입니다. 이 폴더를 iCloud Drive나 컴퓨터에 복사해 두고, 새 폰에서 같은 자리에 넣은 뒤 목록에서 "복원"을 누르세요.':
+  'iPhone: 파일 앱 › 나의 iPhone › 세이람 › mallo-backups 폴더에 백업이 보입니다. 이 폴더를 iCloud Drive나 컴퓨터에 복사해 두고, 새 폰에서 같은 자리에 넣은 뒤 목록에서 "복원"을 누르세요.':
     'iPhone: las copias aparecen en la app Archivos › En mi iPhone › SayRam › mallo-backups. Copie esa carpeta a iCloud Drive o a un ordenador, póngala en el mismo lugar en el teléfono nuevo y toque "Restaurar" en la lista.',
   'Android: "폴더로 내보내기"로 드라이브·다운로드 폴더에 저장하고, 새 폰에서 "폴더에서 가져오기"로 그 폴더를 고르면 됩니다.':
     'Android: use "Exportar a carpeta" para guardar en Drive o Descargas, y en el teléfono nuevo "Importar desde carpeta" y elija esa carpeta.',
@@ -355,8 +355,6 @@ export const ES: Record<string, string> = {
     'En grabaciones largas (reuniones, clases), el reconocimiento puede detenerse en una pausa entre frases y perder lo que sigue. La grabación en sí no se corta, así que compruébelo reproduciéndola.',
   '녹음이 저장되지 않아요(Android 12 이하): 그 버전의 Android는 녹음과 음성 인식이 마이크를 같이 못 씁니다. 말한 내용은 글로 인식되어 일정·알람은 그대로 되지만 녹음 파일은 남지 않고, 녹음 화면에 그 안내가 보입니다. Android 13 이상 폰에서는 둘 다 됩니다.':
     'No se guardan las grabaciones (Android 12 o anterior): en esas versiones, la grabación y el reconocimiento de voz no pueden compartir el micrófono. Sus palabras se reconocen igual y los eventos y alarmas funcionan, pero no se conserva el audio; la pantalla de grabación muestra un aviso al respecto. Android 13 y posteriores admiten ambos.',
-  '앱이 7일 뒤에 안 열려요: 개발용으로 설치한 앱은 7일마다 다시 설치해야 합니다(스토어 배포 전까지).':
-    'La app deja de abrirse tras 7 días: una app instalada para desarrollo debe reinstalarse cada 7 días (hasta que se publique en la tienda).',
   '내 목소리': 'Mi voz',
   '기본 알람음': 'Alarma predeterminada',
   '알람 소리': 'Sonido de alarma',
@@ -364,4 +362,53 @@ export const ES: Record<string, string> = {
   '내 목소리를 고르면 알람이 울릴 때 그 일정을 말한 녹음 앞부분을 들려줘요. 일정마다 바꿀 수 있어요': 'Con Mi voz, la alarma reproduce el inicio de lo que grabaste para ese evento. Puedes cambiarlo en cada evento.',
   '🎙 내 목소리': '🎙 Mi voz',
   '🔔 기본 알람음': '🔔 Alarma predeterminada',
+  '지난 일정 {n}건 보기 ▾': 'Ver {n} eventos pasados ▾',
+  '지난 일정 접기 ▴': 'Ocultar eventos pasados ▴',
+  '더 이전 일정 보기 ({n}건 남음) ▾': 'Ver eventos anteriores (quedan {n}) ▾',
+  '앞으로 올 일정이 없어요': 'No hay próximos eventos',
+  '워치: 폰에 알람이 오면 연결된 워치에도 함께 표시됩니다. 워치에서 "알람 끄기"를 누르거나 알림을 닫으면 폰의 알람도 꺼지고 남은 재알림이 취소됩니다.':
+    'Reloj: cuando llega una alarma al teléfono, también se muestra en el reloj conectado. Si toca "Detener alarma" en el reloj o cierra la notificación, la alarma del teléfono también se detiene y se cancelan los toques restantes.',
+  '접는 폰(플립)과 다른 앱 사용 중: 설정 › 알람 › "알람 화면 항상 띄우기"를 켜 두면, 폰을 접은 상태의 커버 화면이나 다른 앱을 쓰는 중에도 알람 끄기 화면이 뜹니다(Android).':
+    'Teléfonos plegables (flip) y uso de otras apps: active Ajustes › Alarma › "Mostrar siempre la pantalla de alarma" para que la pantalla de detener la alarma aparezca también en la pantalla exterior del teléfono plegado o mientras usa otra app (Android).',
+  '지난 일정은 "지난 일정 N건 보기"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 전체 일정 화면에서 검색·기간 조건을 쓰면 접지 않습니다.':
+    'Los eventos pasados quedan plegados en "Ver N eventos pasados", de modo que los eventos a partir de ahora aparecen arriba. Toque para desplegarlos; si usa la búsqueda o un filtro de periodo en Todos los eventos, no se pliegan.',
+  '마이크를 누르면 잠깐 "준비 중…"이 보였다가 "🎙 지금 말씀하세요"로 바뀝니다. 그때부터 말하면 첫마디가 잘리지 않습니다.':
+    'Al tocar el micrófono se ve un momento "Preparando…" y luego cambia a "🎙 Habla ahora". Si empieza a hablar entonces, no se cortan las primeras palabras.',
+  '＋ 화면에서도 내용 칸의 마이크로 말하면 녹음이 함께 저장됩니다. 글자를 칠 때는 키보드 위에 내용 칸만 크게 보이고, "입력 완료"를 누르면 날짜·시간 칸이 다시 나옵니다.':
+    'También en la pantalla ＋, si habla con el micrófono del campo de contenido, la grabación se guarda. Al escribir, sobre el teclado solo se ve en grande el campo de contenido; toque "Listo" para que vuelvan los campos de fecha y hora.',
+  '"＋ 추가"에서 마이크를 누르면 소리 막대와 말하는 글이 바로 보입니다. 같은 화면에서 다시 녹음하면 앞 녹음을 새 녹음으로 바꿀지 먼저 물어봅니다.':
+    'En "＋ Añadir", al tocar el micrófono se ven enseguida las barras de sonido y el texto de lo que dice. Si vuelve a grabar en la misma pantalla, primero se le pregunta si quiere sustituir la grabación anterior por la nueva.',
+  '이미 있는 일정을 "수정"할 때의 마이크는 글만 받아 적습니다. 원래 녹음은 바뀌지 않습니다.':
+    'Al "Editar" un evento existente, el micrófono solo escribe lo que dice. La grabación original no cambia.',
+  '지우기: 상세 화면 오른쪽 위 휴지통을 누르거나, 목록에서 카드를 길게 눌러 "삭제"를 고릅니다. 지우기 전에 한 번 더 확인합니다.':
+    'Eliminar: toque la papelera arriba a la derecha de la pantalla de detalles, o mantenga pulsada una tarjeta en la lista y elija "Eliminar". Antes de eliminar se pide confirmación una vez más.',
+  '내 목소리 알람: 설정 › 알람 › 알람 소리에서 "내 목소리"를 고르면, 알람이 울릴 때 알람음이 잠깐 난 뒤 그 일정을 말한 녹음 앞부분(약 10초)을 들려줍니다. 일정마다 상세·수정 화면의 "🎙 내 목소리" 칩으로 따로 켜고 끌 수 있습니다. 녹음이 없는 일정과 진동 전용 일정은 기본 알람음·진동으로 울립니다.':
+    'Alarma con Mi voz: elija "Mi voz" en Ajustes › Alarma › Sonido de alarma y, cuando suene la alarma, tras un breve tono se reproduce el inicio de la grabación de ese evento (unos 10 segundos). Puede activarlo o desactivarlo para cada evento con el chip "🎙 Mi voz" de las pantallas de detalles y de edición. Los eventos sin grabación y los de solo vibración suenan con la alarma predeterminada o con vibración.',
+  '카드의 아이콘: 🔔는 기본 알람음, 🎙는 내 목소리, 폰 그림은 진동입니다. 미리 알림은 그 옆에 "⏰ 30분 전"처럼 보입니다.':
+    'Iconos de la tarjeta: 🔔 es la alarma predeterminada, 🎙 es Mi voz y el dibujo del teléfono es vibración. Los recordatorios aparecen al lado, como "⏰ 30 min antes".',
+  '내 목소리 알람인데 기본 알람음이 울려요: 그 일정에 녹음이 없거나(직접 입력, Android 12 이하), 진동 전용이거나, 폰을 켠 뒤 아직 한 번도 잠금을 풀지 않은 경우입니다. iPhone은 무음 스위치나 집중 모드가 켜져 있으면 알람 소리가 나지 않습니다.':
+    'La alarma con Mi voz suena con la alarma predeterminada: el evento no tiene grabación (se escribió a mano, o Android 12 o anterior), es de solo vibración o el teléfono aún no se ha desbloqueado desde que se encendió. En iPhone, la alarma no suena si el interruptor de silencio o un modo de concentración están activados.',
+  '카드의 아이콘: 🔔는 소리, 폰 그림은 진동입니다. 미리 알림은 그 옆에 "⏰ 30분 전"처럼 보입니다.':
+    'Iconos de la tarjeta: 🔔 es sonido y el dibujo del teléfono es vibración. Los recordatorios aparecen al lado, como "⏰ 30 min antes".',
+  '알람 화면 항상 띄우기': 'Mostrar siempre la pantalla de alarma',
+  '다른 앱을 쓰는 중에도, 접은 폴더블의 커버 화면에도 알람 끄기 화면이 떠요':
+    'La pantalla de detener la alarma aparece también mientras usa otra app y en la pantalla exterior de un plegable cerrado',
+  '눌러서 "다른 앱 위에 표시"를 켜면 다른 앱을 쓰는 중이나 접은 폴더블의 커버 화면에도 알람 끄기 화면이 떠요':
+    'Toque y active "Mostrar sobre otras aplicaciones" para que la pantalla de detener la alarma aparezca mientras usa otra app o en la pantalla exterior de un plegable cerrado',
+  '켜짐': 'Activado',
+  '꺼짐 ›': 'Desactivado ›',
+  '알람이 울리는 중': 'Alarma sonando',
+  '지난 일정 보기': 'Ver eventos pasados',
+  '지난 일정 접기': 'Ocultar eventos pasados',
+  '수수뮤직과 기분좋은 하루': 'Un buen día con SusuMusic',
+  '채널 바로가기': 'Ir al canal',
+  '교대근무라면 교대알람': '¿Trabajas por turnos? Shift Alarm',
+  '근무표대로 울리는 알람 앱 보러 가기': 'Ver la app de alarmas que sigue tu cuadrante',
+  '개발자 응원하기': 'Apoyar al desarrollador',
+  '작은 후원으로 응원해주세요': 'Anímanos con una pequeña aportación',
+  '세이람이 마음에 드셨다면\n아래 계좌로 작은 후원을 보내주세요\n큰 힘이 됩니다 🙏': 'Si te gusta SayRam,\nuna pequeña aportación a la cuenta de abajo\nnos ayuda mucho 🙏',
+  '예금주 {name}': 'Titular {name}',
+  '✓ 복사됐어요': '✓ Copiado',
+  '계좌번호 복사': 'Copiar número de cuenta',
+  '자발적인 후원이며, 앱 이용에는 아무 영향이 없어요': 'La aportación es voluntaria y no cambia el funcionamiento de la app',
 };

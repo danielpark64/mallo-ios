@@ -538,6 +538,7 @@ export function ScheduleDetail({
             const r = normalizeRemind(record.remindBefore ?? []);
             const exact = record.exactAlarm !== false;
             const past = record.scheduleAt != null && record.scheduleAt <= Date.now();
+            // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
             const voice = voiceAlarmOn(record);
             const showVoice = voiceAlarmSupported() && !!record.uri && record.alarmMode !== 'vibe';
             const change = (next: number[], ex: boolean, v: boolean = voice) => onAlarmChange?.(record, normalizeRemind(next), ex, v);
@@ -574,6 +575,7 @@ export function ScheduleDetail({
                     >
                       <Text style={[s.remindChipText, exact && s.remindChipTextOn]}>{t('정각')}</Text>
                     </TouchableOpacity>
+                    {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
                     {showVoice && (
                       <TouchableOpacity
                         style={[s.remindChip, voice && s.remindChipOn]}

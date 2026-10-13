@@ -1,4 +1,12 @@
 // ─── "내 목소리" 알람 ─────────────────────────────────────────────────────────
+// [VOICE_ALARM] ★ 보류된 기능 — 상용 빌드에서는 꺼져 있다 (2026-10-13 결정: 효용에 비해 복잡해 지금은 넣지 않는다).
+//   코드는 지우지 않고 남겨 두었다. 다시 켜려면:
+//     1) 아래 VOICE_ALARM.enabled 를 true 로
+//     2) modules/mallo-voice-sound/expo-module.config.json 의 "platforms" 를 ["ios"] 로 되돌리고 pod install
+//     3) lib/helpContent.ts 의 [VOICE_ALARM] 주석 문단을 되살리고 번역 확인
+//   관련 코드는 전부 "[VOICE_ALARM]" 으로 검색된다 (JS·Kotlin·Swift).
+//   꺼져 있는 동안: 설정 항목·칩·🎙 아이콘이 보이지 않고, 모든 알람은 기본 알람음으로 울리며,
+//   예약할 때마다 예전에 걸어 둔 목소리 정보는 지워진다.
 // 알람이 울릴 때 기본 알람음 대신 그 일정을 말한 녹음 앞부분을 들려준다. 기본은 꺼짐(기본 알람음).
 // 설정(알람 소리)이 모든 일정에 적용되고, 일정마다 칩으로 바꾼 것만 예외다:
 // record.voiceAlarm 이 비어 있으면 설정을 따르고, true/false 가 있으면 그 일정은 그 값으로 고정.
@@ -18,6 +26,9 @@ type VoiceSoundNative = {
   hasSound(name: string): boolean;
 };
 
+/** [VOICE_ALARM] 기능 스위치. 객체로 둔 것은 테스트에서 켜 볼 수 있게 하기 위해서다 */
+export const VOICE_ALARM = { enabled: false };
+
 /** 알람에 들려줄 녹음 길이(초). 그보다 길면 앞부분만 */
 export const VOICE_ALARM_MAX_SEC = 10;
 
@@ -30,6 +41,7 @@ const soundName = (recordId: string) => `voice_${recordId.replace(/[^A-Za-z0-9_-
 
 /** 이 기기에서 기능을 쓸 수 있는가 (칩·설정 항목을 보여줄지) */
 export function voiceAlarmSupported(): boolean {
+  if (!VOICE_ALARM.enabled) return false;
   if (Platform.OS === 'android') return isNativeAlarmAvailable();
   return iosNative() != null;
 }
@@ -52,6 +64,7 @@ export function voiceAlarmToStore(chosen: boolean): boolean | undefined {
 
 /** 이 일정이 실제로 목소리로 울릴 조건이면 녹음 경로, 아니면 null */
 export function voiceUriOf(r: VoiceCapable | null | undefined): string | null {
+  if (!VOICE_ALARM.enabled) return null;
   if (!r || !voiceAlarmOn(r) || !r.uri) return null;
   if (r.alarmMode === 'vibe') return null;
   return r.uri;
@@ -63,6 +76,7 @@ export function voiceUriOf(r: VoiceCapable | null | undefined): string | null {
  */
 export async function prepareVoiceAlarm(recordId: string, voiceUri: string | null | undefined): Promise<string | null> {
   const baseId = recordId.split('#')[0]; // 미리 알림(id#preN)도 같은 일정의 소리를 쓴다
+  if (!VOICE_ALARM.enabled) voiceUri = null; // 꺼져 있으면 항상 기본 알람음(예전에 걸어 둔 것도 지운다)
   if (Platform.OS === 'android') {
     setNativeAlarmVoice(baseId, voiceUri || null);
     return null;

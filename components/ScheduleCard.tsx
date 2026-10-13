@@ -64,13 +64,14 @@ export function ScheduleCard({
   // 알람이 걸리는 일정(시간 있음)에만 소리·진동·미리 알림 표시
   const badges = mode && item.hasTime && !item.needsDate ? (
     <View style={styles.cardBadgeRow}>
+      {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
       {/* 소리: 기본 알람음이면 종, 내 목소리 알람이면 마이크 */}
       {mode !== 'vibe' && <Text style={styles.cardBadgeIcon}>{voiceUriOf(item) ? '🎙' : '🔔'}</Text>}
       {mode !== 'sound' && (
         <Image source={require('../assets/vibrate_icon.png')} style={styles.cardBadgeVibe} />
       )}
       {remind.length > 0 && (
-        <Text style={styles.cardRemindText} numberOfLines={1}>⏰ {remind.map(remindLabel).join('·')}</Text>
+        <Text style={styles.cardRemindText} numberOfLines={2}>⏰ {remind.map(remindLabel).join('·')}</Text>
       )}
       {item.exactAlarm === false && <Text style={styles.cardRemindText}>{t('정각 없음')}</Text>}
     </View>

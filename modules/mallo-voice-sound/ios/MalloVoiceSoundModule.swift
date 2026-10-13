@@ -1,3 +1,4 @@
+// [VOICE_ALARM] 보류된 기능 — 지금은 앱에 링크되지 않는다(README.md 참고)
 import ExpoModulesCore
 import Foundation
 

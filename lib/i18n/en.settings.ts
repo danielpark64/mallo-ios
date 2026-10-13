@@ -47,9 +47,9 @@ export const EN_SETTINGS: Record<string, string> = {
     'Puts all {n} schedules and their recordings into one folder. If you switch phones or reinstall the app, that folder is all you need to bring everything back.',
   '지금 백업 만들기': 'Back up now',
   '다른 폰으로 옮기려면': 'To move to another phone',
-  '1. 파일 앱 › 나의 iPhone › 말로 › mallo-backups 폴더에서 백업 폴더를 iCloud Drive나 컴퓨터로 복사해 두세요.':
+  '1. 파일 앱 › 나의 iPhone › 세이람 › mallo-backups 폴더에서 백업 폴더를 iCloud Drive나 컴퓨터로 복사해 두세요.':
     '1. In the Files app › On My iPhone › SayRam › mallo-backups, copy the backup folder to iCloud Drive or a computer.',
-  '2. 새 폰에서 같은 자리(나의 iPhone › 말로 › mallo-backups)에 그 폴더를 넣고, 이 화면의 목록에서 복원을 누르세요.':
+  '2. 새 폰에서 같은 자리(나의 iPhone › 세이람 › mallo-backups)에 그 폴더를 넣고, 이 화면의 목록에서 복원을 누르세요.':
     '2. On the new phone, put that folder in the same place (On My iPhone › SayRam › mallo-backups) and tap Restore in the list on this screen.',
   '드라이브·다운로드 같은 폴더로 내보내 두고, 새 폰에서 그 폴더를 골라 가져오세요.':
     'Export to a folder such as Drive or Downloads, then pick that folder on the new phone to import.',
