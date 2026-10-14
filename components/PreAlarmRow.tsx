@@ -18,8 +18,9 @@ export function PreAlarmRow({ item, onPress }: { item: PreAlarmItem; onPress: (r
     <TouchableOpacity style={s.row} onPress={() => onPress(item.record)} activeOpacity={0.7} testID="pre-alarm-row">
       <Text style={s.time}>⏰ {formatTime(new Date(item.fireAt))}</Text>
       <View style={s.body}>
-        <Text style={s.label}>{t('미리 알림 · 하루 전')}</Text>
-        <Text style={s.text} numberOfLines={1}>{t('내일 {time} · {text}', { time: formatTime(target), text: text ?? '' })}</Text>
+        {/* "일정"이 아니라 "알림"이라는 것을 문장으로 알려 준다(2026-10-14: 점선 줄이 무슨 뜻인지 모르겠다는 피드백) */}
+        <Text style={s.label}>{t('이 시각에 내일 일정을 미리 알려 드려요')}</Text>
+        <Text style={s.text} numberOfLines={2}>{t('내일 {time} · {text}', { time: formatTime(target), text: text ?? '' })}</Text>
       </View>
     </TouchableOpacity>
   );

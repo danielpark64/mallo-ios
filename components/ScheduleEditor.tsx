@@ -10,6 +10,7 @@ import { Calendar } from './Calendar';
 import { ScrollPicker } from './ScrollPicker';
 import { Waveform, formatDuration } from './Waveform';
 import { useSharedPlayer } from '../lib/sharedPlayer';
+import { recordSpeechText } from '../lib/speech';
 import { voiceAlarmOn, voiceAlarmSupported } from '../lib/voiceAlarm';
 import { MicIcon } from './MicIcon';
 import { formatDayHeader } from '../lib/dateUtils';
@@ -82,6 +83,10 @@ export function ScheduleEditor({
   const [date, setDate]       = useState(new Date());
   const [hour, setHour]       = useState(9);   // 0~23
   const [minute, setMinute]   = useState(0);
+  // 편집기를 열 때 받은 분이 5분 단위가 아니면(말로 "3시 37분") 그 값만 휠 목록에 끼워 둔다(열려 있는 동안 고정)
+  const [extraMinute, setExtraMinute] = useState<number | null>(null);
+  // 사용자가 날짜·시간을 직접 바꿨는지 — 안 바꿨으면 지난 일정의 내용만 고쳐도 "지난 시각" 확인을 띄우지 않는다
+  const timeTouchedRef = useRef(false);
   const [alarmMode, setAlarmMode] = useState<AlarmMode>('both');
   const [remindBefore, setRemindBefore] = useState<number[]>([]);
   const [exactAlarm, setExactAlarm] = useState(true);
@@ -159,6 +164,7 @@ export function ScheduleEditor({
 
   const startStt = () => {
     Keyboard.dismiss();
+    player.stop(); // 듣던 녹음이 받아쓰기에 섞이지 않게
     baseContentRef.current = content; // 현재 내용 보존
     sttRef.current = true;
     setSttOn(true);
@@ -253,6 +259,7 @@ export function ScheduleEditor({
   // 에디터 닫힐 때 STT/추가녹음 정리
   useEffect(() => {
     if (!visible) {
+      player.stop();
       stopStt();
       if (appendRecording) { appendVoice.cancel(); setAppendRecording(false); }
     }
@@ -262,15 +269,28 @@ export function ScheduleEditor({
   useEffect(() => {
     if (!visible) return;
     setAppendCapture(null);
+    timeTouchedRef.current = false;
+    setExtraMinute(null);
     if (record) {
       setContent(appendMode ? '' : (record.content || record.transcript || ''));
       const d = record.scheduleAt ? new Date(record.scheduleAt) : new Date(defaultDate);
-      setDate(d);
-      // 시간 미정 일정은 저장 시각(0시)이 아니라 9시를 기본으로 (자정 알람 방지)
-      setHour(record.hasTime ? d.getHours() : 9);
-      setMinute(record.hasTime ? d.getMinutes() : 0);
+      if (record.needsDate) {
+        // 날짜를 안 정한 녹음을 "정하기"로 열 때: 녹음 시각(이미 지난 시각)을 그대로 두면 알람 없이 꼬리표만 풀린다
+        // → 오늘의 다음 정시를 기본으로 하고, 새 일정처럼 기본 미리 알림을 붙여 준다
+        const next = new Date();
+        next.setHours(next.getHours() + 1, 0, 0, 0);
+        setDate(next);
+        setHour(next.getHours());
+        setMinute(0);
+      } else {
+        setDate(d);
+        // 시간 미정 일정은 저장 시각(0시)이 아니라 9시를 기본으로 (자정 알람 방지)
+        setHour(record.hasTime ? d.getHours() : 9);
+        setMinute(record.hasTime ? d.getMinutes() : 0);
+      }
+      setExtraMinute(record.hasTime && !record.needsDate ? d.getMinutes() : null);
       setAlarmMode((record.alarmMode as AlarmMode) ?? 'both');
-      setRemindBefore(normalizeRemind(record.remindBefore ?? []));
+      setRemindBefore(normalizeRemind(record.needsDate && !(record.remindBefore ?? []).length ? (defaultRemind ?? []) : (record.remindBefore ?? [])));
       setExactAlarm(record.exactAlarm !== false);
       setVoiceAlarm(voiceAlarmOn(record)); // 일정에 따로 정한 값이 없으면 설정을 따른다
     } else {
@@ -286,6 +306,7 @@ export function ScheduleEditor({
     setShowCal(false);
   }, [visible, record, appendMode]);
 
+  const pastConfirmedRef = useRef(false);
   const handleSave = () => {
     if (captureMode && appendRecording) {
       Alert.alert(t('녹음 중이에요'), t('마이크를 다시 눌러 녹음을 마친 뒤 저장해주세요.'));
@@ -307,6 +328,15 @@ export function ScheduleEditor({
     }
     const d = new Date(date);
     d.setHours(hour, minute, 0, 0);
+    // 새 일정·날짜를 정하는 녹음이거나, 사용자가 날짜·시간을 직접 바꿨을 때만 확인한다
+    const timeMatters = !record || !!record.needsDate || timeTouchedRef.current;
+    if (timeMatters && d.getTime() <= Date.now() && !pastConfirmedRef.current) {
+      Alert.alert(t('지난 시각이에요'), t('이 시각은 이미 지나서 알람이 울리지 않아요. 그대로 저장할까요?'), [
+        { text: t('취소'), style: 'cancel' },
+        { text: t('그대로 저장'), onPress: () => { pastConfirmedRef.current = true; handleSave(); pastConfirmedRef.current = false; } },
+      ]);
+      return;
+    }
     const matches = appendCapture && content.trim() === appendCapture.transcript.trim();
     onSave({
       id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode, remindBefore, exactAlarm,
@@ -326,6 +356,12 @@ export function ScheduleEditor({
     ]);
   };
 
+  // 5분 단위 목록에 없는 분(말로 "3시 37분")이면 그 값을 끼워 넣는다 — 없으면 휠이 엉뚱한 칸에 멈춘다
+  const minuteItems = useMemo(
+    () => (extraMinute == null || MINUTES.includes(extraMinute) ? MINUTES : [...MINUTES, extraMinute].sort((a, b) => a - b)),
+    [extraMinute],
+  );
+
   const labelHour  = useCallback((v: number) => v.toString().padStart(2, '0'), []);
   const labelMin   = useCallback((v: number) => v.toString().padStart(2, '0'), []);
 
@@ -338,6 +374,9 @@ export function ScheduleEditor({
   const hasVoiceSource = record ? !!record.uri : !!appendCapture?.uri;
   const showVoiceChip = !appendMode && voiceAlarmSupported() && hasVoiceSource && alarmMode !== 'vibe';
 
+  // 기존 일정의 녹음(없으면 글 읽어 주기)을 수정 화면에서 듣기
+  const listenable = !!record && !appendMode && (!!record.uri || !!recordSpeechText(record));
+  const listening = !!record && player.playingId === record.id;
   // 말하기가 진행 중인가(녹음 캡처 또는 글만 받아 적기)
   const voiceActive = captureMode ? appendRecording : sttOn;
 
@@ -395,7 +434,7 @@ export function ScheduleEditor({
                     <TouchableOpacity
                       key={offset}
                       style={[styles.quickChip, on && styles.quickChipOn]}
-                      onPress={() => { setDate(d); setShowCal(false); }}
+                      onPress={() => { timeTouchedRef.current = true; setDate(d); setShowCal(false); }}
                       accessibilityState={{ selected: on }}
                     >
                       <Text style={[styles.quickChipText, on && styles.quickChipTextOn]}>{t(['오늘', '내일', '모레'][offset])}</Text>
@@ -411,7 +450,7 @@ export function ScheduleEditor({
                 <View style={styles.calBox}>
                   <Calendar
                     selectedDate={date}
-                    onSelectDate={(d) => { setDate(d); setShowCal(false); }}
+                    onSelectDate={(d) => { timeTouchedRef.current = true; setDate(d); setShowCal(false); }}
                     markedDays={markedDays}
                   />
                 </View>
@@ -420,9 +459,9 @@ export function ScheduleEditor({
               <Text style={styles.label}>{t('시간')}</Text>
               <View style={styles.pickerRow}>
                 <View style={styles.timePickerGroup}>
-                  <ScrollPicker value={hour}   items={HOURS24} onChange={setHour}   label={labelHour} />
+                  <ScrollPicker value={hour}   items={HOURS24} onChange={(v) => { timeTouchedRef.current = true; setHour(v); }}   label={labelHour} />
                   <Text style={styles.colon}>:</Text>
-                  <ScrollPicker value={minute} items={MINUTES} onChange={setMinute} label={labelMin}  />
+                  <ScrollPicker value={minute} items={minuteItems} onChange={(v) => { timeTouchedRef.current = true; setMinute(v); }} label={labelMin}  />
                 </View>
                 <View style={styles.alarmSide}>
                   <View style={styles.alarmTextCol}>
@@ -508,6 +547,23 @@ export function ScheduleEditor({
         <View style={styles.contentArea}>
           <View style={styles.contentLabelRow}>
             <Text style={styles.label}>{t(appendMode ? '추가할 내용' : '내용')}</Text>
+            {/* 수정 화면에서도 원래 녹음을 들을 수 있게 — 날짜 없이 녹음한 것을 "정하기"로 열었을 때
+                무슨 내용이었는지 들어 봐야 날짜를 정할 수 있다(2026-10-14 폰 피드백) */}
+            {listenable && !voiceActive && (
+              <TouchableOpacity
+                style={styles.listenBtn}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  if (record!.uri) player.toggle(record!.id, record!.uri);
+                  else player.speak(record!.id, recordSpeechText(record!));
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t(listening ? '⏸ 멈춤' : record!.uri ? '▶ 녹음 듣기' : '▶ 읽어 주기')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.listenBtnText}>{t(listening ? '⏸ 멈춤' : record!.uri ? '▶ 녹음 듣기' : '▶ 읽어 주기')}</Text>
+              </TouchableOpacity>
+            )}
             {sttOn && <Text style={styles.sttHint}>{t('🎤 듣는 중… 탭하면 중지')}</Text>}
             {appendRecording && (
               <Text style={styles.sttHint} accessibilityLiveRegion="polite">
@@ -671,6 +727,8 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   recDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.red },
+  listenBtn: { marginTop: 10, marginLeft: 'auto', marginRight: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: C.surfaceHigh },
+  listenBtnText: { color: C.accent, fontSize: 13, fontWeight: '800' },
   voiceBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     minHeight: 54, borderRadius: 16, marginBottom: 10, paddingHorizontal: 16,

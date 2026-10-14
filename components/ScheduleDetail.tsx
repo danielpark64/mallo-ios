@@ -507,7 +507,7 @@ export function ScheduleDetail({
     dayPart == null
       ? t('날짜 미정')
       : record.hasTime
-        ? `${dayPart}  ${formatTime(new Date(record.scheduleAt!))}${record.needsDate ? '  ' + t('(임시)') : ''}`
+        ? `${dayPart}  ${formatTime(new Date(record.scheduleAt!))}${record.needsDate ? '  ' + t('(녹음 시각)') : ''}`
         : `${dayPart}  ${t(record.needsDate ? '(임시)' : '(시간 미정)')}`;
   const mode = record.alarmMode;
 
@@ -546,7 +546,7 @@ export function ScheduleDetail({
           <Text style={s.when}>{when}</Text>
           {record.needsDate && (
             <TouchableOpacity style={s.needsDateBar} onPress={() => onEdit(record)} activeOpacity={0.8} accessibilityLabel={t('날짜 정하기')}>
-              <Text style={s.needsDateText}>{t('날짜·시간 없이 녹음돼 오늘에 임시로 두었어요')}</Text>
+              <Text style={s.needsDateText}>{t(record.hasTime ? '날짜·시간을 말하지 않아 녹음한 시각으로 저장했어요. 정하면 알람이 울려요' : '날짜·시간 없이 녹음돼 오늘에 임시로 두었어요')}</Text>
               <Text style={s.needsDateBtn}>{t('정하기')}</Text>
             </TouchableOpacity>
           )}
@@ -561,7 +561,7 @@ export function ScheduleDetail({
               </Text>
             </View>
           ) : null}
-          {record.hasTime && (() => {
+          {record.hasTime && !record.needsDate && (() => {
             const r = normalizeRemind(record.remindBefore ?? []);
             const exact = record.exactAlarm !== false;
             const past = record.scheduleAt != null && record.scheduleAt <= Date.now();
@@ -705,9 +705,9 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   needsDateBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     marginTop: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: 'rgba(240, 106, 106, 0.14)',
+    backgroundColor: C.surfaceHigh,
   },
-  needsDateText: { color: C.red, fontSize: 13, fontWeight: '600', flex: 1 },
+  needsDateText: { color: C.textSub, fontSize: 13, fontWeight: '600', flex: 1 },
   needsDateBtn: { color: '#fff', fontSize: 13, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   badgeIcon: { fontSize: 16 },
   badgeVibe: { width: 22, height: 22, resizeMode: 'contain' },

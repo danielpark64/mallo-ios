@@ -160,3 +160,20 @@ describe('지난 일정 접기', () => {
     expect(collapsePast(sections, now, 99).hiddenCount).toBe(0);
   });
 });
+
+describe('날짜를 안 정한 녹음(녹음 시각으로 저장)', () => {
+  const { isPastItem } = require('../dateUtils');
+  const rec = (at: Date) => ({ id: 'x', uri: '', durationSec: 0, transcript: '', content: '회의', scheduleAt: at.getTime(), scheduleDisplay: '', hasDate: true, hasTime: true, needsDate: true, createdAt: 1 });
+  test('녹음 시각이 지나도 그날 하루 동안은 지난 일정으로 접지 않는다', () => {
+    const now = new Date(2026, 9, 14, 23, 50).getTime();
+    expect(isPastItem(rec(new Date(2026, 9, 14, 15, 12)), now)).toBe(false);
+  });
+  test('다음 날부터는 지난 일정으로 접는다', () => {
+    const now = new Date(2026, 9, 15, 0, 1).getTime();
+    expect(isPastItem(rec(new Date(2026, 9, 14, 15, 12)), now)).toBe(true);
+  });
+  test('날짜를 정한 일정은 그 시각이 지나면 바로 지난 일정', () => {
+    const now = new Date(2026, 9, 14, 15, 13).getTime();
+    expect(isPastItem({ ...rec(new Date(2026, 9, 14, 15, 12)), needsDate: false }, now)).toBe(true);
+  });
+});

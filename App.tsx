@@ -11,7 +11,7 @@ import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { StatusBar } from 'expo-status-bar';
 
 import { parseSchedule, formatDisplay } from './lib/parseSchedule';
-import { fallbackToToday } from './lib/autoDate';
+import { recordedAtStamp } from './lib/autoDate';
 import {
   dayKey,
   daysWithSchedules,
@@ -508,7 +508,7 @@ function AppInner() {
   const nextSchedule = useMemo(() => {
     const now = Date.now();
     return records
-      .filter((r) => r.hasTime && r.scheduleAt != null && r.scheduleAt >= now)
+      .filter((r) => !r.needsDate && r.hasTime && r.scheduleAt != null && r.scheduleAt >= now)
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0))[0] ?? null;
   }, [records, currentTime]);
 
@@ -519,12 +519,14 @@ function AppInner() {
   };
 
   // ── 녹음 ─────────────────────────────────────────────────────────────────────
+  const recordStartedAtRef = useRef<Date>(new Date());
   const startRecording = async () => {
     if (!permissionGranted) {
       Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'));
       return;
     }
     sharedPlayer.stop(); // 카드 재생 소리가 녹음에 섞이지 않게
+    recordStartedAtRef.current = new Date(); // 날짜를 말하지 않았을 때 이 시각으로 저장한다
     setShowRecorder(true);
     await voice.start();
   };
@@ -557,12 +559,14 @@ function AppInner() {
       Alert.alert(t('인식 실패'), t('음성이 인식되지 않았어요. 다시 시도해주세요.'));
       return;
     }
-    // 날짜·시간을 한마디도 안 했으면 녹음을 버리지 않고 오늘(시간 미정)로 저장 + "정하기" 꼬리표.
+    // 날짜·시간을 한마디도 안 했으면 녹음을 버리지 않고 녹음 시작 시각으로 저장 + "정하기" 꼬리표(알람 없음).
     // 다시 녹음시키면 방금 말한 내용이 사라지고, 현재 시각으로 알람을 걸면 말한 적 없는 알람이 울린다.
     // 삭제 의도("…지워줘")는 날짜가 필요하므로 아래 삭제 분기 전에 여기서 걸러지지 않게 둔다.
     const isDeleteIntentEarly = /(삭제|지워|없애|제거)\s*(해\s*)?(줘|주세요|버려|해)?\s*$/.test(transcript);
     if (!parsed.hasDate && !parsed.hasTime && !isDeleteIntentEarly) {
-      const auto = fallbackToToday();
+      // 자정을 넘겨 멈췄으면 오늘 날짜로(어제로 저장되면 곧바로 지난 일정으로 접혀 사라진 것처럼 보인다)
+      const started = recordStartedAtRef.current;
+      const auto = recordedAtStamp(isSameDay(started, new Date()) ? started : new Date());
       const id = Date.now().toString();
       const uri = keepAudio(id);
       const record: ScheduleRecord = {
@@ -651,7 +655,8 @@ function AppInner() {
     if (parsed.date && parsed.hasTime) {
       const MARGIN_MS = 5 * 60 * 1000;
       const existing = records.find(
-        (r) => r.scheduleAt != null && Math.abs(r.scheduleAt - parsed.date!.getTime()) <= MARGIN_MS
+        // 날짜를 안 정한 녹음(녹음 시각으로 저장)은 비교 대상이 아니다 — 거기 붙이면 새 알람이 안 걸린다
+        (r) => !r.needsDate && r.scheduleAt != null && Math.abs(r.scheduleAt - parsed.date!.getTime()) <= MARGIN_MS
       );
       if (existing) {
         Alert.alert(
@@ -987,8 +992,8 @@ function AppInner() {
         </View>
       )}
 
-      {/* ── 녹음 FAB ── */}
-      <View style={[styles.fabWrap, { paddingBottom: 36 + insets.bottom }]}>
+      {/* ── 녹음 버튼 ── 목록 위에 떠 있으면 마지막 카드를 가려서(2026-10-14 폰 피드백) 목록 아래 고정 영역에 둔다 */}
+      <View style={[styles.fabWrap, { paddingBottom: 10 + insets.bottom }]}>
         <TouchableOpacity style={styles.fab} onPress={startRecording} activeOpacity={0.85}>
           <MicIcon size={30} color="#fff" />
         </TouchableOpacity>
@@ -1137,13 +1142,13 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   dayHeaderText: { color: C.text, fontSize: 17, fontWeight: '700', flex: 1, marginRight: 8 },
   dayCount: { color: C.textSub, fontSize: 13, fontWeight: '500', flexShrink: 0 },
   dayList: { flex: 1 },
-  dayListContent: { paddingHorizontal: 16, paddingBottom: 120 },
+  dayListContent: { paddingHorizontal: 16, paddingBottom: 24 },
   emptyDay: { paddingTop: 48, alignItems: 'center' },
   emptyDayText: { color: C.textDim, fontSize: 15 },
 
   // 전체 일정 탭
   allWrap: { flex: 1 },
-  allListContent: { paddingHorizontal: 16, paddingBottom: 120 },
+  allListContent: { paddingHorizontal: 16, paddingBottom: 24 },
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingTop: 20, paddingBottom: 8,
@@ -1190,8 +1195,8 @@ const makeStyles = (C: Palette) => StyleSheet.create({
 
   // FAB
   fabWrap: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    alignItems: 'center', paddingBottom: 36, pointerEvents: 'box-none',
+    alignItems: 'center', paddingTop: 8, paddingBottom: 10,
+    backgroundColor: C.bg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border,
   },
   fab: {
     width: 64, height: 64, borderRadius: 32,

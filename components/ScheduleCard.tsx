@@ -43,7 +43,8 @@ export function ScheduleCard({
     else if (speechText) shared.speak(item.id, speechText);
   };
 
-  const timeLabel = item.needsDate
+  // 녹음 시각으로 저장된 일정은 그 시각을, 예전 방식(시간 없음)으로 저장된 것은 '날짜 미정'을 보여 준다
+  const timeLabel = item.needsDate && !(item.hasTime && item.scheduleAt)
     ? t('날짜 미정')
     : item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : t('시간 미정');
   const title = item.content || item.transcript || t('(내용 없음)');
@@ -51,7 +52,7 @@ export function ScheduleCard({
   const mainTitle = title.split('\n• ')[0];
   const mode = (item as any).alarmMode as 'sound' | 'vibe' | 'both' | undefined;
   // 시간 미정(그날 0시 저장)은 그 날이 끝나야 지난 것, 날짜 미정은 지난 것으로 보지 않는다
-  const isPast = !item.needsDate && isPastItem(item);
+  const isPast = isPastItem(item); // 날짜를 안 정한 녹음은 그날이 지나야 지난 것(dateUtils)
   // 구버전 데이터 호환용 — 새 데이터는 appends[]를 사용
   const appendedNotes = (item.content || '').includes('\n• ')
     ? (item.content || '').split('\n• ').slice(1)
@@ -80,7 +81,7 @@ export function ScheduleCard({
       {remind.length > 0 && (
         <Text style={styles.cardRemindText} numberOfLines={2}>⏰ {remind.map(remindLabel).join('·')}</Text>
       )}
-      {item.exactAlarm === false && <Text style={styles.cardRemindText}>{t('정각 없음')}</Text>}
+      {item.exactAlarm === false && <Text style={styles.cardRemindText}>{t('정각 알림 꺼짐')}</Text>}
     </View>
   ) : <View />;
   const extras = (
@@ -96,7 +97,9 @@ export function ScheduleCard({
           activeOpacity={0.7}
           accessibilityLabel={t('날짜 정하기')}
         >
-          <Text style={styles.needsDateText}>{t('언제인지 아직 안 정했어요')}</Text>
+          <Text style={styles.needsDateText} numberOfLines={2}>
+            {t(item.hasTime ? '녹음한 시각으로 저장했어요' : '언제인지 아직 안 정했어요')}
+          </Text>
           <Text style={styles.needsDateBtn}>{t('정하기')}</Text>
         </TouchableOpacity>
       )}
@@ -230,9 +233,9 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   needsDateRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     marginTop: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: 'rgba(240, 106, 106, 0.14)',
+    backgroundColor: C.surfaceHigh,
   },
-  needsDateText: { color: C.red, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  needsDateText: { color: C.textSub, fontSize: 12, fontWeight: '600', flexShrink: 1 },
   needsDateBtn: { color: '#fff', fontSize: 12, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 6 },
   cardPlayBtn: {
     width: 36, height: 36, marginLeft: 6,

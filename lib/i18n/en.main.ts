@@ -129,4 +129,9 @@ export const EN_MAIN: Record<string, string> = {
   '폰 음성으로 읽어 줘요': 'Read aloud by your phone\'s voice',
   '눌러서 말하기': 'Tap to speak',
   '■ 완료': '■ Done',
+  '지난 시각이에요': 'It\'s in the past',
+  '이 시각은 이미 지나서 알람이 울리지 않아요. 그대로 저장할까요?': 'This time has already passed, so no alarm will ring. Save anyway?',
+  '그대로 저장': 'Save anyway',
+  '이 시각에 내일 일정을 미리 알려 드려요': 'I\'ll remind you of tomorrow\'s schedule at this time',
+  '정각 알림 꺼짐': 'On-time alarm off',
 };

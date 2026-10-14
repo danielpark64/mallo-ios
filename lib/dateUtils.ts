@@ -326,6 +326,11 @@ export function mergePreAlarms(sections: DaySection[], items: PreAlarmItem[]): D
 export function isPastItem(x: DayListItem, now: number = Date.now()): boolean {
   if (isPreAlarmItem(x)) return x.fireAt <= now;
   if (x.scheduleAt == null) return false; // 날짜 미정은 지난 것으로 보지 않는다
+  // 날짜를 안 정한 녹음(녹음 시각으로 저장)은 그날 하루 동안 펼쳐 두고 다음 날부터 지난 것으로 접는다
+  if (x.needsDate) {
+    const d = new Date(x.scheduleAt);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + 86_400_000 <= now;
+  }
   if (x.hasTime) return x.scheduleAt <= now;
   // 시간 미정(그날 0시 저장)은 그 날짜가 끝나야 지난 것
   return x.scheduleAt + 86_400_000 <= now;

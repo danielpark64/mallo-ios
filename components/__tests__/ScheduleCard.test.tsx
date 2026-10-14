@@ -157,6 +157,14 @@ describe('큰 글자(크게·아주 크게)에서는 세로 배치 카드', () =
 });
 
 describe('날짜 미정·시간 미정 카드', () => {
+  test('녹음 시각으로 저장된 일정은 그 시각과 "녹음한 시각으로 저장했어요 · 정하기"를 보여 주고 ▶가 있다', async () => {
+    const at = new Date(); at.setHours(9, 5, 0, 0);
+    const { getByText } = await render(wrap(<ScheduleCard item={{ ...item, scheduleAt: at.getTime(), hasTime: true, needsDate: true }} onPress={() => {}} onAppend={() => {}} />));
+    expect(getByText('녹음한 시각으로 저장했어요')).toBeTruthy();
+    expect(getByText('정하기')).toBeTruthy();
+    expect(getByText('▶')).toBeTruthy();
+  });
+
   test('오늘 날짜 미정 카드는 흐리게(지난 일정처럼) 보이지 않고 알람 배지도 없다', async () => {
     const today0 = new Date(); today0.setHours(0, 0, 0, 0);
     const rec = { ...item, scheduleAt: today0.getTime(), hasTime: false, needsDate: true };

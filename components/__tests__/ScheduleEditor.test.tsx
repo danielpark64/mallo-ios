@@ -33,7 +33,7 @@ const record: ScheduleRecord = {
   alarmMode: 'both', createdAt: 1,
 };
 const base = {
-  visible: true, record, defaultDate: new Date(), markedDays: new Set<string>(),
+  visible: true, record, defaultDate: new Date(Date.now() + 86_400_000), markedDays: new Set<string>(),
   onSave: jest.fn(), onAppend: jest.fn(), onDelete: jest.fn(), onClose: jest.fn(),
 };
 
@@ -88,6 +88,60 @@ describe('새 일정 화면의 마이크', () => {
     await fireEvent.press(view.getByTestId('editor-mic'));
     await fireEvent.press(view.getByText('저장'));
     expect(onSave.mock.calls[0][0].capture).toBeUndefined();
+  });
+});
+
+describe('수정 화면에서 원래 녹음 듣기', () => {
+  test('녹음이 있는 일정을 고칠 때 "▶ 녹음 듣기"가 보인다(날짜 없이 녹음한 것을 정할 때 내용 확인용)', async () => {
+    const view = await render(<ScheduleEditor {...base} record={{ ...record, uri: 'file:///r1.m4a', needsDate: true }} />);
+    expect(view.getByText('▶ 녹음 듣기')).toBeTruthy();
+  });
+  test('새 일정에는 들을 녹음이 없으니 보이지 않는다', async () => {
+    const view = await render(<ScheduleEditor {...base} record={null} />);
+    expect(view.queryByText('▶ 녹음 듣기')).toBeNull();
+  });
+});
+
+describe('지난 시각 저장과 날짜 미정 녹음 정하기', () => {
+  test('지난 시각으로 저장하려 하면 알람이 울리지 않는다고 묻고, "그대로 저장"을 눌러야 저장된다', async () => {
+    const onSave = jest.fn();
+    const spy = jest.spyOn(Alert, 'alert');
+    const view = await render(<ScheduleEditor {...base} record={null} defaultDate={new Date(Date.now() - 2 * 86_400_000)} onSave={onSave} />);
+    await fireEvent.changeText(view.getByPlaceholderText('할 일을 입력하세요'), '지난 일');
+    await fireEvent.press(view.getByText('저장'));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(spy.mock.calls[0][0]).toBe('지난 시각이에요');
+    await act(async () => { (spy.mock.calls[0][2] as any)[1].onPress(); });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  test('날짜를 안 정한 녹음을 "정하기"로 열면 지난 녹음 시각이 아니라 다음 정시가 기본값이고, 기본 미리 알림이 붙는다', async () => {
+    const onSave = jest.fn();
+    const recAt = new Date(); recAt.setMinutes(recAt.getMinutes() - 30, 0, 0);
+    const view = await render(<ScheduleEditor {...base} defaultRemind={[30]} onSave={onSave}
+      record={{ ...record, uri: 'file:///r1.m4a', scheduleAt: recAt.getTime(), hasTime: true, needsDate: true, remindBefore: undefined }} />);
+    await fireEvent.press(view.getByText('저장'));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const res = onSave.mock.calls[0][0];
+    expect(res.date.getTime()).toBeGreaterThan(Date.now());
+    expect(res.date.getMinutes()).toBe(0);
+    expect(res.remindBefore).toEqual([30]);
+  });
+});
+
+describe('지난 일정 고치기', () => {
+  test('날짜·시간을 건드리지 않고 지난 일정의 내용만 고치면 확인 창 없이 바로 저장된다', async () => {
+    const onSave = jest.fn();
+    const spy = jest.spyOn(Alert, 'alert');
+    const past = new Date(Date.now() - 3 * 86_400_000); past.setHours(15, 37, 0, 0);
+    const view = await render(<ScheduleEditor {...base} onSave={onSave} record={{ ...record, scheduleAt: past.getTime(), hasTime: true }} />);
+    await fireEvent.changeText(view.getByDisplayValue('치과 예약'), '치과 예약 끝');
+    await fireEvent.press(view.getByText('저장'));
+    expect(spy).not.toHaveBeenCalled();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].date.getMinutes()).toBe(37); // 5분 단위가 아닌 분도 그대로
+    spy.mockRestore();
   });
 });
 

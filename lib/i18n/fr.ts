@@ -415,4 +415,24 @@ export const FR: Record<string, string> = {
   '폰 음성으로 읽어 줘요': 'Lu par la voix du téléphone',
   '눌러서 말하기': 'Touchez pour parler',
   '■ 완료': '■ Terminé',
+  '녹음한 시각으로 저장했어요': 'Enregistré à l’heure de l’enregistrement',
+  '(녹음 시각)': '(heure d’enregistrement)',
+  '날짜·시간을 말하지 않아 녹음한 시각으로 저장했어요. 정하면 알람이 울려요': 'Aucune date ni heure n’a été dite : l’élément est enregistré à l’heure de l’enregistrement. Fixez-en une pour avoir une alarme.',
+  '▶ 녹음 듣기': '▶ Écouter l’enregistrement',
+  '회의·강의 녹음이나 "우유 사기"처럼 날짜·시간을 말하지 않으면, 녹음을 시작한 날짜와 시각으로 저장합니다. 이미 지난 시각이라 알람은 걸리지 않습니다.': 'Si vous ne dites ni date ni heure — enregistrement d’une réunion ou d’un cours, ou « acheter du lait » —, l’élément est enregistré à la date et l’heure du début de l’enregistrement. Cette heure étant passée, aucune alarme n’est programmée.',
+  '그 카드에는 "녹음한 시각으로 저장했어요 · 정하기"가 보입니다. 나중에 할 일이면 "정하기"로 날짜·시간을 고르면 알람이 걸리고, 회의·강의처럼 기록으로 둘 녹음이면 그대로 두면 됩니다. 녹음은 언제든 ▶로 들을 수 있습니다.': 'La carte affiche « Enregistré à l’heure de l’enregistrement · Fixer ». S’il s’agit d’une chose à faire plus tard, touchez « Fixer » et choisissez une date et une heure pour avoir une alarme. Pour une trace comme une réunion ou un cours, laissez-la telle quelle. Vous pouvez écouter l’enregistrement avec ▶ à tout moment.',
+  '날짜를 정하지 않은 녹음은 그날 하루 동안 목록에 펼쳐 두고, 다음 날부터 지난 일정으로 접힙니다.': 'Les enregistrements sans date restent affichés dans la liste ce jour-là, puis rejoignent les événements passés le lendemain.',
+  '＋ 화면에서는 내용 칸 위의 빨간 "눌러서 말하기"를 누르고 말하면 녹음이 함께 저장됩니다. 누르면 그 자리에 소리 막대와 "■ 완료"가 나오고 말한 글이 바로 적힙니다. 글자를 칠 때는 키보드 위에 내용 칸만 크게 보이고, "입력 완료"를 누르면 날짜·시간 칸이 다시 나옵니다.':
+    'Sur l’écran ＋, touchez la barre rouge « Touchez pour parler » au-dessus du champ de contenu et parlez : l’enregistrement est aussi conservé. La barre affiche alors les ondes sonores et « ■ Terminé », et vos paroles s’écrivent aussitôt. Pendant la saisie au clavier, seul le champ de contenu reste visible ; touchez « Terminé » pour retrouver la date et l’heure.',
+  '"＋ 추가"에서도 "눌러서 말하기"를 누르면 소리 막대와 말하는 글이 바로 보입니다. 같은 화면에서 다시 녹음하면 앞 녹음을 새 녹음으로 바꿀지 먼저 물어봅니다.':
+    'Dans « ＋ Ajouter », toucher « Touchez pour parler » affiche aussi aussitôt les ondes sonores et vos paroles. Si vous enregistrez de nouveau sur le même écran, l’appli demande d’abord s’il faut remplacer l’enregistrement précédent.',
+  '녹음이 없는 일정(글자로 입력한 일정 등)도 ▶를 누르면 폰의 음성으로 날짜·시간과 내용을 읽어 줍니다. 인터넷은 쓰지 않습니다.':
+    'Les événements sans enregistrement (saisis au clavier, par exemple) peuvent aussi être écoutés avec ▶ : la voix du téléphone lit la date, l’heure et le contenu. Internet n’est pas utilisé.',
+  '상세 화면 오른쪽 위 "수정"에서 날짜 · 시간(휠) · 내용 · 알람 방식을 바꿉니다. "눌러서 말하기"로 말해서 입력할 수도 있고, 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있습니다.':
+    'Dans « Modifier », en haut à droite de l’écran de détail, changez la date, l’heure (molettes), le contenu et le type d’alarme. Vous pouvez aussi dicter avec « Touchez pour parler » et écouter l’enregistrement d’origine avec « ▶ Écouter l’enregistrement » à côté du contenu pendant la modification.',
+  '지난 시각이에요': 'Heure déjà passée',
+  '이 시각은 이미 지나서 알람이 울리지 않아요. 그대로 저장할까요?': 'Cette heure est déjà passée, l’alarme ne sonnera pas. Enregistrer quand même ?',
+  '그대로 저장': 'Enregistrer quand même',
+  '이 시각에 내일 일정을 미리 알려 드려요': 'À cette heure, je vous rappelle l’événement de demain',
+  '정각 알림 꺼짐': 'Alarme à l’heure : désactivée',
 };
