@@ -177,3 +177,27 @@ describe('날짜를 안 정한 녹음(녹음 시각으로 저장)', () => {
     expect(isPastItem({ ...rec(new Date(2026, 9, 14, 15, 12)), needsDate: false }, now)).toBe(true);
   });
 });
+
+describe('몇째 주(주 보기 머리)', () => {
+  const { formatWeekOfMonth, weekOfMonth } = require('../dateUtils');
+  const { setCurrentLang } = require('../i18n/lang');
+  afterEach(() => setCurrentLang('ko'));
+  test('달력 줄 순서대로 세고, 두 달에 걸친 주는 양쪽 달 모두', () => {
+    expect(weekOfMonth(new Date(2026, 8, 27))).toEqual([{ month: 8, n: 5 }, { month: 9, n: 1 }]); // 9/27~10/3
+    expect(weekOfMonth(new Date(2026, 9, 4))).toEqual([{ month: 9, n: 2 }]);  // 10/4~10
+    expect(weekOfMonth(new Date(2026, 9, 14))).toEqual([{ month: 9, n: 3 }]); // 10/11~17 (주 중간 날짜)
+    expect(weekOfMonth(new Date(2026, 11, 27))).toEqual([{ month: 11, n: 5 }, { month: 0, n: 1 }]); // 12/27~1/2
+  });
+  test('언어별 표기', () => {
+    setCurrentLang('ko'); expect(formatWeekOfMonth(new Date(2026, 8, 27))).toBe('9월 다섯째 주 · 10월 첫째 주');
+    setCurrentLang('ko'); expect(formatWeekOfMonth(new Date(2026, 9, 11))).toBe('10월 셋째 주');
+    setCurrentLang('en'); expect(formatWeekOfMonth(new Date(2026, 9, 11))).toBe('Week 3 of October');
+    setCurrentLang('ja'); expect(formatWeekOfMonth(new Date(2026, 9, 11))).toBe('10月第3週');
+    setCurrentLang('fr'); expect(formatWeekOfMonth(new Date(2026, 9, 4))).toBe('2e semaine d’octobre');
+    setCurrentLang('de'); expect(formatWeekOfMonth(new Date(2026, 9, 11))).toBe('3. Woche im Oktober');
+  });
+  test('여섯째 줄까지 나오는 달(1일이 토요일인 31일 달)', () => {
+    setCurrentLang('ko');
+    expect(formatWeekOfMonth(new Date(2026, 7, 30))).toBe('8월 여섯째 주 · 9월 첫째 주'); // 2026-08-01은 토요일
+  });
+});

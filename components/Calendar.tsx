@@ -10,6 +10,7 @@ import {
   endOfMonth,
   formatMonthLabel,
   formatWeekLabel,
+  formatWeekOfMonth,
   isSameDay,
   monthGrid,
   startOfMonth,
@@ -124,6 +125,10 @@ export function Calendar({
         </TouchableOpacity>
         <TouchableOpacity onPress={goToday} activeOpacity={0.7} style={styles.labelBtn} accessibilityLabel={t('오늘로 이동')}>
           <Text style={styles.monthLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>{label}</Text>
+          {mode === 'week' && (
+            // 몇째 주인지 함께 보여 준다 — "다음 주 화요일"보다 "10월 셋째 주"로 말하는 일이 많다(2026-10-14 피드백)
+            <Text style={styles.weekOfMonth} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{formatWeekOfMonth(weekStart)}</Text>
+          )}
           {!showsToday && <Text style={styles.todayHint}>{t('오늘로')}</Text>}
         </TouchableOpacity>
         <TouchableOpacity onPress={next} style={styles.navBtn} accessibilityLabel={mode === 'week' ? t('다음 주') : t('다음 달')}>
@@ -211,6 +216,8 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   navBtn: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   navText: { color: C.textSub, fontSize: 26, fontWeight: '300' },
   labelBtn: { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4 },
+  // 두 달에 걸친 주는 길어져(스페인어 등) 좁은 화면에선 두 줄로 넘어가게 한다 — 잘리는 것보다 낫다
+  weekOfMonth: { color: C.accent, fontSize: 12, fontWeight: '700', marginTop: 1, textAlign: 'center' },
   monthLabel: { color: C.text, fontSize: 17, fontWeight: '700' },
   todayHint: { color: C.accent, fontSize: 11, fontWeight: '600', marginTop: 1 },
 

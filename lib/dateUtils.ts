@@ -198,6 +198,47 @@ export function formatMonthLabel(year: number, month: number): string {
 }
 
 /**
+ * 몇째 주인지 — 달력에 보이는 줄 순서대로 센다(1일이 있는 줄이 첫째 주).
+ * 두 달에 걸친 주는 양쪽 달로 모두 보여 준다(2026-10-14 사용자 요청):
+ *   9월 27일~10월 3일 → "9월 다섯째 주 · 10월 첫째 주", 10월 11~17일 → "10월 셋째 주"
+ */
+export function weekOfMonth(weekStart: Date): Array<{ month: number; n: number }> {
+  const s = startOfWeek(weekStart);
+  const e = addDays(s, 6);
+  const rowOf = (d: Date) => {
+    const firstDow = new Date(d.getFullYear(), d.getMonth(), 1).getDay();
+    return Math.floor((d.getDate() - 1 + firstDow) / 7) + 1;
+  };
+  const parts = [{ month: s.getMonth(), n: rowOf(s) }];
+  if (e.getMonth() !== s.getMonth()) parts.push({ month: e.getMonth(), n: rowOf(e) });
+  return parts;
+}
+
+const KO_ORD = ['첫째', '둘째', '셋째', '넷째', '다섯째', '여섯째'];
+
+function formatOneWeek(month: number, n: number): string {
+  const l = getLang();
+  switch (l) {
+    case 'ko': return `${month + 1}월 ${KO_ORD[n - 1] ?? `${n}째`} 주`;
+    case 'en': return `Week ${n} of ${MONTHS_EN_LONG[month]}`;
+    case 'ja': return `${month + 1}月第${n}週`;
+    case 'zh-Hans': return `${month + 1}月第${n}周`;
+    case 'zh-Hant': return `${month + 1}月第${n}週`;
+    case 'es': return `${n}.ª semana de ${INTL_MON_LONG.es[month].toLowerCase()}`;
+    case 'pt': return `${n}ª semana de ${INTL_MON_LONG.pt[month].toLowerCase()}`;
+    case 'fr': {
+      const m = INTL_MON_LONG.fr[month].toLowerCase();
+      return `${n === 1 ? '1re' : `${n}e`} semaine ${/^[aeiouy]/.test(m) ? 'd’' : 'de '}${m}`;
+    }
+    case 'de': return `${n}. Woche im ${INTL_MON_LONG.de[month]}`;
+  }
+}
+
+export function formatWeekOfMonth(weekStart: Date): string {
+  return weekOfMonth(weekStart).map((p) => formatOneWeek(p.month, p.n)).join(' · ');
+}
+
+/**
  * "2026년 10월 12일 – 18일", 달이 바뀌면 "2026년 10월 29일 – 11월 4일" (연도는 주 시작일 기준)
  * en: "Oct 11 – 17, 2026", 달이 바뀌면 "Oct 28 – Nov 3, 2026", 해가 바뀌면 "Dec 27, 2026 – Jan 2, 2027"
  * ja·zh: "2026年10月11日 – 17日" / "2026年10月25日 – 11月1日" / "2026年12月27日 – 2027年1月2日"
