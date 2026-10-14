@@ -23,11 +23,16 @@ export function SharedPlayerProvider({ children }: { children: ReactNode }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const loadedRef = useRef<{ id: string; uri: string } | null>(null);
   const startedAtRef = useRef(0);
+  // 마지막으로 재생한 녹음이 끝까지 갔는지 (상태 값보다 먼저 확정된다)
+  const endedRef = useRef(false);
+  // 재생 요청 번호 — 되감는 사이 멈춤·다른 재생이 오면 늦게 도착한 play()를 버린다
+  const reqRef = useRef(0);
 
   // 지금 읽어 주는 중인 id (녹음 재생과 같은 playingId를 쓰되, 끝 판정은 음성 콜백으로 한다)
   const speakingIdRef = useRef<string | null>(null);
 
   const stop = useCallback(() => {
+    reqRef.current++;
     try { player.pause(); } catch {}
     if (speakingIdRef.current) { speakingIdRef.current = null; try { Speech.stop(); } catch {} }
     setPlayingId(null);
@@ -35,6 +40,7 @@ export function SharedPlayerProvider({ children }: { children: ReactNode }) {
 
   const speak = useCallback((id: string, text: string) => {
     if (playingId === id) { stop(); return; }
+    reqRef.current++;
     try { player.pause(); } catch {}
     try { Speech.stop(); } catch {}
     if (!text.trim()) return;
@@ -53,17 +59,34 @@ export function SharedPlayerProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback((id: string, uri: string) => {
     if (playingId === id) { stop(); return; }
     if (speakingIdRef.current) { speakingIdRef.current = null; try { Speech.stop(); } catch {} }
+    const req = ++reqRef.current;
     const loaded = loadedRef.current;
-    const finished = status.duration > 0 && status.currentTime >= status.duration - 0.1;
+    // 끝까지 들은 뒤인지: 상태 값은 최대 250ms 늦으므로 우리가 기억한 "끝남"도 함께 본다
+    const finished = endedRef.current || (status.duration > 0 && status.currentTime >= status.duration - 0.1);
+    startedAtRef.current = Date.now();
+    setPlayingId(id);
     if (!loaded || loaded.id !== id || loaded.uri !== uri) {
       try { player.replace(uri); } catch {}
       loadedRef.current = { id, uri };
-    } else if (finished || status.currentTime <= 0) {
-      try { player.seekTo(0); } catch {}
+      endedRef.current = false;
+      try { player.play(); } catch {}
+      return;
     }
-    startedAtRef.current = Date.now();
+    // 같은 녹음을 다시 듣기: 끝 지점이면 처음으로 되감기가 **끝난 뒤** 재생한다.
+    // (기다리지 않으면 iOS에서 끝 지점에서 재생이 시작돼 곧바로 멈춰, "되다 안 되다"를 반복했다 — 2026-10-14 폰)
+    if (finished || status.currentTime <= 0) {
+      endedRef.current = false;
+      Promise.resolve()
+        .then(() => player.seekTo(0))
+        .catch(() => {})
+        .then(() => {
+          if (reqRef.current !== req) return; // 그 사이 멈추거나 다른 것을 재생했다
+          startedAtRef.current = Date.now();
+          try { player.play(); } catch {}
+        });
+      return;
+    }
     try { player.play(); } catch {}
-    setPlayingId(id);
   }, [player, playingId, status.currentTime, status.duration, stop]);
 
   // 끝나면 ▶로 복귀 (시작 직후 이전 상태값 오판 방지)
@@ -71,8 +94,12 @@ export function SharedPlayerProvider({ children }: { children: ReactNode }) {
     if (!playingId || speakingIdRef.current) return;
     if (Date.now() - startedAtRef.current < 300) return;
     const atEnd = status.duration > 0 && status.currentTime >= status.duration - 0.1;
-    if (status.didJustFinish || atEnd) setPlayingId(null);
-  }, [status.didJustFinish, status.currentTime, status.duration, playingId]);
+    // 끝 지점 값만 보고 끊으면, 되감기 직후 아직 갱신 안 된 값에 속아 재생 중인데 ▶로 돌아간다 → 멈춘 상태일 때만
+    if (status.didJustFinish || (atEnd && !status.playing)) {
+      endedRef.current = true;
+      setPlayingId(null);
+    }
+  }, [status.didJustFinish, status.currentTime, status.duration, status.playing, playingId]);
 
   // 앱이 뒤로 가면 멈춘다 (배터리·소리 사고 방지)
   useEffect(() => {

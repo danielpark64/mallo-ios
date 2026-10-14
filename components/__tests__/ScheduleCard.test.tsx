@@ -63,6 +63,51 @@ describe('ScheduleCard 재생', () => {
     expect(getByText('▶')).toBeTruthy();
   });
 
+  test('끝까지 들은 녹음을 다시 누르면 처음으로 되감기가 끝난 뒤에 재생한다 (iOS에서 되다 안 되다 반복하던 문제)', async () => {
+    const { getByText, rerender } = await renderCard();
+    await fireEvent.press(getByText('▶'));
+    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 11_000);
+    mockStatus = { currentTime: 10, duration: 10, playing: false, didJustFinish: true };
+    await rerender(wrap(<ScheduleCard item={item} onPress={() => {}} onAppend={() => {}} />));
+    // 끝난 뒤 상태 값이 아직 갱신 전(중간 값)이어도 "끝남"을 기억해 되감는다
+    mockStatus = { currentTime: 4, duration: 10, playing: false, didJustFinish: false };
+    await rerender(wrap(<ScheduleCard item={item} onPress={() => {}} onAppend={() => {}} />));
+    mockPlayer.play.mockClear();
+    let releaseSeek: () => void = () => {};
+    mockPlayer.seekTo.mockImplementationOnce(() => new Promise<void>((r) => { releaseSeek = r; }));
+    await fireEvent.press(getByText('▶'));
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(0);
+    expect(mockPlayer.play).not.toHaveBeenCalled(); // 되감기 전에는 재생하지 않는다
+    await act(async () => { releaseSeek(); await Promise.resolve(); await Promise.resolve(); });
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    expect(getByText('⏸')).toBeTruthy();
+  });
+
+  test('되감는 사이 다시 눌러 멈추면, 늦게 끝난 되감기가 재생을 시작하지 않는다', async () => {
+    const { getByText, rerender } = await renderCard();
+    await fireEvent.press(getByText('▶'));
+    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 11_000);
+    mockStatus = { currentTime: 10, duration: 10, playing: false, didJustFinish: true };
+    await rerender(wrap(<ScheduleCard item={item} onPress={() => {}} onAppend={() => {}} />));
+    mockPlayer.play.mockClear();
+    let releaseSeek: () => void = () => {};
+    mockPlayer.seekTo.mockImplementationOnce(() => new Promise<void>((r) => { releaseSeek = r; }));
+    await fireEvent.press(getByText('▶'));
+    await fireEvent.press(getByText('⏸')); // 되감기가 끝나기 전에 멈춤
+    await act(async () => { releaseSeek(); await Promise.resolve(); await Promise.resolve(); });
+    expect(mockPlayer.play).not.toHaveBeenCalled();
+    expect(getByText('▶')).toBeTruthy();
+  });
+
+  test('되감은 직후 상태 값이 아직 "끝 지점"이어도 재생 중이면 ▶로 돌아가지 않는다', async () => {
+    const { getByText, rerender } = await renderCard();
+    await fireEvent.press(getByText('▶'));
+    (Date.now as jest.Mock).mockReturnValue(1_000_000 + 2_000);
+    mockStatus = { currentTime: 10, duration: 10, playing: true, didJustFinish: false };
+    await rerender(wrap(<ScheduleCard item={item} onPress={() => {}} onAppend={() => {}} />));
+    expect(getByText('⏸')).toBeTruthy();
+  });
+
   test('끝까지 재생한 직후 다시 누르면, 아직 갱신 안 된 "끝 지점" 상태를 보고 즉시 멈추지 않는다', async () => {
     mockStatus = { currentTime: 10, duration: 10, playing: false, didJustFinish: false }; // 직전 재생의 끝
     const { getByText, rerender } = await renderCard();
