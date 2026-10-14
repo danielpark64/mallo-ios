@@ -411,4 +411,8 @@ export const PT: Record<string, string> = {
   '✓ 복사됐어요': '✓ Copiado',
   '계좌번호 복사': 'Copiar número da conta',
   '자발적인 후원이며, 앱 이용에는 아무 영향이 없어요': 'A contribuição é voluntária e não muda o uso do app',
+  '▶ 읽어 주기': '▶ Ler em voz alta',
+  '폰 음성으로 읽어 줘요': 'Lido pela voz do celular',
+  '눌러서 말하기': 'Toque para falar',
+  '■ 완료': '■ Concluir',
 };

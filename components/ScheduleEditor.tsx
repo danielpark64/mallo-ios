@@ -338,6 +338,9 @@ export function ScheduleEditor({
   const hasVoiceSource = record ? !!record.uri : !!appendCapture?.uri;
   const showVoiceChip = !appendMode && voiceAlarmSupported() && hasVoiceSource && alarmMode !== 'vibe';
 
+  // 말하기가 진행 중인가(녹음 캡처 또는 글만 받아 적기)
+  const voiceActive = captureMode ? appendRecording : sttOn;
+
   const navTitle = t(appendMode ? '내용 추가' : record ? '일정 수정' : '새 일정');
 
   return (
@@ -519,8 +522,33 @@ export function ScheduleEditor({
               </TouchableOpacity>
             )}
           </View>
-          {appendRecording && (
-            <Waveform compact metering={appendVoice.recorderState.metering} isRecording={appendVoice.recorderState.isRecording} />
+          {/* 말하기 막대 — 예전엔 입력 칸 구석의 작은 마이크라 잘 안 보였다(2026-10-14 피드백).
+              누르기 전: 화면 폭 전체의 빨간 "눌러서 말하기" / 녹음 중: 같은 자리에 파형 + "■ 완료" */}
+          {!(kbOpen && !voiceActive) && (
+            <TouchableOpacity
+              style={[styles.voiceBar, voiceActive && styles.voiceBarOn]}
+              testID="editor-mic"
+              accessibilityRole="button"
+              accessibilityLabel={t(voiceActive ? '완료' : '눌러서 말하기')}
+              onPress={captureMode ? toggleAppendVoice : toggleStt}
+              activeOpacity={0.8}
+            >
+              {voiceActive ? (
+                <>
+                  <View style={styles.voiceBarWave}>
+                    {appendRecording
+                      ? <Waveform compact metering={appendVoice.recorderState.metering} isRecording={appendVoice.recorderState.isRecording} />
+                      : <Animated.View style={[styles.recDot, { transform: [{ scale: micAnim }] }]} />}
+                  </View>
+                  <Text style={styles.voiceBarStop}>{t('■ 완료')}</Text>
+                </>
+              ) : (
+                <>
+                  <MicIcon size={22} color={C.onAccent} />
+                  <Text style={styles.voiceBarText}>{t('눌러서 말하기')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
           {captureMode && appendCapture?.uri && !appendRecording && (
             <Text style={styles.appendCaptureHint}>
@@ -546,20 +574,6 @@ export function ScheduleEditor({
               multiline
               textAlignVertical="top"
             />
-            <TouchableOpacity
-              style={styles.micBtn}
-              testID="editor-mic"
-              accessibilityRole="button"
-              accessibilityLabel={t((captureMode ? appendRecording : sttOn) ? '완료' : '마이크')}
-              onPress={captureMode ? toggleAppendVoice : toggleStt}
-              activeOpacity={0.7}
-            >
-              <Animated.View style={{ transform: [{ scale: micAnim }] }}>
-                {(captureMode ? appendRecording : sttOn)
-                  ? <View style={styles.recDot} />
-                  : <MicIcon size={22} color={C.text} />}
-              </Animated.View>
-            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -646,7 +660,7 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   contentInput: {
     flex: 1,
     backgroundColor: C.surface, borderRadius: 16,
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 56,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14,
     color: C.text, fontSize: 17, lineHeight: 24,
     borderWidth: 1, borderColor: C.border,
   },
@@ -657,4 +671,13 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   recDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.red },
+  voiceBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    minHeight: 54, borderRadius: 16, marginBottom: 10, paddingHorizontal: 16,
+    backgroundColor: C.red,
+  },
+  voiceBarOn: { backgroundColor: C.surface, borderWidth: 2, borderColor: C.red, justifyContent: 'space-between' },
+  voiceBarText: { color: C.onAccent, fontSize: 17, fontWeight: '800' },
+  voiceBarWave: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  voiceBarStop: { color: C.red, fontSize: 16, fontWeight: '800', marginLeft: 8 },
 });

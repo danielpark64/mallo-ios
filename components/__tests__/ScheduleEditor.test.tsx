@@ -91,6 +91,18 @@ describe('새 일정 화면의 마이크', () => {
   });
 });
 
+describe('말하기 막대', () => {
+  test('입력 칸 위에 "눌러서 말하기" 막대가 크게 보이고, 녹음 중에는 같은 자리가 "■ 완료"로 바뀐다', async () => {
+    const view = await render(<ScheduleEditor {...base} record={null} />);
+    expect(view.getByText('눌러서 말하기')).toBeTruthy();
+    await fireEvent.press(view.getByText('눌러서 말하기'));
+    expect(view.getByText('■ 완료')).toBeTruthy();
+    expect(view.queryByText('눌러서 말하기')).toBeNull();
+    await fireEvent.press(view.getByText('■ 완료'));
+    expect(view.getByText('눌러서 말하기')).toBeTruthy();
+  });
+});
+
 describe('같은 화면에서 다시 녹음', () => {
   const pressAgain = async () => {
     // 확인 창의 '다시 녹음'을 누른 것으로 처리

@@ -1,6 +1,7 @@
 // ─── 일정 상세 보기 (전체화면 모달) ────────────────────────────────────────────
 // 카드 탭 → 상세. 메인 + 추가 엔트리 각각 단어칩 구간재생, 스피커/수화기 선택,
 // 전체 내용 복사/TXT/PDF 내보내기.
+import { useSharedPlayer } from '../lib/sharedPlayer';
 import { voiceAlarmOn, voiceAlarmSupported, voiceUriOf } from '../lib/voiceAlarm';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Modal, PanResponder, Platform, ScrollView, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
@@ -85,6 +86,9 @@ function EntryBlock({
   const s = useMemo(() => makeStyles(C), [C]);
   const { t } = useT();
   const player = useAudioPlayer(uri || undefined, { updateInterval: 100 });
+  const shared = useSharedPlayer();
+  // 이 항목을 읽어 줄 때의 재생 id (녹음 없는 항목만 씀)
+  const speakId = `tts:${label}:${content.length}`;
   // player.currentTime은 리렌더를 일으키지 않는 네이티브 getter → 구간 종료 감지/단어 하이라이트가
   // 동작하지 않았음. 상태 구독 훅으로 100ms마다 갱신되는 반응형 값을 쓴다.
   const status = useAudioPlayerStatus(player);
@@ -144,6 +148,7 @@ function EntryBlock({
   };
 
   const playFrom = async (startSec: number, endSec: number | null) => {
+    shared.stop(); // 읽어 주기(폰 음성)나 목록 재생이 돌고 있으면 멈춘다
     claimPlayback();
     await applyRoute(route);
     segEndRef.current = endSec;
@@ -416,7 +421,26 @@ function EntryBlock({
           )}
         </>
       ) : (
-        <Text style={s.unsupported}>{t('녹음 파일 없이 글만 저장된 항목이에요')}</Text>
+        <>
+          {/* 녹음이 없는 항목: 폰 음성으로 글을 읽어 준다 (공용 재생기 — 다른 재생과 겹치지 않음) */}
+          {(content || transcript).trim() ? (
+            <View style={s.playRow}>
+              <TouchableOpacity
+                style={s.playBtn}
+                onPress={() => {
+                  if (activeStopperRef.current) activeStopperRef.current(); // 다른 항목의 녹음 재생 멈춤
+                  shared.speak(speakId, (content || transcript).trim());
+                }}
+                activeOpacity={0.8}
+                accessibilityLabel={t(shared.playingId === speakId ? '⏸ 멈춤' : '▶ 읽어 주기')}
+              >
+                <Text style={s.playBtnIcon}>{shared.playingId === speakId ? '⏸' : '▶'}</Text>
+              </TouchableOpacity>
+              <Text style={s.speakHint}>{t('폰 음성으로 읽어 줘요')}</Text>
+            </View>
+          ) : null}
+          <Text style={s.unsupported}>{t('녹음 파일 없이 글만 저장된 항목이에요')}</Text>
+        </>
       )}
     </View>
   );
@@ -449,6 +473,9 @@ export function ScheduleDetail({
   const [preview, setPreview] = useState<ExportKind | null>(null);
   // 메인/추가 엔트리 중 하나만 동시에 재생되도록 하는 공유 스토퍼
   const activeStopperRef = useRef<(() => void) | null>(null);
+  const sharedForClose = useSharedPlayer();
+  // 상세를 닫으면 읽어 주기(폰 음성)도 멈춘다
+  useEffect(() => { if (!visible) sharedForClose.stop(); }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
   // 단어칩을 끌어 범위선택하는 동안 ScrollView가 터치를 취소하지 않게 한다.
   // (scrollEnabled를 끄면 iOS가 진행 중인 터치 자체를 취소해 release가 안 온다 — 2026-10-12 폰 확인)
   const [scrollLocked, setScrollLocked] = useState(false);
@@ -740,6 +767,7 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   rangeWords: { flex: 1, color: C.textSub, fontSize: 12 },
   rangeClear: { paddingHorizontal: 8, paddingVertical: 6 },
   rangeClearText: { color: C.textSub, fontSize: 14, fontWeight: '700' },
+  speakHint: { color: C.textSub, fontSize: 13, fontWeight: '600' },
   unsupported: { color: C.textDim, fontSize: 12, marginTop: 10, lineHeight: 17 },
 
   exportRow: { flexDirection: 'row', gap: 10 },

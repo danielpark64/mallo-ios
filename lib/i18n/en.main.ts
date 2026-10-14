@@ -125,4 +125,8 @@ export const EN_MAIN: Record<string, string> = {
   '✓ 복사됐어요': '✓ Copied',
   '계좌번호 복사': 'Copy account number',
   '자발적인 후원이며, 앱 이용에는 아무 영향이 없어요': 'Tips are voluntary and do not change how the app works',
+  '▶ 읽어 주기': '▶ Read aloud',
+  '폰 음성으로 읽어 줘요': 'Read aloud by your phone\'s voice',
+  '눌러서 말하기': 'Tap to speak',
+  '■ 완료': '■ Done',
 };

@@ -1,6 +1,6 @@
 import type React from 'react';
 // 카드 재생 버튼: 재생 종료 시 ▶ 복귀, 종료 직후 재생 시 stale 상태로 오판하지 않기
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ScheduleRecord } from '../../lib/storage';
 
 const mockPlayer = { play: jest.fn(), pause: jest.fn(), seekTo: jest.fn(), replace: jest.fn() };
@@ -10,6 +10,9 @@ jest.mock('expo-audio', () => ({
   useAudioPlayer: () => mockPlayer,
   useAudioPlayerStatus: () => mockStatus,
 }));
+
+jest.mock('expo-speech', () => ({ speak: jest.fn(), stop: jest.fn() }));
+const mockSpeech = jest.requireMock('expo-speech') as { speak: jest.Mock; stop: jest.Mock };
 
 import { ScheduleCard } from '../ScheduleCard';
 import { ThemeProvider } from '../../lib/theme';
@@ -23,6 +26,8 @@ const item: ScheduleRecord = {
 
 // 카드는 앱 전체 공용 플레이어(SharedPlayerProvider)를 쓴다 — 카드마다 플레이어를 만들지 않는다
 const wrap = (ui: React.ReactElement) => <SharedPlayerProvider>{ui}</SharedPlayerProvider>;
+const renderTextOnly = (rec: ScheduleRecord) =>
+  render(wrap(<ScheduleCard item={rec} onPress={() => {}} onAppend={() => {}} />));
 const renderCard = () =>
   render(wrap(<ScheduleCard item={item} onPress={() => {}} onAppend={() => {}} />));
 
@@ -87,10 +92,30 @@ describe('ScheduleCard 재생', () => {
     expect(mockPlayer.play).toHaveBeenCalledTimes(2);
   });
 
-  test('녹음 파일이 없는 일정(수동 입력)은 재생 버튼이 없다', async () => {
-    const { queryByText } = await render(
-      <ScheduleCard item={{ ...item, uri: '' }} onPress={() => {}} onAppend={() => {}} />
-    );
+  test('녹음 파일이 없는 일정(글자로 입력)도 ▶가 있고, 누르면 폰 음성으로 "언제 · 무엇"을 읽어 준다', async () => {
+    const at = new Date(2026, 9, 14, 15, 0).getTime();
+    const { getByText, getByLabelText } = await renderTextOnly({ ...item, uri: '', scheduleAt: at });
+    await fireEvent.press(getByLabelText('▶ 읽어 주기'));
+    expect(mockSpeech.speak).toHaveBeenCalledTimes(1);
+    const [text, opts] = mockSpeech.speak.mock.calls[0];
+    expect(text).toBe('10월 14일, 수, 오후 3:00. 회의');
+    expect(['ko-KR', 'ko']).toContain(opts.language); // iOS는 ko-KR, Android는 ko
+    expect(getByText('⏸')).toBeTruthy();
+    await act(async () => { opts.onDone(); }); // 다 읽으면 ▶로 돌아온다
+    expect(getByText('▶')).toBeTruthy();
+    expect(mockPlayer.play).not.toHaveBeenCalled(); // 녹음 재생기는 쓰지 않는다
+  });
+
+  test('읽는 중에 다시 누르면 멈춘다', async () => {
+    const { getByLabelText, getByText } = await renderTextOnly({ ...item, uri: '' });
+    await fireEvent.press(getByLabelText('▶ 읽어 주기'));
+    await fireEvent.press(getByLabelText('⏸ 멈춤'));
+    expect(mockSpeech.stop).toHaveBeenCalled();
+    expect(getByText('▶')).toBeTruthy();
+  });
+
+  test('내용이 비어 있으면 ▶가 없다', async () => {
+    const { queryByText } = await renderTextOnly({ ...item, uri: '', content: '', transcript: '' });
     expect(queryByText('▶')).toBeNull();
   });
 

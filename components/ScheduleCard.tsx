@@ -5,6 +5,7 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from './AppText';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import { useSharedPlayer } from '../lib/sharedPlayer';
+import { recordSpeechText } from '../lib/speech';
 import { normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatTime, isPastItem } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
@@ -34,7 +35,13 @@ export function ScheduleCard({
   const styles = useMemo(() => makeStyles(C, scale), [C, scale]);
   const shared = useSharedPlayer();
   const playing = shared.playingId === item.id;
-  const toggle = () => { if (item.uri) shared.toggle(item.id, item.uri); };
+  // 녹음이 있으면 내 목소리, 없으면 폰 음성으로 "언제 · 무엇"을 읽어 준다
+  const speechText = item.uri ? '' : recordSpeechText(item);
+  const canPlay = !!item.uri || !!speechText;
+  const toggle = () => {
+    if (item.uri) shared.toggle(item.id, item.uri);
+    else if (speechText) shared.speak(item.id, speechText);
+  };
 
   const timeLabel = item.needsDate
     ? t('날짜 미정')
@@ -125,8 +132,8 @@ export function ScheduleCard({
         </Text>
         {extras}
         <View style={styles.stackActions}>
-          {item.uri ? (
-            <TouchableOpacity style={styles.stackBtn} onPress={toggle} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          {canPlay ? (
+            <TouchableOpacity style={styles.stackBtn} onPress={toggle} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityLabel={t(playing ? '⏸ 멈춤' : item.uri ? '▶ 듣기' : '▶ 읽어 주기')}>
               <Text style={styles.stackBtnText}>{playing ? t('⏸ 멈춤') : t('▶ 듣기')}</Text>
             </TouchableOpacity>
           ) : null}
@@ -174,10 +181,11 @@ export function ScheduleCard({
         </View>
       </View>
 
-      {item.uri ? (
+      {canPlay ? (
         <TouchableOpacity
           style={styles.cardPlayBtn}
           onPress={toggle}
+          accessibilityLabel={t(playing ? '⏸ 멈춤' : item.uri ? '▶ 듣기' : '▶ 읽어 주기')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.cardPlayIcon}>{playing ? '⏸' : '▶'}</Text>
