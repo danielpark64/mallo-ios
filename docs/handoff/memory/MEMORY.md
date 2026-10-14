@@ -1,0 +1,7 @@
+- [iOS 실기기 빌드 함정(Xcode 27)](ios-device-build-xcode27.md) — 계정 부재·iCloud 중복 파일·8+ 미지원, 검증된 xcodebuild 명령
+- [노트(SM-N976N) 설치는 push+pm install](android-note-install.md) — adb install이 멈춤
+- [알람 테스트는 전부 진동으로](alarm-test-vibe-only.md) — 2026-10-12 지시, 별도 지시 전까지 소리 알람 금지
+- [Android 12 이하 STT 무음 처리](android12-stt-silenced.md) — 녹음기+인식기 동시 캡처 시 인식기 silenced, dumpsys audio로 진단
+- [한도 복구 후 자동 계속](continue-after-limit.md) — 끊겨도 말 없이 이어서 최종까지, 커밋은 확인
+- [내 목소리 알람 보류](voice-alarm-deferred.md) — 구현됐지만 상용에서 꺼 둠, 2027-10 재검토, [VOICE_ALARM] 검색
+- [수정마다 버그 에이전트](verify-agent-each-change.md) — 커밋 전 verify-fix로 점검(2026-10-14 지시)
