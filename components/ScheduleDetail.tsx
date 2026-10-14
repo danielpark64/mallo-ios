@@ -578,6 +578,9 @@ export function ScheduleDetail({
                       ? t('미리 알림 {list} · 정각 알림 {state}', { list: r.map((m) => t(remindLabel(m))).join(' · '), state: t(exact ? '켬' : '끔') })
                       : exact ? t('미리 알림 없음 · 정각 알림 켬') : t('알림 없음')}
                 </Text>
+                {!past && !onAlarmChange && (
+                  <Text style={s.remindEditHint}>{t('알림 시간은 오른쪽 위 "수정"에서 바꿔요')}</Text>
+                )}
                 {!past && onAlarmChange && (
                   <View style={s.remindChips}>
                     {REMIND_OPTIONS.map((m) => {
@@ -702,6 +705,7 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   body: { paddingHorizontal: 20, paddingBottom: 48 },
   when: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 18 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  remindEditHint: { color: C.textDim, fontSize: 12, marginTop: 4 },
   needsDateBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     marginTop: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10,

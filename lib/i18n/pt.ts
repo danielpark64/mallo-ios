@@ -435,4 +435,16 @@ export const PT: Record<string, string> = {
   '그대로 저장': 'Salvar mesmo assim',
   '이 시각에 내일 일정을 미리 알려 드려요': 'Neste horário eu lembro o compromisso de amanhã',
   '정각 알림 꺼짐': 'Alarme no horário: desligado',
+  '상세 화면 오른쪽 위 "수정"(또는 아래 "＋ 내용 추가")을 누르면 한 화면에서 날짜 · 시간 · 알림(미리 알림 포함) · 내용을 고치고, "＋ 말로 덧붙이기"로 녹음을 덧붙일 수 있습니다. 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있고, "저장"을 한 번 누르면 모두 저장됩니다.':
+    'Toque em "Editar" no canto superior direito da tela de detalhes (ou em "＋ Adicionar" embaixo) para mudar numa só tela a data, a hora, os alarmes (incluindo os lembretes antecipados) e o conteúdo, e para acrescentar uma gravação com "＋ Adicionar por voz". Dá para ouvir a gravação original com "▶ Ouvir gravação" ao lado do conteúdo enquanto edita, e um toque em "Salvar" salva tudo.',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "수정"에서 바꿉니다.':
+    'Lembretes antecipados: escolha um ou mais entre 10 min, 30 min, 1 hora ou um dia antes (às 20h da véspera); cada um avisa uma vez, como "Em 30 min · Dentista". Se você desligar "No horário", nada toca no horário exato. Defina lembretes padrão em Ajustes › Alarme e eles entram sozinhos nos novos compromissos. Num compromisso existente, mude-os em "Editar" na tela de detalhes.',
+  '＋ 말로 덧붙이기':
+    '＋ Adicionar por voz',
+  '덧붙일 내용 · 저장하면 추가돼요':
+    'Para adicionar · salvo ao tocar em Salvar',
+  '덧붙일 내용 지우기':
+    'Remover o texto para adicionar',
+  '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
+    'Mude o horário dos alarmes em "Editar" no canto superior direito',
 };

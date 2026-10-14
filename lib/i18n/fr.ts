@@ -435,4 +435,16 @@ export const FR: Record<string, string> = {
   '그대로 저장': 'Enregistrer quand même',
   '이 시각에 내일 일정을 미리 알려 드려요': 'À cette heure, je vous rappelle l’événement de demain',
   '정각 알림 꺼짐': 'Alarme à l’heure : désactivée',
+  '상세 화면 오른쪽 위 "수정"(또는 아래 "＋ 내용 추가")을 누르면 한 화면에서 날짜 · 시간 · 알림(미리 알림 포함) · 내용을 고치고, "＋ 말로 덧붙이기"로 녹음을 덧붙일 수 있습니다. 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있고, "저장"을 한 번 누르면 모두 저장됩니다.':
+    'Touchez « Modifier » en haut à droite de l’écran de détail (ou « ＋ Ajouter » en bas) pour changer sur un seul écran la date, l’heure, les alarmes (rappels compris) et le contenu, et pour ajouter un enregistrement avec « ＋ Ajouter à la voix ». Vous pouvez écouter l’enregistrement d’origine avec « ▶ Écouter l’enregistrement » à côté du contenu, et un seul appui sur « Enregistrer » enregistre tout.',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "수정"에서 바꿉니다.':
+    'Rappels : choisissez un ou plusieurs délais parmi 10 min, 30 min, 1 heure ou la veille (à 20 h) ; chacun vous prévient une fois, par exemple « Dans 30 min · Dentiste ». Si vous désactivez « À l’heure », rien ne sonne à l’heure exacte. Réglez les rappels par défaut dans Réglages › Alarme pour qu’ils s’ajoutent aux nouveaux événements. Pour un événement existant, modifiez-les avec « Modifier » sur l’écran de détail.',
+  '＋ 말로 덧붙이기':
+    '＋ Ajouter à la voix',
+  '덧붙일 내용 · 저장하면 추가돼요':
+    'À ajouter · enregistré avec « Enregistrer »',
+  '덧붙일 내용 지우기':
+    'Supprimer le texte à ajouter',
+  '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
+    'Modifiez l’heure des alarmes avec « Modifier » en haut à droite',
 };

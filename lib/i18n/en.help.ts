@@ -143,4 +143,16 @@ export const EN_HELP: Record<string, string> = {
   '"＋ 추가"에서도 "눌러서 말하기"를 누르면 소리 막대와 말하는 글이 바로 보입니다. 같은 화면에서 다시 녹음하면 앞 녹음을 새 녹음으로 바꿀지 먼저 물어봅니다.': 'In "＋ Add", tapping "Tap to speak" also shows the sound bars and your words right away. If you record again on the same screen, the app first asks whether to replace the earlier recording.',
   '녹음이 없는 일정(글자로 입력한 일정 등)도 ▶를 누르면 폰의 음성으로 날짜·시간과 내용을 읽어 줍니다. 인터넷은 쓰지 않습니다.': 'Schedules without a recording (such as ones you typed) can also be played with ▶: your phone\'s voice reads out the date, time and content. No internet is used.',
   '상세 화면 오른쪽 위 "수정"에서 날짜 · 시간(휠) · 내용 · 알람 방식을 바꿉니다. "눌러서 말하기"로 말해서 입력할 수도 있고, 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있습니다.': 'Tap "Edit" at the top right of the detail screen to change the date, time (wheels), content and alarm type. You can also dictate with "Tap to speak", and listen to the original recording with "▶ Play recording" next to the content while you edit.',
+  '상세 화면 오른쪽 위 "수정"(또는 아래 "＋ 내용 추가")을 누르면 한 화면에서 날짜 · 시간 · 알림(미리 알림 포함) · 내용을 고치고, "＋ 말로 덧붙이기"로 녹음을 덧붙일 수 있습니다. 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있고, "저장"을 한 번 누르면 모두 저장됩니다.':
+    'Tap "Edit" at the top right of the detail screen (or "＋ Add" below) to change the date, time, alarms (including early reminders) and content on one screen, and to add a recording with "＋ Add by voice". You can listen to the original recording with "▶ Play recording" next to the content while you edit, and one tap on "Save" saves everything.',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "수정"에서 바꿉니다.':
+    'Early reminders: choose any of 10 min, 30 min, 1 hour or a day before (8 PM the previous evening), and each one alerts you once, like "In 30 min · Dentist". Turn off the "On time" chip and nothing rings at the exact time. Set default reminders in Settings › Alarm and they are added to new schedules automatically. For an existing schedule, change them with "Edit" on the detail screen.',
+  '＋ 말로 덧붙이기':
+    '＋ Add by voice',
+  '덧붙일 내용 · 저장하면 추가돼요':
+    'To add · saved when you tap Save',
+  '덧붙일 내용 지우기':
+    'Remove text to add',
+  '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
+    'Change alarm times with "Edit" at the top right',
 };

@@ -705,9 +705,10 @@ function AppInner() {
     setDetailId(null);
     setTimeout(() => openEdit(r), 450);
   };
+  // 상세의 "＋ 내용 추가"도 고치기·덧붙이기·알림을 한 번에 하는 수정 화면으로 연다(덧붙이기는 그 화면의 말하기 막대)
   const openAppendFromDetail = (r: ScheduleRecord) => {
     setDetailId(null);
-    setTimeout(() => openAppend(r), 450);
+    setTimeout(() => openEdit(r), 450);
   };
 
   // 상세 화면의 알림 칩: 즉시 저장하고 두 경로(네이티브·Expo) 알람을 다시 건다
@@ -751,6 +752,7 @@ function AppInner() {
               remindBefore: res.remindBefore,
               exactAlarm: res.exactAlarm,
               voiceAlarm: r.uri ? voiceAlarmToStore(!!res.voiceAlarm) : r.voiceAlarm,
+              appends: res.append ? [...(r.appends ?? []), makeAppendEntry(r.id, res.append)] : r.appends,
               // 내용이 바뀌면 기존 단어별 타임스탬프는 무효 → 카드 표시도 새 내용으로
               segments: res.content.trim() !== (r.content ?? '').trim() ? undefined : r.segments,
             }
@@ -815,6 +817,21 @@ function AppInner() {
 
   // "추가"는 메모가 아니라 메인과 동등한 독립 엔트리 — 자기 녹음/전사/구간재생을 갖고
   // appends[]에 쌓여 메인과 한 일정 아래 함께 표시·내보내기된다.
+  // 덧붙인 항목 하나를 만든다(녹음은 영구 폴더로 옮김) — 카드 "＋ 추가"와 수정 화면 "말로 덧붙이기"가 함께 쓴다
+  const makeAppendEntry = (id: string, entry: AppendResult): AppendEntry => {
+    const appendId = Date.now().toString();
+    let savedUri = entry.uri;
+    if (entry.uri) {
+      try { savedUri = persistAudio(entry.uri, `${id}_a${appendId}`); }
+      catch (e) { console.warn('추가 오디오 저장 실패:', e); }
+    }
+    return {
+      id: appendId, uri: savedUri, durationSec: entry.durationSec,
+      transcript: entry.transcript, content: entry.content,
+      segments: entry.segments, createdAt: Date.now(),
+    };
+  };
+
   const handleEditorAppend = (id: string, entry: AppendResult) => {
     const target = records.find((r) => r.id === id);
     if (!target) { setEditorOpen(false); return; }
@@ -1026,7 +1043,6 @@ function AppInner() {
         onEdit={openEditFromDetail}
         onAppend={openAppendFromDetail}
         onDelete={confirmDelete}
-        onAlarmChange={handleAlarmChange}
       />
 
      </View>

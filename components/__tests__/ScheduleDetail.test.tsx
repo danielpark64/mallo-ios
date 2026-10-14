@@ -412,6 +412,15 @@ describe('ScheduleDetail 글을 고친 추가 엔트리(단어 시각 없음)', 
   });
 });
 
+describe('상세 화면은 알림을 보여 주기만 한다', () => {
+  test('알림 칩 대신 "수정에서 바꿔요" 안내가 보인다(앱은 onAlarmChange를 넘기지 않음)', async () => {
+    const rec: ScheduleRecord = { ...record, hasTime: true, scheduleAt: Date.now() + 86_400_000, remindBefore: [30] };
+    const screen = await render(<ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />);
+    expect(screen.getByText('알림 시간은 오른쪽 위 "수정"에서 바꿔요')).toBeTruthy();
+    expect(screen.queryByLabelText('미리 알림 하루 전')).toBeNull();
+  });
+});
+
 describe('ScheduleDetail 알림 칩', () => {
   test('미래 일정이면 칩이 보이고, 누르면 바뀐 목록으로 onAlarmChange가 불린다', async () => {
     const onAlarmChange = jest.fn();

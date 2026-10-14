@@ -435,4 +435,16 @@ export const DE: Record<string, string> = {
   '그대로 저장': 'Trotzdem speichern',
   '이 시각에 내일 일정을 미리 알려 드려요': 'Zu dieser Zeit erinnere ich dich an den Termin von morgen',
   '정각 알림 꺼짐': 'Wecker zur Uhrzeit: aus',
+  '상세 화면 오른쪽 위 "수정"(또는 아래 "＋ 내용 추가")을 누르면 한 화면에서 날짜 · 시간 · 알림(미리 알림 포함) · 내용을 고치고, "＋ 말로 덧붙이기"로 녹음을 덧붙일 수 있습니다. 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있고, "저장"을 한 번 누르면 모두 저장됩니다.':
+    'Tippe oben rechts im Detailbildschirm auf „Bearbeiten“ (oder unten auf „＋ Hinzufügen“), um auf einem Bildschirm Datum, Uhrzeit, Erinnerungen (auch Vorab-Erinnerungen) und Inhalt zu ändern und mit „＋ Per Sprache ergänzen“ eine Aufnahme anzuhängen. Mit „▶ Aufnahme anhören“ neben dem Inhalt hörst du die ursprüngliche Aufnahme beim Bearbeiten, und ein Tipp auf „Speichern“ speichert alles.',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "수정"에서 바꿉니다.':
+    'Vorab-Erinnerungen: Wähle eine oder mehrere aus 10 Min., 30 Min., 1 Stunde oder einen Tag vorher (20 Uhr am Vorabend); jede meldet sich einmal, etwa „In 30 Min. · Zahnarzt“. Schaltest du „Pünktlich“ aus, klingelt zur genauen Uhrzeit nichts. Lege unter Einstellungen › Wecker Standard-Erinnerungen fest, dann werden sie neuen Terminen automatisch hinzugefügt. Bei bestehenden Terminen änderst du sie über „Bearbeiten“ im Detailbildschirm.',
+  '＋ 말로 덧붙이기':
+    '＋ Per Sprache ergänzen',
+  '덧붙일 내용 · 저장하면 추가돼요':
+    'Zum Ergänzen · wird mit „Speichern“ hinzugefügt',
+  '덧붙일 내용 지우기':
+    'Text zum Ergänzen entfernen',
+  '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
+    'Erinnerungszeiten änderst du oben rechts unter „Bearbeiten“',
 };

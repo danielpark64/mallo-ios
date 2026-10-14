@@ -79,15 +79,30 @@ describe('새 일정 화면의 마이크', () => {
     }));
   });
 
-  test('기존 일정 수정에서는 녹음을 넘기지 않는다 (원래 녹음을 바꾸지 않는다)', async () => {
+  test('기존 일정 수정 화면의 마이크는 원래 녹음·내용을 바꾸지 않고, 녹음을 새 항목으로 덧붙인다(저장 한 번에 함께)', async () => {
     const onSave = jest.fn();
     mockVoice.start.mockClear();
     const view = await render(<ScheduleEditor {...base} onSave={onSave} />);
+    expect(view.getByText('＋ 말로 덧붙이기')).toBeTruthy();
     await fireEvent.press(view.getByTestId('editor-mic'));
-    expect(mockVoice.start).not.toHaveBeenCalled();
+    expect(mockVoice.start).toHaveBeenCalled();
     await fireEvent.press(view.getByTestId('editor-mic'));
+    expect(view.getByText('덧붙일 내용 · 저장하면 추가돼요')).toBeTruthy();
     await fireEvent.press(view.getByText('저장'));
-    expect(onSave.mock.calls[0][0].capture).toBeUndefined();
+    const res = onSave.mock.calls[0][0];
+    expect(res.content).toBe('치과 예약'); // 메인 내용은 그대로
+    expect(res.capture).toBeUndefined();
+    expect(res.append).toEqual(expect.objectContaining({ content: '약국 들르기', uri: 'file:///a.m4a', durationSec: 3 }));
+  });
+
+  test('덧붙일 내용을 ✕로 지우면 저장 때 덧붙이지 않는다', async () => {
+    const onSave = jest.fn();
+    const view = await render(<ScheduleEditor {...base} onSave={onSave} />);
+    await fireEvent.press(view.getByTestId('editor-mic'));
+    await fireEvent.press(view.getByTestId('editor-mic'));
+    await fireEvent.press(view.getByLabelText('덧붙일 내용 지우기'));
+    await fireEvent.press(view.getByText('저장'));
+    expect(onSave.mock.calls[0][0].append).toBeUndefined();
   });
 });
 
