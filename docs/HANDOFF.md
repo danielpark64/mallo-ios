@@ -100,3 +100,24 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 수정 → `npx tsc --noEmit` + `npx jest` → **verify-fix 에이전트** → 지적 반영 → **32에서 확인** → 사용자 승인 후 커밋·푸시 → 네 기기에 설치.
 - 폰은 사용자가 iPhone 미러링을 켜 주면 화면을 볼 수 있지만, 미러링 창으로는 클릭이 폰에 전달되지 않았습니다. 폰 조작이 필요한 확인은 사용자에게 부탁합니다.
 - 세션 한도로 끊겨도, 한도가 풀리면 따로 말이 없어도 이어서 끝까지 진행합니다(커밋은 확인).
+
+## 6. 다른 계정의 Claude 채팅창에 붙여 넣을 문장
+
+새 계정의 Claude 앱(Code 탭) 채팅창에 아래를 그대로 붙여 넣으면, 저장소 받기부터 인계 자료 읽기까지 이어서 합니다.
+
+```text
+세이람(SayRam) 앱 작업을 이어서 해줘. 모든 답과 커밋 메시지는 한국어로 해줘.
+
+1. ~/dev/sayram 폴더가 없으면 https://github.com/danielpark64/mallo-ios.git 를 ~/dev/sayram 에 git clone 하고, 이미 있으면 git pull 로 최신으로 맞춘 뒤 main 브랜치로 바꿔. (iCloud 동기화 폴더인 Desktop·Documents 에는 두지 마.)
+2. ~/dev/sayram 안의 CLAUDE.md, docs/HANDOFF.md, .claude/memory/project_mallo_progress.md, .claude/bugs.md, docs/handoff/memory 폴더의 파일을 모두 읽어.
+3. docs/handoff/memory 의 주의사항은 이 계정의 메모리로 옮겨 저장하고, CLAUDE.md 의 규칙을 그대로 따라. (한국어로 답하기, 커밋·푸시 전에 나에게 확인, 코드를 고칠 때마다 verify-fix 에이전트로 점검, Android 알람은 Expo와 네이티브 두 경로 모두 처리)
+4. HANDOFF 2장 "새 계정 준비" 항목(npm install, npx expo prebuild, pod install, Xcode 로그인, adb 기기 연결)이 이 계정에서 되어 있는지 점검만 하고 표로 보고해. 설치나 로그인처럼 내 승인이 필요한 일은 하기 전에 물어봐.
+5. 지금 상태와 남은 일을 짧게 요약하고, 다음에 무엇을 할지 물어봐.
+6. 앞으로 작업은 ~/dev/sayram 폴더에서 해. 이 세션의 작업 폴더가 다르면 그 폴더로 다시 열라고 알려줘.
+```
+
+터미널에서 한 번에 하려면(새 계정에 `claude` 명령이 설치돼 있을 때):
+
+```bash
+mkdir -p ~/dev && (git clone https://github.com/danielpark64/mallo-ios.git ~/dev/sayram 2>/dev/null || git -C ~/dev/sayram pull) && cd ~/dev/sayram && git checkout main && claude 'docs/HANDOFF.md 6장의 문장대로 세이람(SayRam) 작업을 이어서 해줘. 모든 답은 한국어로.'
+```
