@@ -2,6 +2,7 @@
 // 카드 탭 → 상세. 메인 + 추가 엔트리 각각 단어칩 구간재생, 스피커/수화기 선택,
 // 전체 내용 복사/TXT/PDF 내보내기.
 import { useSharedPlayer } from '../lib/sharedPlayer';
+import { RemindSheet } from './RemindSheet';
 import { voiceAlarmOn, voiceAlarmSupported, voiceUriOf } from '../lib/voiceAlarm';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Modal, PanResponder, Platform, ScrollView, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
@@ -10,7 +11,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
-import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
+import { normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatDayHeader, formatTime } from '../lib/dateUtils';
 import { copyRecords } from '../lib/exportUtils';
 import { ExportPreview, type ExportKind } from './ExportPreview';
@@ -473,6 +474,8 @@ export function ScheduleDetail({
   const [preview, setPreview] = useState<ExportKind | null>(null);
   // 메인/추가 엔트리 중 하나만 동시에 재생되도록 하는 공유 스토퍼
   const activeStopperRef = useRef<(() => void) | null>(null);
+  const [remindOpen, setRemindOpen] = useState(false);
+  useEffect(() => { if (!visible) setRemindOpen(false); }, [visible]);
   const sharedForClose = useSharedPlayer();
   // 상세를 닫으면 읽어 주기(폰 음성)도 멈춘다
   useEffect(() => { if (!visible) sharedForClose.stop(); }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -522,7 +525,7 @@ export function ScheduleDetail({
           <TouchableOpacity style={s.navBtn} onPress={onClose}>
             <Text style={s.navCloseText}>{t('닫기')}</Text>
           </TouchableOpacity>
-          <Text style={s.navTitle}>{t('일정 상세')}</Text>
+          <Text style={s.navTitle}>{t('상세 보기')}</Text>
           <View style={s.navRight}>
             {onDelete && (
               <TouchableOpacity style={s.navBtn} onPress={() => onDelete(record)} accessibilityRole="button" accessibilityLabel={t('일정 삭제')}>
@@ -568,7 +571,6 @@ export function ScheduleDetail({
             // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
             const voice = voiceAlarmOn(record);
             const showVoice = voiceAlarmSupported() && !!record.uri && record.alarmMode !== 'vibe';
-            const change = (next: number[], ex: boolean, v: boolean = voice) => onAlarmChange?.(record, normalizeRemind(next), ex, v);
             return (
               <View>
                 <Text style={s.remindLine}>
@@ -578,46 +580,29 @@ export function ScheduleDetail({
                       ? t('미리 알림 {list} · 정각 알림 {state}', { list: r.map((m) => t(remindLabel(m))).join(' · '), state: t(exact ? '켬' : '끔') })
                       : exact ? t('미리 알림 없음 · 정각 알림 켬') : t('알림 없음')}
                 </Text>
-                {!past && !onAlarmChange && (
-                  <Text style={s.remindEditHint}>{t('알림 시간은 오른쪽 위 "수정"에서 바꿔요')}</Text>
-                )}
-                {!past && onAlarmChange && (
-                  <View style={s.remindChips}>
-                    {REMIND_OPTIONS.map((m) => {
-                      const on = r.includes(m);
-                      return (
-                        <TouchableOpacity
-                          key={m}
-                          style={[s.remindChip, on && s.remindChipOn]}
-                          onPress={() => change(on ? r.filter((x) => x !== m) : [...r, m], exact)}
-                          accessibilityState={{ selected: on }}
-                          accessibilityLabel={t('미리 알림 {label}', { label: t(remindLabel(m)) })}
-                        >
-                          <Text style={[s.remindChipText, on && s.remindChipTextOn]}>{t(remindLabel(m))}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                    <TouchableOpacity
-                      style={[s.remindChip, exact && s.remindChipOn]}
-                      onPress={() => change(r, !exact)}
-                      accessibilityState={{ selected: exact }}
-                      accessibilityLabel={t('정각 알림')}
-                    >
-                      <Text style={[s.remindChipText, exact && s.remindChipTextOn]}>{t('정각')}</Text>
-                    </TouchableOpacity>
-                    {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
-                    {showVoice && (
-                      <TouchableOpacity
-                        style={[s.remindChip, voice && s.remindChipOn]}
-                        onPress={() => change(r, exact, !voice)}
-                        accessibilityState={{ selected: voice }}
-                        accessibilityLabel={t('알람 소리 내 목소리')}
-                      >
-                        <Text style={[s.remindChipText, voice && s.remindChipTextOn]}>{t('🎙 내 목소리')}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
+                {!past && onAlarmChange ? (
+                  // 알림 줄 = "바꾸기" 버튼. 칩과 저장은 시트 안에서만(RemindSheet)
+                  <TouchableOpacity
+                    style={s.remindEditBtn}
+                    onPress={() => setRemindOpen(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('알림 바꾸기')}
+                    testID="remind-open"
+                  >
+                    <Text style={s.remindEditBtnText}>{t('🔔 알림 바꾸기 ›')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {!past && onAlarmChange ? (
+                  <RemindSheet
+                    visible={remindOpen}
+                    remindBefore={r}
+                    exactAlarm={exact}
+                    voiceAlarm={voice}
+                    showVoice={showVoice}
+                    onSave={(next, ex, v) => { setRemindOpen(false); Promise.resolve(onAlarmChange(record, normalizeRemind(next), ex, v)).catch(() => {}); }}
+                    onClose={() => setRemindOpen(false)}
+                  />
+                ) : null}
               </View>
             );
           })()}
@@ -705,7 +690,8 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   body: { paddingHorizontal: 20, paddingBottom: 48 },
   when: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 18 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  remindEditHint: { color: C.textDim, fontSize: 12, marginTop: 4 },
+  remindEditBtn: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 14, paddingVertical: 9, minHeight: 40, justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.accent, backgroundColor: C.surface },
+  remindEditBtnText: { color: C.accent, fontSize: 14, fontWeight: '800' },
   needsDateBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     marginTop: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10,
@@ -717,11 +703,6 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   badgeVibe: { width: 22, height: 22, resizeMode: 'contain' },
   badgeText: { color: C.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },
   remindLine: { color: C.textSub, fontSize: 13, marginTop: 6 },
-  remindChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  remindChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
-  remindChipOn: { backgroundColor: C.accent, borderColor: C.accent },
-  remindChipText: { color: C.textSub, fontSize: 13, fontWeight: '700' },
-  remindChipTextOn: { color: C.onAccent },
 
   sectionLabel: { color: C.accent, fontSize: 13, fontWeight: '700', marginTop: 24, marginBottom: 10 },
   contentText: { color: C.text, fontSize: 17, lineHeight: 26 },

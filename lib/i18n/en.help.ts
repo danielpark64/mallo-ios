@@ -155,4 +155,12 @@ export const EN_HELP: Record<string, string> = {
     'Remove text to add',
   '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
     'Change alarm times with "Edit" at the top right',
+  '알림 바꾸기':
+    'Change alarms',
+  '🔔 알림 바꾸기 ›':
+    '🔔 Change alarms ›',
+  '알림 없음 — 울리지 않아요':
+    'No alarm — nothing will ring',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "🔔 알림 바꾸기"를 눌러 고른 뒤 "저장"하면 됩니다(수정 화면에서도 바꿀 수 있습니다).':
+    'Early reminders: choose any of 10 min, 30 min, 1 hour or a day before (8 PM the previous evening), and each one alerts you once, like "In 30 min · Dentist". Turn off the "On time" chip and nothing rings at the exact time. Set default reminders in Settings › Alarm and they are added to new schedules automatically. For an existing schedule, tap "🔔 Change alarms" on the detail screen, choose, and tap "Save" (you can also change them on the edit screen).',
 };

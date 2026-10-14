@@ -412,27 +412,40 @@ describe('ScheduleDetail 글을 고친 추가 엔트리(단어 시각 없음)', 
   });
 });
 
-describe('상세 화면은 알림을 보여 주기만 한다', () => {
-  test('알림 칩 대신 "수정에서 바꿔요" 안내가 보인다(앱은 onAlarmChange를 넘기지 않음)', async () => {
-    const rec: ScheduleRecord = { ...record, hasTime: true, scheduleAt: Date.now() + 86_400_000, remindBefore: [30] };
-    const screen = await render(<ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />);
-    expect(screen.getByText('알림 시간은 오른쪽 위 "수정"에서 바꿔요')).toBeTruthy();
-    expect(screen.queryByLabelText('미리 알림 하루 전')).toBeNull();
+describe('상세 화면의 알림 바꾸기 시트', () => {
+  test('상세에는 칩이 없고 "알림 바꾸기" 버튼만 있다 — 칩과 저장은 시트 안에서만', async () => {
+    const rec = { ...record, remindBefore: [30], exactAlarm: true };
+    const screen = await render(
+      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={() => {}} />,
+    );
+    expect(screen.getByText('미리 알림 30분 전 · 정각 알림 켬')).toBeTruthy();
+    expect(screen.getByTestId('remind-open')).toBeTruthy();
   });
-});
-
-describe('ScheduleDetail 알림 칩', () => {
-  test('미래 일정이면 칩이 보이고, 누르면 바뀐 목록으로 onAlarmChange가 불린다', async () => {
+  test('시트에서 칩을 바꿔도 "저장"을 눌러야 onAlarmChange가 한 번 불린다', async () => {
     const onAlarmChange = jest.fn();
     const rec = { ...record, remindBefore: [30], exactAlarm: true };
     const screen = await render(
       <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={onAlarmChange} />,
     );
-    expect(screen.getByText('미리 알림 30분 전 · 정각 알림 켬')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('remind-open'));
     await fireEvent.press(screen.getByLabelText('미리 알림 하루 전'));
-    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30, 1440], true, false);
     await fireEvent.press(screen.getByLabelText('정각 알림'));
-    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30], false, false);
+    expect(onAlarmChange).not.toHaveBeenCalled(); // 바꾸기만 해서는 저장되지 않는다
+    await fireEvent.press(screen.getByTestId('remind-save'));
+    expect(onAlarmChange).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('remind-save')).toBeNull(); // 저장하면 시트가 닫혀 연타로 두 번 걸리지 않는다
+    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30, 1440], false, false);
+  });
+  test('시트에서 바꾸고 취소하면 저장하지 않는다', async () => {
+    const onAlarmChange = jest.fn();
+    const rec = { ...record, remindBefore: [30], exactAlarm: true };
+    const screen = await render(
+      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={onAlarmChange} />,
+    );
+    await fireEvent.press(screen.getByTestId('remind-open'));
+    await fireEvent.press(screen.getByLabelText('미리 알림 10분 전'));
+    await fireEvent.press(screen.getByText('취소'));
+    expect(onAlarmChange).not.toHaveBeenCalled();
   });
   test('지난 일정은 칩 없이 안내만', async () => {
     const rec = { ...record, scheduleAt: Date.now() - 3_600_000 };
@@ -440,6 +453,6 @@ describe('ScheduleDetail 알림 칩', () => {
       <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={() => {}} />,
     );
     expect(screen.getByText('지난 일정 (알림 없음)')).toBeTruthy();
-    expect(screen.queryByLabelText('정각 알림')).toBeNull();
+    expect(screen.queryByTestId('remind-open')).toBeNull();
   });
 });

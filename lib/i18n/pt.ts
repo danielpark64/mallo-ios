@@ -447,4 +447,13 @@ export const PT: Record<string, string> = {
     'Remover o texto para adicionar',
   '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
     'Mude o horário dos alarmes em "Editar" no canto superior direito',
+  '상세 보기': 'Ver detalhes',
+  '알림 바꾸기':
+    'Mudar alarmes',
+  '🔔 알림 바꾸기 ›':
+    '🔔 Mudar alarmes ›',
+  '알림 없음 — 울리지 않아요':
+    'Sem alarme — nada vai tocar',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "🔔 알림 바꾸기"를 눌러 고른 뒤 "저장"하면 됩니다(수정 화면에서도 바꿀 수 있습니다).':
+    'Lembretes antecipados: escolha um ou mais entre 10 min, 30 min, 1 hora ou um dia antes (às 20h da véspera); cada um avisa uma vez, como "Em 30 min · Dentista". Se você desligar "No horário", nada toca no horário exato. Defina lembretes padrão em Ajustes › Alarme e eles entram sozinhos nos novos compromissos. Num compromisso existente, toque em "🔔 Mudar alarmes" na tela de detalhes, escolha e toque em "Salvar" (também dá para mudar na tela de edição).',
 };

@@ -117,4 +117,5 @@ export const EN_DETAIL: Record<string, string> = {
   '내보내기 실패': 'Export failed',
   '일정 PDF 내보내기': 'Export PDF',
   'PDF 내보내기 실패': 'PDF export failed',
+  '상세 보기': 'Details',
 };

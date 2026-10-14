@@ -1042,6 +1042,7 @@ function AppInner() {
         onClose={() => setDetailId(null)}
         onEdit={openEditFromDetail}
         onAppend={openAppendFromDetail}
+        onAlarmChange={handleAlarmChange}
         onDelete={confirmDelete}
       />
 

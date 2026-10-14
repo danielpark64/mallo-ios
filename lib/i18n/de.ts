@@ -447,4 +447,13 @@ export const DE: Record<string, string> = {
     'Text zum Ergänzen entfernen',
   '알림 시간은 오른쪽 위 "수정"에서 바꿔요':
     'Erinnerungszeiten änderst du oben rechts unter „Bearbeiten“',
+  '상세 보기': 'Details ansehen',
+  '알림 바꾸기':
+    'Erinnerungen ändern',
+  '🔔 알림 바꾸기 ›':
+    '🔔 Erinnerungen ändern ›',
+  '알림 없음 — 울리지 않아요':
+    'Keine Erinnerung — es klingelt nichts',
+  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "🔔 알림 바꾸기"를 눌러 고른 뒤 "저장"하면 됩니다(수정 화면에서도 바꿀 수 있습니다).':
+    'Vorab-Erinnerungen: Wähle eine oder mehrere aus 10 Min., 30 Min., 1 Stunde oder einen Tag vorher (20 Uhr am Vorabend); jede meldet sich einmal, etwa „In 30 Min. · Zahnarzt“. Schaltest du „Pünktlich“ aus, klingelt zur genauen Uhrzeit nichts. Lege unter Einstellungen › Wecker Standard-Erinnerungen fest, dann werden sie neuen Terminen automatisch hinzugefügt. Bei bestehenden Terminen tippst du im Detailbildschirm auf „🔔 Erinnerungen ändern“, wählst aus und tippst auf „Speichern“ (auch im Bearbeitungsbildschirm möglich).',
 };
