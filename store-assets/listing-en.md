@@ -26,6 +26,7 @@ Try "dinner with friends next Friday at 7", "team meeting in 3 days at 10am", or
 🔁 Hear exactly what you said
 Every schedule keeps its recording. Tap ▶ on a card to hear your own voice, or open the detail screen and tap a single word to replay just that part. Long-press and drag across words to loop the section you need.
 (Saved recordings and word replay need Android 13 or later. On Android 12 and below your words are saved as text, and schedules and alarms work the same.)
+Schedules without a recording (ones you typed in, or ones saved on Android 12 and below) can be heard too: tap ▶ and your phone's voice reads out the date, time and content, without using the internet.
 
 ⏰ Early reminders + an on-time alarm
 An alarm at the exact appointment time is already too late. Choose any of 10 minutes, 30 minutes, 1 hour or a day before — or just say "remind me 30 minutes before". At the set time the alarm rings, and rings again 1 and 2 minutes later in case you missed it. Pick sound + vibration, sound only, or vibration only for each schedule.
@@ -33,8 +34,8 @@ An alarm at the exact appointment time is already too late. Choose any of 10 min
 📅 Calendar and list in one view
 Month or week calendar on top, that period's schedules listed by day below. Past items are folded away so what's coming up stays on top. Day-before reminders show up on the day they ring.
 
-🤔 Forgot to say when? Nothing is lost
-Say "buy milk" with no date and the recording is still kept, tagged "Date not set yet". Set the day whenever you're ready.
+🤔 No date? Meetings and lectures too
+If you don't say a date or time — a quick note like "buy milk", or a whole meeting or lecture — it's saved at the date and time you started recording. That time has already passed, so no alarm is set. The card shows "Saved at the time you recorded · Set". If it's something to do later, tap "Set" and pick a date and time to get an alarm. If it's a record of a meeting or lecture, just leave it as it is. You can replay the recording on that same screen while you choose the date.
 
 🔎 Search and export
 Search by content, or filter by today, this week, this month or any period. Preview the result as text or PDF, then export it.

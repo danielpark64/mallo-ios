@@ -24,8 +24,8 @@ Essayez « dîner entre amis vendredi prochain à 19h », « réunion d'équipe 
 • Vous voulez une appli légère, utilisable tout de suite, sans inscription
 
 🔁 Réécoutez exactement ce que vous avez dit
-Chaque événement conserve son enregistrement. Touchez ▶ sur une carte pour entendre votre propre voix, ou ouvrez l'écran de détail et touchez un mot pour ne réécouter que ce passage. Faites un appui long puis glissez sur les mots pour lire en boucle la partie dont vous avez besoin.
-(La conservation des enregistrements et la relecture mot par mot nécessitent Android 13 ou version ultérieure. Sur Android 12 et versions antérieures, vos paroles sont enregistrées sous forme de texte ; les événements et les alarmes fonctionnent de la même façon.)
+Chaque événement garde son enregistrement : ▶ sur une carte fait entendre votre voix, un mot touché dans le détail rejoue ce passage, un appui long glissé sur les mots lit une partie en boucle.
+(Enregistrements et relecture mot par mot : Android 13 ou ultérieur ; sur Android 12 et antérieur, vos paroles sont gardées en texte, alarmes incluses. Sans enregistrement (saisie au clavier ou Android 12 et antérieur), ▶ fait lire date, heure et contenu par la voix du téléphone, sans Internet.)
 
 ⏰ Rappels anticipés + alarme à l'heure
 Une alarme pile à l'heure du rendez-vous, c'est déjà trop tard. Choisissez 10 minutes, 30 minutes, 1 heure ou un jour avant — ou dites simplement « rappelle-moi 30 minutes avant ». À l'heure prévue, l'alarme sonne, puis sonne de nouveau 1 et 2 minutes plus tard au cas où vous l'auriez manquée. Pour chaque événement, choisissez son + vibration, son seul ou vibration seule.
@@ -33,8 +33,8 @@ Une alarme pile à l'heure du rendez-vous, c'est déjà trop tard. Choisissez 10
 📅 Calendrier et liste sur un même écran
 En haut, le calendrier par mois ou par semaine ; en dessous, les événements de la période classés par jour. Les éléments passés sont repliés pour que ce qui arrive reste en haut. Les rappels de la veille apparaissent le jour où ils sonnent.
 
-🤔 Oublié de dire quand ? Rien n'est perdu
-Dites « acheter du lait » sans date : l'enregistrement est tout de même conservé, avec la mention « Date pas encore définie ». Fixez le jour quand vous voulez.
+🤔 Pas de date ? Réunions et cours aussi
+Sans date ni heure (« acheter du lait », réunion, cours), c'est classé à l'heure du début de l'enregistrement, déjà passée : pas d'alarme. La carte affiche « Enregistré à l’heure de l’enregistrement · Définir ». À faire plus tard ? Touchez « Définir » et choisissez date et heure (réécoute possible) pour régler l'alarme. Une réunion, un cours ? Laissez tel quel.
 
 🔎 Recherche et export
 Recherchez par contenu ou filtrez par aujourd'hui, cette semaine, ce mois-ci ou la période de votre choix. Prévisualisez le résultat en texte ou en PDF, puis exportez-le.

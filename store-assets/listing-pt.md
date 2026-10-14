@@ -26,6 +26,7 @@ Experimente "jantar com os amigos na sexta que vem às sete", "reunião da equip
 🔁 Ouça exatamente o que você disse
 Cada compromisso guarda a sua gravação. Toque em ▶ no cartão para ouvir a sua própria voz, ou abra a tela de detalhes e toque em uma palavra para repetir só aquele trecho. Toque e segure, depois arraste pelas palavras, para repetir em loop a parte de que você precisa.
 (As gravações salvas e a repetição por palavra exigem Android 13 ou superior. No Android 12 e anteriores, o que você fala é salvo como texto, e os compromissos e alarmes funcionam do mesmo jeito.)
+Compromissos sem gravação (digitados ou salvos no Android 12 e anteriores) também podem ser ouvidos: toque em ▶ e a voz do celular lê a data, a hora e o conteúdo, sem usar a internet.
 
 ⏰ Lembretes antecipados + alarme na hora certa
 Um alarme bem na hora do compromisso já é tarde demais. Escolha entre 10 minutos, 30 minutos, 1 hora ou um dia antes — ou simplesmente diga "me lembre trinta minutos antes". No horário definido o alarme toca, e toca de novo 1 e 2 minutos depois, caso você não tenha ouvido. Em cada compromisso, escolha som + vibração, só som ou só vibração.
@@ -33,8 +34,8 @@ Um alarme bem na hora do compromisso já é tarde demais. Escolha entre 10 minut
 📅 Calendário e lista em uma única tela
 Calendário mensal ou semanal em cima e, embaixo, os compromissos do período organizados por dia. Os itens passados ficam recolhidos para que o que vem pela frente fique no topo. Os lembretes de um dia antes aparecem no dia em que tocam.
 
-🤔 Esqueceu de dizer quando? Nada se perde
-Diga "comprar leite" sem data e a gravação fica guardada mesmo assim, marcada como "Data ainda não definida". Defina o dia quando quiser.
+🤔 Sem data? Reuniões e aulas também
+Se você não disser data nem hora ("comprar leite", uma reunião, uma aula), fica salvo com a data e o horário em que você começou a gravar; como já passou, não há alarme. O cartão mostra "Salvo no horário em que você gravou · Definir". Se for algo para depois, toque em "Definir" e escolha data e hora (dá para ouvir a gravação de novo enquanto escolhe) para receber o alarme. Se for o registro de uma reunião ou aula, é só deixar como está.
 
 🔎 Busca e exportação
 Busque pelo conteúdo ou filtre por hoje, esta semana, este mês ou qualquer período. Visualize o resultado em texto ou PDF e depois exporte.

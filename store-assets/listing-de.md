@@ -24,8 +24,8 @@ Probier „Abendessen mit Freunden nächsten Freitag um 19 Uhr“, „Teammeetin
 • du eine schlanke App möchtest, die ohne Anmeldung sofort funktioniert
 
 🔁 Hör genau, was du gesagt hast
-Jeder Termin behält seine Aufnahme. Tippe auf einer Karte auf ▶, um deine eigene Stimme zu hören, oder öffne die Detailansicht und tippe auf ein einzelnes Wort, um nur diese Stelle noch einmal abzuspielen. Halte gedrückt und ziehe über mehrere Wörter, um den gewünschten Abschnitt in Schleife zu hören.
-(Gespeicherte Aufnahmen und die Wort-Wiedergabe erfordern Android 13 oder höher. Unter Android 12 und älter wird das Gesagte als Text gespeichert; Termine und Alarme funktionieren genauso.)
+Jeder Termin behält seine Aufnahme. Tippe auf einer Karte auf ▶, um deine Stimme zu hören, oder in der Detailansicht auf ein Wort, um nur diese Stelle abzuspielen. Halte gedrückt und ziehe über Wörter, um einen Abschnitt in Schleife zu hören.
+(Aufnahmen und Wort-Wiedergabe ab Android 13. Unter Android 12 und älter wird das Gesagte als Text gespeichert; Termine und Alarme funktionieren genauso. Bei Terminen ohne Aufnahme – auch eingetippten – liest die Stimme des Handys nach ▶ Datum, Uhrzeit und Inhalt vor, ohne Internet.)
 
 ⏰ Vorab-Erinnerungen + Alarm zur Terminzeit
 Ein Alarm genau zur Terminzeit kommt schon zu spät. Wähle beliebig aus 10 Minuten, 30 Minuten, 1 Stunde oder einem Tag vorher – oder sag einfach „erinnere mich 30 Minuten vorher“. Zur eingestellten Zeit klingelt der Alarm und noch einmal 1 und 2 Minuten später, falls du ihn überhört hast. Für jeden Termin wählst du Ton + Vibration, nur Ton oder nur Vibration.
@@ -33,8 +33,8 @@ Ein Alarm genau zur Terminzeit kommt schon zu spät. Wähle beliebig aus 10 Minu
 📅 Kalender und Liste in einer Ansicht
 Oben der Monats- oder Wochenkalender, darunter die Termine dieses Zeitraums nach Tagen sortiert. Vergangene Einträge sind eingeklappt, damit das Kommende oben bleibt. Erinnerungen vom Vortag erscheinen an dem Tag, an dem sie klingeln.
 
-🤔 Vergessen zu sagen, wann? Nichts geht verloren
-Sag „Milch kaufen“ ohne Datum, und die Aufnahme bleibt trotzdem erhalten – mit dem Hinweis „Datum noch nicht festgelegt“. Leg den Tag fest, wann immer es dir passt.
+🤔 Kein Datum? Auch Besprechungen und Vorlesungen
+Ohne Datum und Uhrzeit („Milch kaufen“, eine Besprechung, eine Vorlesung) wird es zur Startzeit der Aufnahme gespeichert – die ist schon vorbei, also kein Alarm. Auf der Karte steht „Zur Aufnahmezeit gespeichert · Festlegen“. Für später tippst du auf „Festlegen“ und wählst Datum und Uhrzeit (die Aufnahme kannst du dabei nochmal hören) – dann kommt der Alarm. Mitschnitte lässt du einfach so.
 
 🔎 Suchen und exportieren
 Suche nach Inhalt oder filtere nach heute, dieser Woche, diesem Monat oder einem beliebigen Zeitraum. Sieh dir das Ergebnis als Text oder PDF in der Vorschau an und exportiere es dann.

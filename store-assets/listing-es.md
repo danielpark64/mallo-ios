@@ -26,6 +26,7 @@ Prueba con «cena con amigos el viernes que viene a las siete», «reunión de e
 🔁 Escucha exactamente lo que dijiste
 Cada evento conserva su grabación. Toca ▶ en una tarjeta para oír tu propia voz, o abre la pantalla de detalle y toca una palabra para volver a oír solo esa parte. Mantén pulsado y arrastra sobre las palabras para repetir en bucle el fragmento que necesites.
 (Las grabaciones guardadas y la reproducción por palabras requieren Android 13 o posterior. En Android 12 y versiones anteriores, lo que dices se guarda como texto, y los eventos y las alarmas funcionan igual.)
+Los eventos sin grabación (tecleados o guardados en Android 12 o anterior) también se escuchan: con ▶, la voz del teléfono lee la fecha, la hora y el contenido, sin internet.
 
 ⏰ Avisos anticipados + alarma a la hora exacta
 Una alarma justo a la hora de la cita ya llega tarde. Elige entre 10 minutos, 30 minutos, 1 hora o un día antes, o simplemente di «avísame treinta minutos antes». A la hora fijada suena la alarma, y vuelve a sonar 1 y 2 minutos después por si no la oíste. En cada evento puedes elegir sonido + vibración, solo sonido o solo vibración.
@@ -33,8 +34,8 @@ Una alarma justo a la hora de la cita ya llega tarde. Elige entre 10 minutos, 30
 📅 Calendario y lista en una sola vista
 Arriba, el calendario mensual o semanal; debajo, los eventos de ese periodo ordenados por día. Los eventos pasados se pliegan para que lo próximo quede siempre arriba. Los avisos del día anterior aparecen en el día en que suenan.
 
-🤔 ¿Olvidaste decir cuándo? No se pierde nada
-Di «comprar leche» sin fecha y la grabación se conserva igualmente, con la etiqueta «Fecha aún sin definir». Ponle fecha cuando quieras.
+🤔 ¿Sin fecha? Reuniones y clases también
+Si no dices fecha ni hora («comprar leche», una reunión, una clase), se guarda con la fecha y hora en que empezaste a grabar; como ya pasó, no hay alarma. La tarjeta muestra «Guardado a la hora en que grabaste · Definir». Si es para más adelante, toca «Definir» y elige fecha y hora (puedes reescuchar la grabación) para tener alarma. Si es una reunión o clase, déjalo así.
 
 🔎 Buscar y exportar
 Busca por contenido o filtra por hoy, esta semana, este mes o cualquier periodo. Previsualiza el resultado como texto o PDF y luego expórtalo.
