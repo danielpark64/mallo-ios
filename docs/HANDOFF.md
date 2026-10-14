@@ -84,7 +84,7 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 
 **사용자가 결정·직접 할 것**
 - 업로드 키 생성(비밀번호) → `android/keystore.properties`(커밋 금지).
-- main 병합 + GitHub Pages(개인정보처리방침 주소) — 공개 게시라 승인 필요.
+- ~~main 병합 + GitHub Pages~~ — 2026-10-14 완료(main = 작업 브랜치, https://danielpark64.github.io/mallo-ios/privacy.html). 이후 작업도 main에 병합해 두면 새 계정은 main만 받으면 된다.
 - 콘솔 광고 신고 "예"(홍보 배너), 후원 슬라이드는 넣은 채로 올리기로 결정(교대알람이 같은 화면으로 통과).
 - 비공개 테스트 12명·14일.
 

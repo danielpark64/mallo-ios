@@ -24,7 +24,7 @@
 | 가격 | 무료 |
 | 카테고리 | 생산성 |
 | 연락처 | danielpark6532@gmail.com |
-| 개인정보처리방침 주소 | https://danielpark64.github.io/mallo-ios/privacy.html (2번을 해야 열림) |
+| 개인정보처리방침 주소 | https://danielpark64.github.io/mallo-ios/privacy.html (2026-10-14 열림, 영문 privacy-en.html) |
 
 iOS의 번들 ID도 `com.danielpark.sayram`으로 바꿨습니다(2026-10-13). 폰과 미니의 일정·녹음은 옛 앱에서 꺼내 새 앱으로 옮겼고, 사본이 `~/Desktop/세이람_데이터백업_2026-10-13/`에 있습니다.
 
@@ -175,7 +175,7 @@ cd android && ./gradlew bundleRelease
 ## 11. 올리는 날 순서
 
 1. 업로드 키 만들기(1번)
-2. main 병합 + GitHub Pages 켜기(2번) → 주소가 열리는지 확인
+2. ~~main 병합 + GitHub Pages 켜기(2번)~~ — 2026-10-14 완료, 두 주소 모두 열림 확인
 3. AAB 만들기(3번)
 4. 콘솔: 앱 만들기(4번) → 앱 콘텐츠(5~7번) → 스토어 등록정보(8번) → 내부 테스트에 AAB 업로드와 출시 노트(9번)
 5. 내부 테스트로 폰에 설치해 한 번 확인 → 비공개 테스트 12명·14일(10번) → 프로덕션 신청
