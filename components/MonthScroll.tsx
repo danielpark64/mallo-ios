@@ -355,7 +355,7 @@ const MonthBlock = memo(function MonthBlock({
               return (
                 <TouchableOpacity
                   key={ci}
-                  style={[s.cell, isSel && s.cellSel]}
+                  style={[s.cell, shift?.off && s.cellOff, isSel && s.cellSel]}
                   onPress={() => onPickDay(d)}
                   activeOpacity={0.6}
                   accessibilityRole="button"
@@ -367,7 +367,7 @@ const MonthBlock = memo(function MonthBlock({
                       <Text maxFontSizeMultiplier={1} style={[s.numText, red && { color: C.red }, d.getDay() === 6 && !red && { color: C.accent }, isToday && s.numTextToday]}>{d.getDate()}</Text>
                     </View>
                     {shift ? (
-                      <Text style={[s.shift, { color: shift.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>{shift.label}</Text>
+                      <Text style={shift.off ? s.shiftOff : [s.shift, { color: shift.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>{shift.label}</Text>
                     ) : null}
                     {(hol || sub) ? (
                       <Text style={[s.sub, hol ? { color: C.red } : null]} numberOfLines={1} maxFontSizeMultiplier={1}>{hol ?? sub}</Text>
@@ -430,6 +430,8 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   week: { flexDirection: 'row', overflow: 'hidden', borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   cell: { flex: 1, paddingHorizontal: 1, overflow: 'hidden' },
   cellSel: { backgroundColor: C.surfaceHigh, borderRadius: 6 },
+  // 쉬는 날(비번)만 눈에 띄게(2026-10-18 사용자 요청: "비번만 잘 보여도 나머지는 알 수 있어") — 칸 전체 옅은 초록 + 초록 바탕 글씨
+  cellOff: { backgroundColor: C.green + '1F' },
   // 가운데 정렬(2026-10-18): 요일 머리글(가운데) 아래에 숫자가 오게 — 왼쪽 정렬이면 월요일 숫자가 앞 칸 근무 글씨(초번·말번)와 한 덩어리로 읽혔다.
   // 칸이 좁으면 근무·공휴일 글씨가 먼저 줄어들고 숫자는 그대로(shift·sub flexShrink 1)
   numRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2 },
@@ -438,6 +440,7 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   numText: { color: C.text, fontSize: 13, fontWeight: '600' },
   numTextToday: { color: '#fff', fontWeight: '800' },
   shift: { fontSize: 9, fontWeight: '800', flexShrink: 1, maxWidth: '55%' },
+  shiftOff: { fontSize: 9, fontWeight: '800', flexShrink: 1, maxWidth: '60%', color: C.bg, backgroundColor: C.green, borderRadius: 4, paddingHorizontal: 3, overflow: 'hidden' },
   sub: { flexShrink: 1, color: C.textDim, fontSize: 9 },
   chip: { fontSize: 10, color: C.text, backgroundColor: C.surfaceHigh, borderRadius: 3, paddingHorizontal: 2, marginBottom: 1, overflow: 'hidden' },
   more: { fontSize: 10, color: C.textSub, paddingHorizontal: 2 },
