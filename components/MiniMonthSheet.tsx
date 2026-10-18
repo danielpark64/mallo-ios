@@ -6,6 +6,7 @@ import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from './AppText';
 import { useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
+import { getHoliday } from '../lib/calendarKit/holidays';
 import { dayKey, formatDayHeader, formatMonthLabel, isSameDay, monthGrid, weekdayLabels } from '../lib/dateUtils';
 
 export function MiniMonthSheet({
@@ -73,7 +74,7 @@ export function MiniMonthSheet({
                   testID={`mini-day-${d.getDate()}`}
                 >
                   <View style={[s.num, sel && s.numSel, !sel && isToday && s.numToday]}>
-                    <Text style={[s.numText, sel && s.numTextSel, d.getDay() === 0 && !sel && { color: C.red }, d.getDay() === 6 && !sel && { color: C.accent }]}>{d.getDate()}</Text>
+                    <Text style={[s.numText, sel && s.numTextSel, (d.getDay() === 0 || !!getHoliday(d)) && !sel && { color: C.red }, d.getDay() === 6 && !getHoliday(d) && !sel && { color: C.accent }]}>{d.getDate()}</Text>
                   </View>
                   <View style={[s.dot, marked ? { backgroundColor: C.accent } : null]} testID={marked ? 'mini-dot' : undefined} />
                 </TouchableOpacity>

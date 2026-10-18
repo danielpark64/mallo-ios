@@ -3,6 +3,7 @@
 // (iOS는 모달이 떠 있는 동안 다른 모달을 띄우면 조용히 무시한다 — 닫고 나서 연다: App 쪽에서 지연).
 import { useMemo } from 'react';
 import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from './AppText';
 import { ScheduleCard } from './ScheduleCard';
 import { useTheme, type Palette } from '../lib/theme';
@@ -39,6 +40,7 @@ export function DaySheet({
   const C = useTheme();
   const { t } = useT();
   const s = useMemo(() => makeStyles(C), [C]);
+  const insets = useSafeAreaInsets();
   const items = useMemo(() => (day ? schedulesOn(records, day) : []), [records, day]);
   if (!day) return null;
   const rel = relativeDayLabel(day);
@@ -48,7 +50,7 @@ export function DaySheet({
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={s.back} activeOpacity={1} onPress={onClose} accessibilityLabel={t('닫기')} />
-      <View style={s.sheet}>
+      <View style={[s.sheet, { paddingBottom: 16 + insets.bottom }]}>
         <View style={s.grab} />
         <View style={s.head}>
           <View style={{ flex: 1 }}>
@@ -84,7 +86,7 @@ export function DaySheet({
 
 const makeStyles = (C: Palette) => StyleSheet.create({
   back: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingBottom: 34, paddingTop: 8 },
+  sheet: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingTop: 8 },
   grab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 10 },
   head: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   title: { color: C.text, fontSize: 18, fontWeight: '700' },
