@@ -8,12 +8,28 @@ import { formatTime, type PreAlarmItem } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
 import { useT } from '../lib/i18n';
 
-export function PreAlarmRow({ item, onPress }: { item: PreAlarmItem; onPress: (r: ScheduleRecord) => void }) {
+export function PreAlarmRow({ item, onPress, compact = false }: {
+  item: PreAlarmItem;
+  onPress: (r: ScheduleRecord) => void;
+  /** 한 줄 보기 — 설명 문구 없이 "⏰ 오후 8:00 · 미리 알림 · 내일 오전 11:00 외과…" 한 줄 */
+  compact?: boolean;
+}) {
   const C = useTheme();
   const { t } = useT();
   const s = useMemo(() => makeStyles(C), [C]);
   const target = new Date(item.record.scheduleAt!);
   const text = item.record.content || item.record.transcript;
+  if (compact) {
+    return (
+      <TouchableOpacity style={[s.row, s.rowCompact]} onPress={() => onPress(item.record)} activeOpacity={0.7} testID="pre-alarm-row-compact" accessibilityLabel={t('이 시각에 내일 일정을 미리 알려 드려요')}>
+        <Text style={s.time}>⏰ {formatTime(new Date(item.fireAt))}</Text>
+        <Text style={s.compactText} numberOfLines={1}>
+          <Text style={s.label}>{t('미리 알림')}</Text>
+          {'  '}{t('내일 {time} · {text}', { time: formatTime(target), text: text ?? '' })}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
   return (
     <TouchableOpacity style={s.row} onPress={() => onPress(item.record)} activeOpacity={0.7} testID="pre-alarm-row">
       <Text style={s.time}>⏰ {formatTime(new Date(item.fireAt))}</Text>
@@ -36,4 +52,6 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   body: { flex: 1 },
   label: { color: C.accent, fontSize: 11, fontWeight: '700' },
   text: { color: C.textSub, fontSize: 13, marginTop: 2 },
+  rowCompact: { paddingVertical: 7, marginBottom: 6, gap: 10 },
+  compactText: { flex: 1, color: C.textSub, fontSize: 13 },
 });

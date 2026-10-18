@@ -201,3 +201,20 @@ describe('몇째 주(주 보기 머리)', () => {
     expect(formatWeekOfMonth(new Date(2026, 7, 30))).toBe('8월 여섯째 주 · 9월 첫째 주'); // 2026-08-01은 토요일
   });
 });
+
+// "다음 · …"을 누르면 그 일정 카드로 바로 간다 — 목록에서 위치 찾기
+import { findItemLocation } from '../dateUtils';
+describe('findItemLocation', () => {
+  const r = (id: string) => ({ id } as any);
+  const sections = [
+    { key: 'a', title: '', date: new Date(2026, 9, 15), data: [r('1'), r('2')] },
+    { key: 'b', title: '', date: new Date(2026, 10, 4), data: [{ kind: 'pre', id: 'p' } as any, r('3')] },
+  ];
+  test('묶음 번호와 그 안의 순서를 돌려준다', () => {
+    expect(findItemLocation(sections, '2')).toEqual({ sectionIndex: 0, itemIndex: 1 });
+    expect(findItemLocation(sections, '3')).toEqual({ sectionIndex: 1, itemIndex: 1 });
+  });
+  test('없으면 null', () => {
+    expect(findItemLocation(sections, 'x')).toBeNull();
+  });
+});

@@ -9,10 +9,13 @@ import {
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
+  type SetCategoryOptions,
 } from 'expo-speech-recognition';
+import { Platform } from 'react-native';
 import type { TranscriptSegment } from './storage';
 import { sttLang } from './sttLang';
 import { canRecordFileWhileRecognizing } from './voiceCapture';
+import { recordedFileIsEmpty } from './audioCheck';
 import { hasUsableTimestamps, synthesizeSegmentTimes } from './wordRange';
 import { applyFinal, applyPartial, applySessionEnd, emptyMerge, mergedText, type MergeState } from './transcriptMerge';
 
@@ -21,12 +24,28 @@ export type VoiceCaptureResult = {
   transcript: string;
   durationSec: number;
   segments: TranscriptSegment[];
+  /** 녹음 파일은 만들어졌지만 소리가 비어 있어 버렸다(uri null) — 화면이 사용자에게 알려야 한다 */
+  audioLost: boolean;
 };
 
 export type VoiceRecorderState = { isRecording: boolean; durationMillis: number; metering?: number };
 
 /** 녹음 시작 뒤 인식기를 거는 지연. 예전 300ms는 말 첫머리가 잘려 줄였다 */
 export const STT_START_DELAY_MS = 60;
+
+/**
+ * iOS: 음성 인식기가 쓸 오디오 세션 — 녹음기(expo-audio의 allowsRecording 모드)와 **똑같이** 맞춘다.
+ * 인식기 기본값(playAndRecord + measurement 모드, 섞기 없음)은 녹음기와 달라서, 인식을 켜는 순간 세션이 다시 짜이며
+ * 녹음기가 0.2초 만에 멈출 수 있었다(2026-10-18 폰: 11월 일정 2건 녹음 무음). 바꾸려면 expo-audio 쪽과 함께 바꿀 것.
+ */
+export const STT_IOS_CATEGORY: SetCategoryOptions = {
+  category: 'playAndRecord',
+  categoryOptions: ['defaultToSpeaker', 'allowBluetooth', 'mixWithOthers'],
+  mode: 'default',
+};
+
+/** 녹음 중 녹음기가 멈춘 것을 보고 다시 켜는 최대 횟수 (계속 실패하면 저장 때 빈 녹음 검사가 알린다) */
+const MAX_RECORDER_REVIVES = 3;
 
 export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
   // Android 12 이하: 녹음기와 음성 인식기가 마이크를 같이 못 써서 인식만 돌린다 (lib/voiceCapture.ts 참고)
@@ -43,10 +62,43 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
       return { isRecording: !!st.isRecording, durationMillis: st.durationMillis ?? 0, metering: st.metering };
     } catch { return { isRecording: false, durationMillis: 0 }; }
   };
+  // 녹음 중이어야 하는지(우리 쪽 의도) — 녹음기가 혼자 멈췄는지 판단하는 기준
+  const recordingRef = useRef(false);
+  const missRef = useRef(0);
+  const revivesRef = useRef(0);
+  // iOS: expo 상태는 "녹음 중"인데 실제 녹음기(AVAudioRecorder)만 멈춘 경우 — 2026-10-18 폰 무음 녹음이 이 모양이었다
+  // (저장된 길이는 6·9초인데 파일 속 소리는 0.2초). expo의 record()는 '준비됨/일시정지' 상태에서만 동작하므로
+  // pause()로 상태를 맞춘 뒤 record()로 다시 건다. 통화 같은 중단 때는 expo가 상태를 '일시정지'로 바꾸므로
+  // (getStatus().isRecording=false) 여기 걸리지 않고, 중단이 끝나면 expo가 알아서 이어 녹음한다.
+  const reviveRecorder = (run: number) => {
+    revivesRef.current++;
+    missRef.current = 0;
+    if (!recordingRef.current || run !== runIdRef.current) return;
+    try {
+      recorder.pause();
+      recorder.record();
+    } catch (e) {
+      console.warn('녹음기 다시 켜기 실패:', e);
+    }
+  };
+  const nativeRecording = (): boolean => {
+    try { return (recorder as { isRecording?: boolean }).isRecording !== false; } catch { return true; }
+  };
   const startPoll = () => {
     stopPoll();
+    missRef.current = 0;
+    revivesRef.current = 0;
     setFileState(readRecorder());
-    pollRef.current = setInterval(() => setFileState(readRecorder()), 100);
+    pollRef.current = setInterval(() => {
+      const st = readRecorder();
+      setFileState(st);
+      // expo는 녹음 중이라는데 실제 녹음기가 멈춰 있으면 두 번 연속 확인 후 다시 건다 (iOS만 — 위 reviveRecorder 설명)
+      if (Platform.OS !== 'ios' || !recordingRef.current) return;
+      if (!st.isRecording || nativeRecording()) { missRef.current = 0; return; }
+      if (++missRef.current >= 2 && revivesRef.current < MAX_RECORDER_REVIVES) {
+        reviveRecorder(runIdRef.current);
+      }
+    }, 100);
   };
   // 인식만 돌릴 때는 녹음기 상태가 없으므로 타이머로 같은 모양의 상태를 만든다
   const [sttOnlyState, setSttOnlyState] = useState<VoiceRecorderState>({ isRecording: false, durationMillis: 0 });
@@ -123,7 +175,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     setTimeout(() => {
       if (!sttActiveRef.current) return;
       try {
-        ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true });
+        ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true, iosCategory: STT_IOS_CATEGORY });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
       } catch {}
     }, 200);
@@ -134,7 +186,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     const attempt = (n: number) => {
       if (!sttActiveRef.current) return;
       try {
-        ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true });
+        ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true, iosCategory: STT_IOS_CATEGORY });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
       } catch {
         if (n < 3) setTimeout(() => attempt(n + 1), 400);
@@ -164,6 +216,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
         return;
       }
       recorder.record();
+      recordingRef.current = true;
       startPoll();
     } else {
       stopTick();
@@ -190,6 +243,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     setListening(false);
     try { ExpoSpeechRecognitionModule.abort(); } catch {}
     if (fileRecording) {
+      recordingRef.current = false;
       stopPoll();
       setFileState({ isRecording: false, durationMillis: 0 });
       try { await recorder.stop(); } catch {}
@@ -205,7 +259,9 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     setListening(false);
     let uri: string | null = null;
     let durationMs = 0;
+    let audioLost = false;
     if (fileRecording) {
+      recordingRef.current = false;
       sttActiveRef.current = false;
       try { ExpoSpeechRecognitionModule.stop(); } catch {}
       // 멈추기 직전 값을 네이티브에서 직접 읽는다 (폴링 상태는 최대 100ms 늦다)
@@ -215,6 +271,14 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
       await recorder.stop();
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
       uri = recorder.uri;
+      // 파일은 있는데 소리가 비었으면(녹음기가 중간에 멈춤) 무음 ▶가 저장되지 않게 버리고 화면에 알린다.
+      // 길이는 녹음기 값이 멈춘 시점에 머물 수 있으므로 실제 흐른 시간과 큰 쪽으로 본다.
+      const elapsedSec = recordStartAtRef.current ? (Date.now() - recordStartAtRef.current) / 1000 : 0;
+      if (uri && recordedFileIsEmpty(uri, Math.max(durationMs / 1000, elapsedSec))) {
+        console.warn('빈 녹음 감지 — 소리 없이 글만 저장', { durationMs, elapsedSec, revives: revivesRef.current });
+        uri = null;
+        audioLost = true;
+      }
     } else {
       // 전사가 유일한 데이터이므로 최종 결과가 들어올 'end'까지(최대 800ms) 결과를 계속 받는다
       durationMs = finishSttOnly();
@@ -243,7 +307,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     }
     setLiveText('');
     liveTextRef.current = '';
-    return { uri: uri ?? null, transcript, durationSec, segments };
+    return { uri: uri ?? null, transcript, durationSec, segments, audioLost };
   };
 
   return { recorderState, liveText, listening, start, stop, cancel, fileRecording };

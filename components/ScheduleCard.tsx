@@ -19,6 +19,8 @@ export function ScheduleCard({
   onFixDate,
   onLongPress,
   showDate = false,
+  compact = false,
+  highlight = false,
 }: {
   item: ScheduleRecord;
   onPress: (r: ScheduleRecord) => void;
@@ -28,6 +30,10 @@ export function ScheduleCard({
   /** 길게 누르기 — 수정·삭제 메뉴를 바로 띄운다 */
   onLongPress?: (r: ScheduleRecord) => void;
   showDate?: boolean;
+  /** 한 줄 보기 — 시간·내용 한 줄·▶만. 일정이 많을 때 한 화면에 많이 보이게 (설정 prefs.listCompact) */
+  compact?: boolean;
+  /** 위쪽 "다음 · …"을 눌러 바로 온 카드 — 잠깐 테두리로 강조 */
+  highlight?: boolean;
 }) {
   const C = useTheme();
   const { t } = useT();
@@ -112,15 +118,49 @@ export function ScheduleCard({
     </>
   );
 
-  if (stacked) {
+  if (compact) {
+    const appendCount = item.appends?.length ?? 0;
     return (
       <TouchableOpacity
-        style={[styles.card, styles.cardStacked, isPast && styles.cardPast]}
+        style={[styles.compactRow, isPast && styles.cardPast, highlight && styles.cardHighlight]}
         onPress={() => onPress(item)}
         onLongPress={onLongPress ? () => onLongPress(item) : undefined}
         delayLongPress={400}
         activeOpacity={0.72}
-        testID="card-stacked"
+        testID={highlight ? 'card-highlight' : 'card-compact'}
+      >
+        <View style={[styles.compactBar, { backgroundColor: isPast ? C.textSub : accentColor }]} />
+        <Text style={[styles.compactTime, isPast ? styles.cardTimePast : { color: accentColor }]} numberOfLines={1}>
+          {timeLabel}
+        </Text>
+        <Text style={[styles.compactTitle, isPast && styles.cardTitlePast]} numberOfLines={1} ellipsizeMode="tail">
+          {mainTitle}
+        </Text>
+        {item.needsDate && <Text style={styles.compactNeeds}>{t('정하기')}</Text>}
+        {appendCount > 0 && <Text style={styles.compactAppend}>+{appendCount}</Text>}
+        {canPlay ? (
+          <TouchableOpacity
+            style={styles.compactPlay}
+            onPress={toggle}
+            accessibilityLabel={t(playing ? '⏸ 멈춤' : item.uri ? '▶ 듣기' : '▶ 읽어 주기')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.cardPlayIcon}>{playing ? '⏸' : '▶'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </TouchableOpacity>
+    );
+  }
+
+  if (stacked) {
+    return (
+      <TouchableOpacity
+        style={[styles.card, styles.cardStacked, isPast && styles.cardPast, highlight && styles.cardHighlight]}
+        onPress={() => onPress(item)}
+        onLongPress={onLongPress ? () => onLongPress(item) : undefined}
+        delayLongPress={400}
+        activeOpacity={0.72}
+        testID={highlight ? 'card-highlight' : 'card-stacked'}
       >
         <View style={styles.stackTop}>
           <View style={[styles.stackBar, { backgroundColor: accentColor }]} />
@@ -150,11 +190,12 @@ export function ScheduleCard({
 
   return (
     <TouchableOpacity
-      style={[styles.card, isPast && styles.cardPast]}
+      style={[styles.card, isPast && styles.cardPast, highlight && styles.cardHighlight]}
       onPress={() => onPress(item)}
       onLongPress={onLongPress ? () => onLongPress(item) : undefined}
       delayLongPress={400}
       activeOpacity={0.72}
+      testID={highlight ? 'card-highlight' : undefined}
     >
       <View style={styles.cardTimeCol}>
         <Text style={[styles.cardTime, isPast ? styles.cardTimePast : { color: accentColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -253,5 +294,25 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   stackBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: C.surfaceHigh },
   stackBtnText: { color: C.text, fontSize: 13, fontWeight: '700' },
   stackBtnTextAccent: { color: C.accent, fontSize: 13, fontWeight: '700' },
+  // "다음"에서 바로 온 카드 강조
+  // 테두리 두께는 그대로(줄이 흔들리지 않게) 색과 배경만 바꾼다
+  cardHighlight: { borderColor: C.accent, backgroundColor: C.surfaceHigh },
+  // 한 줄 보기
+  compactRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.surface, borderRadius: 12,
+    paddingVertical: 8, paddingLeft: 10, paddingRight: 8, marginBottom: 6,
+    borderWidth: 1, borderColor: C.border,
+  },
+  compactBar: { width: 3, height: 20, borderRadius: 2 },
+  compactTime: { fontSize: 13, fontWeight: '700', minWidth: Math.round(62 * scale) },
+  compactTitle: { flex: 1, color: C.text, fontSize: 15, fontWeight: '500' },
+  compactNeeds: { color: '#fff', fontSize: 11, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, overflow: 'hidden' },
+  compactAppend: { color: C.textSub, fontSize: 12, fontWeight: '700' },
+  compactPlay: {
+    width: 30, height: 30,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceHigh, borderRadius: 15,
+  },
 
 });

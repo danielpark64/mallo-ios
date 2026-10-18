@@ -21,9 +21,13 @@ export type PromoSlide = {
 /** 후원 계좌 — 교대알람과 같은 계좌 */
 export const SUPPORT_ACCOUNT = { bank: '카카오뱅크', number: '3333166925857', holder: '장미향' };
 
+export const SUSU_TRAVEL_URL = 'https://www.youtube.com/@susu_travel';
+
 export const ALARMAPP_STORE_URL = 'https://play.google.com/store/apps/details?id=com.danielpark.alarmapp';
 
-/** 언어·플랫폼에 맞는 슬라이드. 계좌 후원과 교대알람 안내는 한국어 화면에서만 보인다. */
+/** 언어·플랫폼에 맞는 슬라이드. 계좌 후원과 교대알람·수수여행 안내는 한국어 화면에서만 보인다.
+ *  iOS는 앱 안에서 계좌 후원을 안내하면 App Store 심사 지침(3.1.1) 위반이라 후원 대신 수수여행 채널을 넣는다.
+ *  (iOS 후원은 나중에 인앱결제 "커피 한잔"으로 붙일 예정) */
 export function promoSlides(lang: Lang, os: string = Platform.OS): PromoSlide[] {
   const slides: PromoSlide[] = [
     { key: 'susu', icon: '🎵', title: '수수뮤직과 기분좋은 하루', sub: '채널 바로가기', tone: 'purple', url: 'https://www.youtube.com/@music_susu' },
@@ -31,8 +35,10 @@ export function promoSlides(lang: Lang, os: string = Platform.OS): PromoSlide[] 
   if (lang === 'ko') {
     if (os === 'android') {
       slides.push({ key: 'alarmapp', icon: '⏰', title: '교대근무라면 교대알람', sub: '근무표대로 울리는 알람 앱 보러 가기', tone: 'blue', url: ALARMAPP_STORE_URL });
+      slides.push({ key: 'coffee', icon: '☕', title: '개발자 응원하기', sub: '작은 후원으로 응원해주세요', tone: 'amber' });
+    } else {
+      slides.push({ key: 'travel', icon: '✈️', title: '수수여행, 그냥 떠나면 돼요', sub: '채널 바로가기', tone: 'blue', url: SUSU_TRAVEL_URL });
     }
-    slides.push({ key: 'coffee', icon: '☕', title: '개발자 응원하기', sub: '작은 후원으로 응원해주세요', tone: 'amber' });
   }
   return slides;
 }

@@ -21,6 +21,7 @@ import { sttLang as sttLangFor } from '../lib/sttLang';
 import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import { useVoiceRecorder } from '../lib/useVoiceRecorder';
 import { NO_FILE_NOTICE } from '../lib/voiceCapture';
+import { notifyAudioLost } from '../lib/audioLostNotice';
 
 export type AlarmMode = 'both' | 'sound' | 'vibe';
 
@@ -221,6 +222,7 @@ export function ScheduleEditor({
       }
       const res = await appendVoice.stop();
       setExtraRecording(false);
+      if (res.audioLost && res.transcript) notifyAudioLost();
       if (res.transcript) {
         // 한 화면에서 녹음은 하나만 덧붙인다 — 다시 하면 새 녹음으로 바꾼다
         setExtraCapture({
@@ -283,6 +285,7 @@ export function ScheduleEditor({
     voiceBusyRef.current = true;
     try {
       const res = await appendVoice.stop();
+      if (res.audioLost && res.transcript) notifyAudioLost();
       if (res.transcript) {
         prevTakeRef.current = null;
         setAppendCapture({

@@ -404,3 +404,15 @@ export function collapsePast<T extends { data: DayListItem[] }>(
   return { sections: out, pastCount, hiddenCount };
 }
 export const PAST_PAGE = 30;
+
+/** 목록 묶음들에서 일정 id의 위치 — "다음 · …"을 눌러 그 카드로 바로 갈 때 쓴다 */
+export function findItemLocation(
+  sections: { data: DayListItem[] }[],
+  id: string,
+): { sectionIndex: number; itemIndex: number } | null {
+  for (let si = 0; si < sections.length; si++) {
+    const ii = sections[si].data.findIndex((x) => !isPreAlarmItem(x) && (x as ScheduleRecord).id === id);
+    if (ii >= 0) return { sectionIndex: si, itemIndex: ii };
+  }
+  return null;
+}

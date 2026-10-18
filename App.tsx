@@ -14,6 +14,7 @@ import { parseSchedule, formatDisplay } from './lib/parseSchedule';
 import { recordedAtStamp } from './lib/autoDate';
 import {
   dayKey,
+  findItemLocation,
   daysWithSchedules,
   endOfMonth,
   endOfWeek,
@@ -63,6 +64,8 @@ import {
   scheduleAlarm,
 } from './lib/notifications';
 import { SharedPlayerProvider, useSharedPlayer } from './lib/sharedPlayer';
+import { notifyAudioLost } from './lib/audioLostNotice';
+import { healEmptyRecordingsOnce } from './lib/healRecordings';
 import { removeVoiceAlarm, setVoiceAlarmDefault, voiceAlarmOn, voiceAlarmToStore, voiceUriOf } from './lib/voiceAlarm';
 import { ThemeProvider, useFontScale, useResolvedTheme, useTheme, type Palette } from './lib/theme';
 import { copyRecords } from './lib/exportUtils';
@@ -88,12 +91,17 @@ function AllSchedulesList({
   onAppend,
   onFixDate,
   onLongPress,
+  compact,
+  onToggleCompact,
 }: {
   records: ScheduleRecord[];
   onPress: (r: ScheduleRecord) => void;
   onAppend: (r: ScheduleRecord) => void;
   onFixDate: (r: ScheduleRecord) => void;
   onLongPress?: (r: ScheduleRecord) => void;
+  /** 한 줄 보기 (달력 탭과 같은 설정) */
+  compact: boolean;
+  onToggleCompact: () => void;
 }) {
   const C = useTheme();
   const { t, lang } = useT();
@@ -197,6 +205,9 @@ function AllSchedulesList({
           )}
           {filtered.length > 0 && (
             <>
+              <TouchableOpacity style={styles.resultBtn} onPress={onToggleCompact} accessibilityRole="button" accessibilityLabel={t(compact ? '크게 보기' : '한 줄 보기')}>
+                <Text style={styles.resultBtnText}>{t(compact ? '크게 보기' : '한 줄 보기')}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.resultBtn} onPress={() => copyRecords(exportList)}>
                 <Text style={styles.resultBtnText}>{t('복사')}</Text>
               </TouchableOpacity>
@@ -267,7 +278,7 @@ function AllSchedulesList({
             </View>
           );
         }}
-        renderItem={({ item }) => <ScheduleCard item={item} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} onLongPress={onLongPress} />}
+        renderItem={({ item }) => <ScheduleCard item={item} compact={compact} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} onLongPress={onLongPress} />}
         SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         ListFooterComponent={<PromoBanner />}
       />
@@ -377,7 +388,8 @@ function AppInner() {
   });
   const periodListRef = useRef<SectionList<DayListItem, DayListSection>>(null);
   // scrollToLocation이 아직 렌더 안 된 섹션 때문에 실패하면 대략 위치로 옮긴 뒤 한 번 더 시도
-  const pendingScrollRef = useRef<number | null>(null);
+  type ScrollTarget = { sectionIndex: number; itemIndex: number; viewOffset: number };
+  const pendingScrollRef = useRef<ScrollTarget | null>(null);
 
   // 알림 응답 핸들러가 최신 records를 참조할 수 있도록 ref 유지
   const recordsRef = useRef<ScheduleRecord[]>([]);
@@ -385,7 +397,13 @@ function AppInner() {
 
   // ── 초기화 ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const recs = loadRecords();
+    // 예전에 소리 없이 저장된 녹음은 uri를 비워 ▶가 무음 대신 글 읽어 주기로 동작하게 한다 (lib/healRecordings.ts)
+    const healed = healEmptyRecordingsOnce(loadRecords());
+    const recs = healed.records;
+    if (healed.healed) {
+      saveRecords(recs);
+      console.warn('빈 녹음 정리:', healed.removed);
+    }
     recordsRef.current = recs;
     setRecords(recs);
     (async () => {
@@ -452,6 +470,15 @@ function AppInner() {
   );
   const periodCount = periodSections.reduce((n, sec) => n + sec.data.filter((x) => !isPreAlarmItem(x)).length, 0);
   const [showPastPeriod, setShowPastPeriod] = useState(false);
+  // 한 줄 보기(일정이 많을 때 한 화면에 많이) — 달력·전체 일정 탭 공용, 재시작해도 유지
+  const [listCompact, setListCompact] = useState<boolean>(() => loadPrefs().listCompact);
+  const toggleListCompact = () => {
+    setListCompact((v) => { savePrefs({ listCompact: !v }); return !v; });
+  };
+  // 위쪽 "다음 · …"을 눌러 바로 간 카드 — 잠깐 강조, 목록이 바뀐 뒤 스크롤할 대상
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  // 바로가기 대기(목록이 바뀐 뒤 스크롤). 3초 지나면 버린다 — 나중에 탭을 오갈 때 갑자기 튀지 않게
+  const pendingJumpRef = useRef<{ id: string; at: number } | null>(null);
   const periodCollapsed = useMemo(() => collapsePast(periodSections), [periodSections]);
   const periodListSections = showPastPeriod || periodCollapsed.pastCount === 0 ? periodSections : periodCollapsed.sections;
   const periodLabel =
@@ -482,9 +509,10 @@ function AppInner() {
   };
 
   const scrollToSection = useCallback((idx: number) => {
-    pendingScrollRef.current = idx;
+    const target = { sectionIndex: idx, itemIndex: 0, viewOffset: 8 };
+    pendingScrollRef.current = target;
     try {
-      periodListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, viewOffset: 8, animated: true });
+      periodListRef.current?.scrollToLocation({ ...target, animated: true });
     } catch {}
   }, []);
 
@@ -511,6 +539,47 @@ function AppInner() {
       .filter((r) => !r.needsDate && r.hasTime && r.scheduleAt != null && r.scheduleAt >= now)
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0))[0] ?? null;
   }, [records, currentTime]);
+
+  // 위쪽 "다음 · …"을 누르면 달력 탭에서 그 일정 카드로 바로 간다(잠깐 강조).
+  // 보이는 기간 밖이면 달력이 그 달/주로 넘어가며 목록이 바뀌므로, 바뀐 뒤 아래 효과가 마저 스크롤한다.
+  const scrollToRecord = useCallback((id: string): boolean => {
+    const loc = findItemLocation(periodListSections, id);
+    if (!loc) return false;
+    // SectionList의 itemIndex는 0이 묶음 머리(날짜)라 data 순번에 1을 더해야 그 카드다
+    const target = { sectionIndex: loc.sectionIndex, itemIndex: loc.itemIndex + 1, viewOffset: 40 };
+    pendingScrollRef.current = target;
+    try { periodListRef.current?.scrollToLocation({ ...target, animated: true }); } catch {}
+    return true;
+  }, [periodListSections]);
+  const jumpToNext = () => {
+    if (!nextSchedule?.scheduleAt) return;
+    const id = nextSchedule.id;
+    // 같은 일정을 다시 눌러도 강조가 처음부터 다시 보이게
+    setHighlightId(null);
+    setTimeout(() => setHighlightId(id), 0);
+    pendingJumpRef.current = { id, at: Date.now() };
+    setActiveTab('calendar');
+    const d = new Date(nextSchedule.scheduleAt);
+    setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+    // 이미 달력 탭에 그 날짜가 보이면 목록이 안 바뀌므로 바로 스크롤
+    if (activeTab === 'calendar' && scrollToRecord(id)) pendingJumpRef.current = null;
+  };
+  useEffect(() => {
+    const pending = pendingJumpRef.current;
+    if (!pending || activeTab !== 'calendar') return;
+    if (Date.now() - pending.at > 3000) { pendingJumpRef.current = null; return; }
+    // 목록이 막 그려진 직후라 한 박자 쉬고 스크롤
+    const timer = setTimeout(() => {
+      if (pendingJumpRef.current !== pending) return;
+      if (scrollToRecord(pending.id)) pendingJumpRef.current = null;
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [periodListSections, activeTab, scrollToRecord]);
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = setTimeout(() => setHighlightId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
   // ── 저장 헬퍼 ─────────────────────────────────────────────────────────────────
   const commit = (next: ScheduleRecord[]) => {
@@ -546,7 +615,8 @@ function AppInner() {
       return new Date(n.getFullYear(), n.getMonth(), n.getDate());
     })();
 
-    if (!uri && voice.fileRecording) {
+    // 소리가 비어 버린 경우(res.audioLost)는 글·알람은 살리고 저장한 뒤 알린다 — 말한 내용을 잃지 않게
+    if (!uri && voice.fileRecording && !res.audioLost) {
       Alert.alert(t('녹음 실패'), t('녹음 파일이 만들어지지 않았어요. 다시 시도해주세요.'));
       return;
     }
@@ -579,6 +649,7 @@ function AppInner() {
       };
       commit([record, ...records]);
       setSelectedDate(recordedDate);
+      if (res.audioLost) notifyAudioLost(); // 저장한 뒤에 알린다 (삭제 명령·취소 경로에선 안 뜬다)
       return;
     }
     if (!parsed.hasDate && !parsed.hasTime) {
@@ -610,6 +681,7 @@ function AppInner() {
       };
       commit([record, ...records]);
       setSelectedDate(recordedDate);
+      if (res.audioLost) notifyAudioLost();
     };
 
     // 문장 끝의 명령형만 삭제 의도로 판단 ("…삭제해줘", "…지워 줘")
@@ -871,18 +943,21 @@ function AppInner() {
             <Text style={styles.clockUnderTitle} numberOfLines={1}>{formatTime(currentTime)}</Text>
           )}
           {nextSchedule?.scheduleAt ? (
-            <Text style={styles.nextLabel} numberOfLines={bigText ? 2 : 1}>
-              {t('다음 ·')}{' '}
-              {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
-              {formatTime(new Date(nextSchedule.scheduleAt))}
-            </Text>
+            // 누르면 그 일정 카드로 바로 간다
+            <TouchableOpacity onPress={jumpToNext} activeOpacity={0.6} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="button" accessibilityLabel={`${t('다음 일정으로 가기')}: ${formatDayHeader(new Date(nextSchedule.scheduleAt))} ${formatTime(new Date(nextSchedule.scheduleAt))}`}>
+              <Text style={styles.nextLabel} numberOfLines={bigText ? 2 : 1}>
+                {t('다음 ·')}{' '}
+                {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
+                {formatTime(new Date(nextSchedule.scheduleAt))} ›
+              </Text>
+            </TouchableOpacity>
           ) : null}
           {nextSchedule?.scheduleAt ? (
             // 자연 폭 측정용(보이지 않음)
             <Text style={[styles.nextLabel, styles.measure]} numberOfLines={1} onLayout={(e) => setNextW(Math.ceil(e.nativeEvent.layout.width))}>
               {t('다음 ·')}{' '}
               {formatDayHeader(new Date(nextSchedule.scheduleAt))}{' '}
-              {formatTime(new Date(nextSchedule.scheduleAt))}
+              {formatTime(new Date(nextSchedule.scheduleAt))} ›
             </Text>
           ) : null}
         </View>
@@ -941,13 +1016,13 @@ function AppInner() {
           showsVerticalScrollIndicator={false}
           onScrollToIndexFailed={(info) => {
             // 아직 렌더되지 않은 섹션 → 평균 높이로 근처까지 옮긴 뒤 다시 시도
-            const idx = pendingScrollRef.current;
+            const target = pendingScrollRef.current;
             try {
               periodListRef.current?.getScrollResponder()?.scrollTo({ y: info.averageItemLength * info.index, animated: false });
             } catch {}
-            if (idx == null) return;
+            if (target == null) return;
             setTimeout(() => {
-              try { periodListRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, viewOffset: 8, animated: true }); } catch {}
+              try { periodListRef.current?.scrollToLocation({ ...target, animated: true }); } catch {}
               pendingScrollRef.current = null;
             }, 120);
           }}
@@ -965,6 +1040,11 @@ function AppInner() {
               <View style={styles.dayHeader}>
                 <Text style={styles.dayHeaderText} numberOfLines={2}>{t('{label} 일정', { label: periodLabel })}</Text>
                 <Text style={styles.dayCount}>{periodCount > 0 ? t('{n}건', { n: periodCount }) : ''}</Text>
+                {periodCount > 0 && (
+                  <TouchableOpacity style={styles.viewToggle} onPress={toggleListCompact} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={t(listCompact ? '크게 보기' : '한 줄 보기')}>
+                    <Text style={styles.viewToggleText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t(listCompact ? '크게 보기' : '한 줄 보기')}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               {periodCollapsed.pastCount > 0 && (
                 <TouchableOpacity style={styles.pastToggle} onPress={() => setShowPastPeriod((v) => !v)} activeOpacity={0.7} accessibilityLabel={t(showPastPeriod ? '지난 일정 접기' : '지난 일정 보기')}>
@@ -998,14 +1078,14 @@ function AppInner() {
           }}
           renderItem={({ item }) =>
             isPreAlarmItem(item)
-              ? <PreAlarmRow item={item} onPress={openDetail} />
-              : <ScheduleCard item={item} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} />
+              ? <PreAlarmRow item={item} onPress={openDetail} compact={listCompact} />
+              : <ScheduleCard item={item} compact={listCompact} highlight={highlightId === item.id} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} />
           }
           SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         />
       ) : (
         <View style={styles.allWrap}>
-          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} />
+          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} compact={listCompact} onToggleCompact={toggleListCompact} />
         </View>
       )}
 
@@ -1158,6 +1238,9 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   },
   dayHeaderText: { color: C.text, fontSize: 17, fontWeight: '700', flex: 1, marginRight: 8 },
   dayCount: { color: C.textSub, fontSize: 13, fontWeight: '500', flexShrink: 0 },
+  // 긴 번역(독일어 등)·큰 글자에서도 기간 제목을 밀어내지 않게 폭 제한
+  viewToggle: { marginLeft: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: C.surfaceHigh, alignSelf: 'center', maxWidth: 120, flexShrink: 1 },
+  viewToggleText: { color: C.text, fontSize: 12, fontWeight: '600' },
   dayList: { flex: 1 },
   dayListContent: { paddingHorizontal: 16, paddingBottom: 24 },
   emptyDay: { paddingTop: 48, alignItems: 'center' },

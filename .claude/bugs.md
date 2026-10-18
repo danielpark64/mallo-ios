@@ -2,6 +2,31 @@
 
 > 최신순. 각 항목의 **상태**가 "미커밋"이면 작업 트리에만 있고 아직 커밋되지 않은 수정이다.
 
+## 2026-10-18 · iPhone — 새로 녹음한 일정 ▶가 무음 (녹음 파일은 있는데 소리가 0.2초)
+
+**상태**: 미커밋
+**증상**: 메인 마이크로 만든 11월 일정 2건(13:58·13:59)의 ▶를 눌러도 소리가 안 남. 글·날짜·알람은 정상.
+**확인**: 폰 `Documents/mallo`를 devicectl로 가져와 m4a 구조를 봄 — 두 파일 모두 57KB인데 소리 상자(mdat)가 62바이트(0.2초).
+records.json의 `uri`·`durationSec`(6·9초)은 정상 → **저장·경로 문제가 아니라 녹음기가 시작 0.2초 만에 멈춘 것**.
+같은 폰의 이전 녹음 10개는 모두 정상.
+**사용자에게 같은 버그로 보인 이유**: 증상("▶ 해도 소리 안 남")이 10-13 버그(새 일정 마이크가 녹음을 저장 안 함, uri '')와 같다.
+원인은 다르지만 사용자 입장에선 "고쳤는데 또" — 그래서 이번엔 원인 수정 + 감지·알림 + 자동 복구를 모두 넣었다.
+**원인(유력)**: iOS 오디오 세션 충돌. 녹음기(expo-audio)는 `playAndRecord`+섞기 허용인데, 0.06초 뒤 켜지는 음성 인식기
+(expo-speech-recognition)는 기본값으로 `playAndRecord`+**measurement 모드**+섞기 없음으로 세션을 다시 짠다. 이때 블루투스·다른 앱 소리 등
+상황에 따라 녹음기가 중단(pause)되거나 멈춘다. 또 expo-audio는 녹음 중 누가 `setAudioModeAsync({allowsRecording:false})`를 부르면
+녹음기를 즉시 stop한다(ScheduleDetail의 `resetAudioIdle` 등).
+**수정(세 겹)**:
+1. 원인: 인식기에 녹음기와 똑같은 세션을 넘김 — `STT_IOS_CATEGORY`(lib/useVoiceRecorder.ts), 처음 켤 때·재시작 때 둘 다.
+2. 복구: 녹음 중 녹음기가 멈춘 것을 폴링(100ms)이 두 번 연속 보면 녹음 세션을 다시 켜고 `record()` (최대 3번).
+3. 감지: 멈춘 뒤 m4a의 mdat 크기를 읽어(lib/audioCheck.ts) 1초 넘게 녹음했는데 1KB 미만이면 uri를 버리고 `audioLost` →
+   글·알람은 저장하고 "녹음 소리가 저장되지 않았어요" 알림(lib/audioLostNotice.ts, 메인·편집기 두 곳).
+4. 기존 데이터: 앱 시작 때 무음 녹음의 uri를 비움(lib/healRecordings.ts) → ▶가 글 읽어 주기로 동작.
+**파일**: `lib/useVoiceRecorder.ts`, `lib/audioCheck.ts`, `lib/audioLostNotice.ts`, `lib/healRecordings.ts`, `App.tsx`, `components/ScheduleEditor.tsx`, i18n 8개
+**테스트**: `audioCheck.test.ts`(폰 파일과 같은 구조), `useVoiceRecorder.test.tsx` ①②③, `healRecordings.test.ts`
+**재발 감시 포인트**: "녹음 ▶ 무음" 계열 **4번째**. 녹음 경로를 고칠 때 ① 녹음 중에 `setAudioModeAsync`를 부르는 코드가 생기지 않았는지
+(특히 `allowsRecording:false`) ② 인식기 `start()`에 `iosCategory: STT_IOS_CATEGORY`가 빠지지 않았는지 ③ 저장 직전 빈 녹음 검사가
+살아 있는지 확인. 증상이 다시 보이면 추측하지 말고 폰 m4a의 mdat 크기부터 볼 것(이 항목의 확인 방법).
+
 ## 2026-10-13 · iPhone — 편집기에서 키보드가 내용 칸을 가림
 
 **상태**: 미커밋

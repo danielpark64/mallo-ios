@@ -219,3 +219,27 @@ describe('날짜 미정·시간 미정 카드', () => {
     expect(queryByText('🔔')).toBeNull();
   });
 });
+
+describe('ScheduleCard 한 줄 보기', () => {
+  test('한 줄 모양: 시간·내용 한 줄·▶만, ＋추가는 없고 누르면 상세(onPress)', async () => {
+    const onPress = jest.fn();
+    const { getByTestId, getByText, queryByText } = await render(wrap(<ScheduleCard item={item} compact onPress={onPress} onAppend={() => {}} />));
+    expect(getByTestId('card-compact')).toBeTruthy();
+    expect(getByText('회의').props.numberOfLines).toBe(1);
+    expect(queryByText('＋ 추가')).toBeNull();
+    expect(getByText('▶')).toBeTruthy();
+    await fireEvent.press(getByText('회의'));
+    expect(onPress).toHaveBeenCalledWith(item);
+  });
+
+  test('추가 엔트리가 있으면 개수만 작게 표시', async () => {
+    const withAppend = { ...item, appends: [{ id: 'a', uri: '', durationSec: 1, transcript: 'x', content: 'x', createdAt: 1 }] };
+    const { getByText } = await render(wrap(<ScheduleCard item={withAppend} compact onPress={() => {}} onAppend={() => {}} />));
+    expect(getByText('+1')).toBeTruthy();
+  });
+
+  test('"다음"에서 바로 온 카드는 강조 표시(testID)된다', async () => {
+    const { getByTestId } = await render(wrap(<ScheduleCard item={item} highlight onPress={() => {}} onAppend={() => {}} />));
+    expect(getByTestId('card-highlight')).toBeTruthy();
+  });
+});

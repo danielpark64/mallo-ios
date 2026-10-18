@@ -28,11 +28,11 @@ beforeEach(() => mockStore.clear());
 
 describe('prefs', () => {
   test('파일이 없으면 기본값(월 보기·시스템 테마·보통 글자)', () => {
-    expect(loadPrefs()).toEqual({ calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false });
+    expect(loadPrefs()).toEqual({ calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false, listCompact: false });
   });
   test('저장한 달력 모드를 다시 읽는다 (다른 값은 기본값 유지)', () => {
     savePrefs({ calendarMode: 'week' });
-    expect(JSON.parse(mockStore.get(FILE)!)).toEqual({ calendarMode: 'week', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false });
+    expect(JSON.parse(mockStore.get(FILE)!)).toEqual({ calendarMode: 'week', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false, listCompact: false });
     expect(loadPrefs().calendarMode).toBe('week');
   });
   test('테마·글자 크기를 저장하고 다시 읽는다, 이상한 값은 기본값', () => {
@@ -46,5 +46,11 @@ describe('prefs', () => {
     expect(loadPrefs().calendarMode).toBe('month');
     mockStore.set(FILE, JSON.stringify({ calendarMode: 'year' }));
     expect(loadPrefs().calendarMode).toBe('month');
+  });
+  test('한 줄 보기 설정을 저장하고 다시 읽는다, 이상한 값은 기본값(크게)', () => {
+    savePrefs({ listCompact: true });
+    expect(loadPrefs().listCompact).toBe(true);
+    mockStore.set(FILE, JSON.stringify({ listCompact: 'yes' }));
+    expect(loadPrefs().listCompact).toBe(false);
   });
 });
