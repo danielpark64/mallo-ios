@@ -111,6 +111,22 @@ export const MonthScroll = memo(function MonthScroll({
     try { listRef.current?.scrollToIndex({ index: idx, animated }); } catch {}
   }, [base, months.length]);
 
+  // 글자 크기가 바뀌면 칸 높이가 달라져 같은 스크롤 위치가 엉뚱한 달(예: 10월→3월)이 된다 → 보던 달로 되돌린다.
+  // 보던 달은 높이가 바뀌기 전(그리는 중)에 잡아 둔다 — 그린 뒤에는 보이는 달 값이 이미 바뀌어 있을 수 있다
+  const prevMetricsRef = useRef(metrics);
+  const keepMonthRef = useRef<{ y: number; m: number } | null>(null);
+  if (prevMetricsRef.current !== metrics) {
+    prevMetricsRef.current = metrics;
+    keepMonthRef.current = visibleRef.current;
+  }
+  useEffect(() => {
+    const k = keepMonthRef.current;
+    if (!k) return;
+    keepMonthRef.current = null;
+    const id = setTimeout(() => scrollToMonth(k.y, k.m, false), 0);
+    return () => clearTimeout(id);
+  }, [metrics, scrollToMonth]);
+
   // ── 화면 확대(사진처럼): 두 손가락 벌리기·오므리기, 확대 중 한 손가락 옆으로 밀기, 제목 두 번 탭 2배 ──
   // 위아래 한 손가락은 그대로 목록 스크롤. 계산은 lib/calendarKit/zoom.ts(테스트 있음).
   const boxRef = useRef<View>(null);
@@ -414,13 +430,15 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   week: { flexDirection: 'row', overflow: 'hidden', borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   cell: { flex: 1, paddingHorizontal: 1, overflow: 'hidden' },
   cellSel: { backgroundColor: C.surfaceHigh, borderRadius: 6 },
-  numRow: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: 2 },
+  // 가운데 정렬(2026-10-18): 요일 머리글(가운데) 아래에 숫자가 오게 — 왼쪽 정렬이면 월요일 숫자가 앞 칸 근무 글씨(초번·말번)와 한 덩어리로 읽혔다.
+  // 칸이 좁으면 근무·공휴일 글씨가 먼저 줄어들고 숫자는 그대로(shift·sub flexShrink 1)
+  numRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2 },
   num: { minWidth: Math.round(20 * scale), height: Math.round(20 * scale), borderRadius: Math.round(10 * scale), alignItems: 'center', justifyContent: 'center' },
   numToday: { backgroundColor: C.red },
   numText: { color: C.text, fontSize: 13, fontWeight: '600' },
   numTextToday: { color: '#fff', fontWeight: '800' },
-  shift: { fontSize: 9, fontWeight: '800', flexShrink: 0, maxWidth: '55%' },
-  sub: { flex: 1, color: C.textDim, fontSize: 9 },
+  shift: { fontSize: 9, fontWeight: '800', flexShrink: 1, maxWidth: '55%' },
+  sub: { flexShrink: 1, color: C.textDim, fontSize: 9 },
   chip: { fontSize: 10, color: C.text, backgroundColor: C.surfaceHigh, borderRadius: 3, paddingHorizontal: 2, marginBottom: 1, overflow: 'hidden' },
   more: { fontSize: 10, color: C.textSub, paddingHorizontal: 2 },
   dots: { flexDirection: 'row', gap: 3, paddingLeft: 4, marginTop: 1 },
