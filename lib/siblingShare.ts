@@ -8,9 +8,22 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 import { parseShiftBody, type ShiftData } from './shiftImport';
 import type { ScheduleRecord } from './storage';
 
-type Native = { writeOwn(name: string, json: string): void; readSibling(authority: string, name: string): Promise<string | null> };
+type Native = {
+  writeOwn(name: string, json: string): void;
+  readSibling(authority: string, name: string): Promise<string | null>;
+  isInstalled?(pkg: string): boolean;
+};
 const native = requireOptionalNativeModule<Native>('SayramShare');
 const ALARMAPP = 'com.danielpark.alarmapp.share';
+
+/** 교대알람이 이 폰에 깔려 있는가(Android만 알 수 있다 — iOS·모르면 false) */
+export function alarmAppInstalled(): boolean {
+  try {
+    return !!native?.isInstalled?.('com.danielpark.alarmapp');
+  } catch {
+    return false;
+  }
+}
 
 /** 이 기기에서 자동 공유가 되는가(지금은 Android만) */
 export const siblingShareAvailable = !!native;

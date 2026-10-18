@@ -10,6 +10,7 @@ import { Text } from './AppText';
 import { SupportSheet } from './SupportSheet';
 import { useT } from '../lib/i18n';
 import { promoSlides, type PromoSlide } from '../lib/promo';
+import { alarmAppInstalled } from '../lib/siblingShare';
 import { useTheme, type Palette } from '../lib/theme';
 
 const ROTATE_MS = 5000;
@@ -24,13 +25,14 @@ export function PromoBanner() {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const { t, lang } = useT();
-  const slides = useMemo(() => promoSlides(lang), [lang]);
+  const [active, setActive] = useState(AppState.currentState === 'active');
+  // 교대알람이 깔려 있으면 그 광고는 뺀다 — 앱으로 돌아올 때(active)마다 한 번 다시 확인(타이머·폴링 없음)
+  const slides = useMemo(() => promoSlides(lang, undefined, { hasAlarmApp: alarmAppInstalled() }), [lang, active]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = slides.length;
   const extended = count > 1 ? [slides[count - 1], ...slides, slides[0]] : slides;
   const [width, setWidth] = useState(0);
   const [dotIdx, setDotIdx] = useState(0);
   const [showSupport, setShowSupport] = useState(false);
-  const [active, setActive] = useState(AppState.currentState === 'active');
   const posRef = useRef(1); // extended 배열 기준 위치, 실제 슬라이드는 1..count
   const scrollRef = useRef<ScrollView>(null);
 

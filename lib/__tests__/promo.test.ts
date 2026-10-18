@@ -6,6 +6,9 @@ import { EN } from '../i18n/en';
 test('한국어 Android: 수수뮤직·교대알람·개발자 응원 3장', () => {
   expect(promoSlides('ko', 'android').map((s) => s.key)).toEqual(['susu', 'alarmapp', 'coffee']);
 });
+test('한국어 Android: 교대알람이 이미 깔려 있으면 교대알람 광고는 빼고 2장', () => {
+  expect(promoSlides('ko', 'android', { hasAlarmApp: true }).map((s) => s.key)).toEqual(['susu', 'coffee']);
+});
 test('한국어 iOS: 교대알람(Play 스토어 주소)·계좌 후원은 빼고 수수뮤직·수수여행 2장', () => {
   expect(promoSlides('ko', 'ios').map((s) => s.key)).toEqual(['susu', 'travel']);
 });
