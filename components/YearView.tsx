@@ -2,8 +2,8 @@
 // 해마다 작은 달 12개(3열×4줄), 한 달 보기처럼 위아래로 이어지는 연속 스크롤(2026-10-18 사용자 요청, iOS 캘린더 방식).
 // 일정 있는 날은 파랑 굵게, 공휴일·일요일은 빨강, 오늘은 빨간 동그라미. 달을 누르면 그 달의 한 달 보기로(onPickMonth).
 // 위치 계산이 정확하도록 작은 달은 항상 6주 높이로 그린다(달마다 높이가 같다).
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, TouchableOpacity, View, type ViewToken } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BackHandler, FlatList, StyleSheet, TouchableOpacity, View, type ViewToken } from 'react-native';
 import { Text } from './AppText';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
@@ -43,6 +43,11 @@ export function YearView({
     const first = viewableItems.find((v) => v.isViewable);
     if (first && typeof first.item === 'number') setVisibleYear((cur) => (cur === first.item ? cur : (first.item as number)));
   }).current;
+  // Android 뒤로 가기는 앱을 닫지 않고 한 달 보기로 돌아간다
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { onClose(); return true; });
+    return () => sub.remove();
+  }, [onClose]);
   const todayKey = ymdKey(new Date());
   const renderItem = useCallback(({ item }: { item: number }) => (
     <YearBlock y={item} busyDays={busyDays} todayKey={todayKey} onPickMonth={onPickMonth} styles={s} C={C} rowH={rowH} monthH={monthH} yearH={yearH} lang={lang} />
