@@ -19,6 +19,17 @@
 
 ---
 
+## v3 (2026-10-18) — 상대 앱을 깨우지 않기 ← 지금 기준
+
+v2는 앱을 열 때마다 상대 창구를 query로 읽어 꺼져 있던 상대 앱 프로세스를 깨웠다(32 측정 약 28MB). v3는:
+- 내 데이터가 **바뀌었을 때만**, 앱을 **떠날 때(background)** 상대 창구에 `call("push", 이름, {json})`로 한 번 넣어 준다. 지난번과 같으면(`t`만 다르면) 안 넣는다(`files/share/pushed/`).
+- 앱을 **열 때**는 받은 파일(`files/share/inbox/`)만 읽는다 — 상대를 부르지 않는다.
+- query(pull)는 받은 게 없을 때(처음)·상대 config에 `"push":1`이 없을 때(옛 버전)만, 실행당 1번. 넣기 실패 시 그 실행에선 다시 안 넣는다.
+- config 형식: `{"share":bool,"push":1,"t":ms}`.
+- 세이람 inbox가 받는 이름: `shifts`·`config` / 교대알람 inbox가 받는 이름: `events`·`config`.
+- 설치 확인(`isInstalled`)은 앱 실행 때 한 번만.
+- 교대알람 작업 지시서: `docs/alarmapp-task-v3-no-wake.md`. 아래 v2 설명의 형식(shifts·events)은 그대로 쓴다.
+
 ## v2 자동 공유 (Android)
 
 ### 창구 주소

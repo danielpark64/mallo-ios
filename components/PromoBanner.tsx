@@ -26,8 +26,8 @@ export function PromoBanner() {
   const s = useMemo(() => makeStyles(C), [C]);
   const { t, lang } = useT();
   const [active, setActive] = useState(AppState.currentState === 'active');
-  // 교대알람이 깔려 있으면 그 광고는 뺀다 — 앱으로 돌아올 때(active)마다 한 번 다시 확인(타이머·폴링 없음)
-  const slides = useMemo(() => promoSlides(lang, undefined, { hasAlarmApp: alarmAppInstalled() }), [lang, active]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 교대알람이 깔려 있으면 그 광고는 뺀다 — 설치 여부는 세이람 실행 때 한 번만 확인한 값(alarmAppInstalled가 기억)
+  const slides = useMemo(() => promoSlides(lang, undefined, { hasAlarmApp: alarmAppInstalled() }), [lang]);
   const count = slides.length;
   const extended = count > 1 ? [slides[count - 1], ...slides, slides[0]] : slides;
   const [width, setWidth] = useState(0);

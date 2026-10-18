@@ -1,5 +1,5 @@
 // 교대알람 자동 공유(v2): 두 앱만 깔려 있으면 버튼 없이. 한쪽 설정만 켜도 서로 보인다(2026-10-18 사용자 지시)
-import { buildEventsPayload, shareEnabled, readSiblingShiftsFrom } from '../siblingShare';
+import { buildEventsPayload, shareEnabled, readSiblingShiftsFrom, needsPull } from '../siblingShare';
 import type { ScheduleRecord } from '../storage';
 
 const rec = (id: string, at: Date, extra: Partial<ScheduleRecord> = {}): ScheduleRecord => ({
@@ -45,4 +45,13 @@ test('교대알람 창구에서 읽기: 공유가 꺼져 있으면 null, 켜져 
 test('내용이 비어 있으면 녹음 원문 대신 •', () => {
   const p = buildEventsPayload([rec('x', new Date(2026, 9, 20, 9), { content: '' })], new Date(2026, 9, 18));
   expect(JSON.parse(p).e[0].n).toBe('•');
+});
+
+test('교대알람을 깨우는 직접 가져오기는 처음 한 번·옛 버전일 때만, 실행당 1번', () => {
+  expect(needsPull(null, false)).toBe(true); // 받은 게 없음(처음)
+  expect(needsPull(JSON.stringify({ share: true, push: 1 }), false)).toBe(false); // 바뀔 때 넣어 주는 상대 → 안 깨움
+  expect(needsPull(JSON.stringify({ share: true }), false)).toBe(true); // 옛 버전 상대
+  expect(needsPull(JSON.stringify({ share: true }), true)).toBe(false); // 이번 실행에 이미 가져옴
+  expect(needsPull(null, true)).toBe(false);
+  expect(needsPull('깨진 내용', false)).toBe(true);
 });

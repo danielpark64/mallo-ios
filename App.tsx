@@ -84,7 +84,7 @@ import { YearView } from './components/YearView';
 import { DaySheet } from './components/DaySheet';
 import type { CalEvent } from './lib/calendarKit/monthLayout';
 import { ymdKey } from './lib/calendarKit/holidays';
-import { publishOwnShare, readSiblingShifts, siblingShareAvailable } from './lib/siblingShare';
+import { publishOwnShare, pushOwnShare, readSiblingShifts, siblingShareAvailable } from './lib/siblingShare';
 import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, parseShiftImportUrl, saveShifts, SHIFT_REQUEST_URL, type ShiftData } from './lib/shiftImport';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
@@ -630,7 +630,7 @@ function AppInner() {
     if (!recordsLoadedRef.current) { recordsLoadedRef.current = records.length > 0 || loadRecords().length === 0; if (!recordsLoadedRef.current) return; }
     publishOwnShare(records, shareOn);
   }, [records, shareOn]);
-  // 교대알람 근무표 읽기 — 시작할 때와 앱이 앞으로 올 때만(폴링 없음, 세이람 규칙 10)
+  // 교대알람 근무표 읽기 — 시작할 때와 앱이 앞으로 올 때만(폴링 없음, 세이람 규칙 10). 교대알람이 넣어 준 파일만 읽는다
   const refreshSibling = useCallback(async () => {
     if (!siblingShareAvailable) return;
     const d = await readSiblingShifts(shareOn);
@@ -649,9 +649,13 @@ function AppInner() {
   }, [shareOn]);
   useEffect(() => {
     refreshSibling();
-    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') refreshSibling(); });
+    // 앞으로 올 때: 받은 파일만 읽는다(교대알람을 깨우지 않음). 떠날 때: 바뀐 것만 교대알람에 한 번 넣어 준다
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') refreshSibling();
+      else if (st === 'background' && siblingShareAvailable) pushOwnShare(shareOn);
+    });
     return () => sub.remove();
-  }, [refreshSibling]);
+  }, [refreshSibling, shareOn]);
 
   // 링크 처리는 앱 시작 때 한 번 등록되므로 최신 번역 함수·근무표를 ref로 읽는다
   const tRef = useRef(t);
