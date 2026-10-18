@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Android 11+ 패키지 가시성: 교대알람의 공유 창구(ContentProvider)를 찾으려면 선언해야 한다 -->
+  <queries>
+    <package android:name="com.danielpark.alarmapp"/>
+  </queries>
+  <application>
+    <!-- 세이람이 내보내는 공유 데이터(일정·공유 설정). exported지만 query()에서 교대알람 패키지만 허용한다.
+         (두 앱은 Play 앱 서명 키가 달라 signature 권한을 쓸 수 없어 호출 패키지 이름으로 막는다) -->
+    <provider
+      android:name=".ShareProvider"
+      android:authorities="${applicationId}.share"
+      android:exported="true"/>
+  </application>
+</manifest>

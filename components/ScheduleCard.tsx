@@ -7,7 +7,7 @@ import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import { useSharedPlayer } from '../lib/sharedPlayer';
 import { recordSpeechText } from '../lib/speech';
 import { normalizeRemind, remindLabel } from '../lib/reminders';
-import { formatTime, isPastItem } from '../lib/dateUtils';
+import { formatDayHeader, formatRangeTail, formatTime, isPastItem } from '../lib/dateUtils';
 import type { ScheduleRecord } from '../lib/storage';
 import { MicIcon } from './MicIcon';
 import { useT } from '../lib/i18n';
@@ -50,9 +50,14 @@ export function ScheduleCard({
   };
 
   // 녹음 시각으로 저장된 일정은 그 시각을, 예전 방식(시간 없음)으로 저장된 것은 '날짜 미정'을 보여 준다
+  // 기간 일정에 시간이 없으면 "시간 미정" 대신 길이("5일간")를 보여 준다
+  const spanDays = item.endAt != null && item.scheduleAt != null
+    ? Math.round((new Date(item.endAt).setHours(0, 0, 0, 0) - new Date(item.scheduleAt).setHours(0, 0, 0, 0)) / 86_400_000) + 1
+    : 0;
   const timeLabel = item.needsDate && !(item.hasTime && item.scheduleAt)
     ? t('날짜 미정')
-    : item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt)) : t('시간 미정');
+    : item.hasTime && item.scheduleAt ? formatTime(new Date(item.scheduleAt))
+    : spanDays > 1 ? t('{n}일간', { n: spanDays }) : t('시간 미정');
   const title = item.content || item.transcript || t('(내용 없음)');
   // 메모는 아래 별도 줄로 표시하므로 제목에서는 본문만 (중복 표시 방지)
   const mainTitle = title.split('\n• ')[0];
@@ -90,8 +95,11 @@ export function ScheduleCard({
       {item.exactAlarm === false && <Text style={styles.cardRemindText}>{t('정각 알림 꺼짐')}</Text>}
     </View>
   ) : <View />;
+  // 기간 일정(휴가 등): "~ 10월 24일 (토) · 5일"
+  const rangeTail = formatRangeTail(item);
   const extras = (
     <>
+      {rangeTail && <Text style={styles.cardRange} numberOfLines={1}>{rangeTail}</Text>}
       {appendedNotes.map((note, i) => (
         <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
       ))}
@@ -136,6 +144,9 @@ export function ScheduleCard({
         <Text style={[styles.compactTitle, isPast && styles.cardTitlePast]} numberOfLines={1} ellipsizeMode="tail">
           {mainTitle}
         </Text>
+        {item.endAt != null && (
+          <Text style={styles.compactRange} numberOfLines={1}>~{formatDayHeader(new Date(item.endAt)).replace(/\s*\(.*\)$/, '')}</Text>
+        )}
         {item.needsDate && <Text style={styles.compactNeeds}>{t('정하기')}</Text>}
         {appendCount > 0 && <Text style={styles.compactAppend}>+{appendCount}</Text>}
         {canPlay ? (
@@ -270,6 +281,8 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   },
   cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
   cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  cardRange: { color: C.accent, fontSize: 13, fontWeight: '600', marginTop: 3 },
+  compactRange: { color: C.accent, fontSize: 12, fontWeight: '600', flexShrink: 1, maxWidth: '35%' },
   cardAppendRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   needsDateRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,

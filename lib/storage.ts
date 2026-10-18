@@ -30,6 +30,7 @@ export type ScheduleRecord = {
   content: string;        // 날짜·시간 제거한 할 일 내용
   scheduleAt: number | null; // 일정 시각(epoch ms). 시간 미정이면 날짜 0시
   scheduleDisplay: string;   // "6월 7일 (토) 오후 3:00"
+  endAt?: number;           // 기간 일정의 끝나는 날(그날 0시, epoch ms). 하루짜리는 없음 — 알람은 시작(scheduleAt)에만
   hasDate: boolean;
   hasTime: boolean;
   notifIds?: string[];    // expo-notifications 식별자 배열 (main + +1분 + +2분 슬롯)

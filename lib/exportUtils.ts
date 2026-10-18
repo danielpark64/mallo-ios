@@ -8,12 +8,15 @@ import { formatDayHeader, formatTime } from './dateUtils';
 import { t } from './i18n';
 import type { ScheduleRecord } from './storage';
 
+/** 기간 일정(휴가 등)이면 " ~ 10월 24일 (토)" */
+const rangeEnd = (r: ScheduleRecord) => (r.endAt != null ? ` ~ ${formatDayHeader(new Date(r.endAt))}` : '');
+
 /** 레코드 1건 → 사람이 읽는 텍스트 */
 export function recordToText(r: ScheduleRecord): string {
   const lines: string[] = [];
   if (r.scheduleAt != null) {
     const d = new Date(r.scheduleAt);
-    lines.push(`${formatDayHeader(d)}${r.hasTime ? ' ' + formatTime(d) : ' ' + t('(시간 미정)')}`);
+    lines.push(`${formatDayHeader(d)}${r.hasTime ? ' ' + formatTime(d) : ' ' + t('(시간 미정)')}${rangeEnd(r)}`);
   } else {
     lines.push(t('날짜 미정'));
   }
@@ -39,7 +42,7 @@ export function recordRows(records: ScheduleRecord[]): DocRow[] {
   return records.map((r) => {
     const when =
       r.scheduleAt != null
-        ? `${formatDayHeader(new Date(r.scheduleAt))}${r.hasTime ? ' ' + formatTime(new Date(r.scheduleAt)) : ''}`
+        ? `${formatDayHeader(new Date(r.scheduleAt))}${r.hasTime ? ' ' + formatTime(new Date(r.scheduleAt)) : ''}${rangeEnd(r)}`
         : t('날짜 미정');
     const [main, ...legacyNotes] = (r.content || r.transcript || t('(내용 없음)')).split('\n• ');
     const notes = [...legacyNotes, ...(r.appends ?? []).map((a) => a.content || a.transcript)];

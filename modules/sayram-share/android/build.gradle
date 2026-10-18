@@ -1,0 +1,18 @@
+// 세이람 ↔ 교대알람 자동 공유 (Expo 로컬 모듈, Android).
+// 같은 폰의 우리 두 앱끼리만 ContentProvider로 데이터를 읽는다 — 인터넷 없음, 사용자 조작 없음.
+// iOS는 App Group(유료 개발자 계정 활성화 후)로 같은 일을 한다 — docs/shift-share-protocol.md
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.danielpark.sayram'
+version = '1.0.0'
+
+android {
+  namespace "com.danielpark.sayram.share"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}

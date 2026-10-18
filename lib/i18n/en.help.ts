@@ -163,4 +163,26 @@ export const EN_HELP: Record<string, string> = {
     'No alarm — nothing will ring',
   '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "🔔 알림 바꾸기"를 눌러 고른 뒤 "저장"하면 됩니다(수정 화면에서도 바꿀 수 있습니다).':
     'Early reminders: choose any of 10 min, 30 min, 1 hour or a day before (8 PM the previous evening), and each one alerts you once, like "In 30 min · Dentist". Turn off the "On time" chip and nothing rings at the exact time. Set default reminders in Settings › Alarm and they are added to new schedules automatically. For an existing schedule, tap "🔔 Change alarms" on the detail screen, choose, and tap "Save" (you can also change them on the edit screen).',
+  "기간: \"20일부터 24일까지 휴가\", \"다음 주 월요일부터 금요일까지 교육\", \"11월 3일부터 3박 4일 여행\"처럼 말하면 끝나는 날까지 저장됩니다. 알람은 시작하는 날에만 울리고, 휴가 중인 날에 다른 일정을 넣으면 먼저 알려 줍니다(그래도 넣을 수 있습니다).":
+    "Ranges: say \"vacation from the 20th to the 24th\", \"training from next Monday to Friday\" or \"a 3-night, 4-day trip from November 3\" and it is saved through the end date. The alarm rings only on the first day, and if you add another schedule during a vacation you are told first (you can still add it).",
+  "달력은 위아래로 밀면 다음 달이 이어집니다. 칸마다 일정 이름이 보이고, 휴가 같은 기간 일정은 이어진 막대로, 공휴일은 빨간 날짜와 이름으로 보입니다.":
+    "Swipe up or down and the next month follows. Each day shows schedule names, multi-day schedules such as vacations appear as connected bars, and holidays show a red date and name.",
+  "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
+    "Tap a date and that day's schedules slide up from the bottom. Open one, or tap \"＋ Add event on this day\" to create one right there.",
+  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 달 이름이나 요일 줄을 두 번 눌러도 커집니다.":
+    "If the text is small, spread two fingers to zoom the screen (up to 3×). While zoomed, swipe sideways to look around and tap \"Actual size\" to go back. Double-tapping a month name or the weekday row also zooms in.",
+  "왼쪽 위 \"‹ 2026\"을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
+    "Tap \"‹ 2026\" at the top left for the year view and tap a month to jump to it. \"Today\" returns to this month, and \"Lunar\" also shows lunar dates and seasonal terms.",
+  "같은 폰에 교대알람이 있으면 설정 › 달력 › \"교대알람과 일정 공유\"를 켜세요. 교대알람 근무(초번·말번·비번 등)가 날짜 옆에 작게 보입니다. 두 앱 중 한쪽에서만 켜도 됩니다.":
+    "If RotaWake is on the same phone, turn on Settings › Calendar › \"Share with RotaWake\". Your RotaWake shifts appear in small text next to the date. Turning it on in either app is enough.",
+  "5. 일정 화면과 찾기":
+    "5. Schedule screen and search",
+  "일정 화면은 앞으로의 일정을 날짜순으로 보여 줍니다. 날짜 앞의 \"모레\", \"2주 뒤\"로 얼마나 남았는지 알 수 있고, 일정 사이의 \"6일 비어 있음\" 줄로 빈 날이 보입니다. 빈 날 줄을 누르면 그 날로 새 일정을 만듭니다.":
+    "The Schedule screen lists upcoming schedules by date. Labels such as \"In 2 weeks\" before each date show how far away it is, and lines such as \"6 days free\" between schedules show empty days. Tap an empty-day line to create a schedule on that day.",
+  "날짜 옆 달력 아이콘을 누르면 작은 달력이 떠서 그 달에 일정이 있는 날을 보여 줍니다. 날짜를 누르면 목록이 그 날로 갑니다.":
+    "Tap the calendar icon next to a date and a small calendar shows which days that month have schedules. Tap a date and the list jumps there.",
+  "맨 위 \"설정\" 왼쪽의 목록 아이콘으로 카드를 한 줄로 작게 보거나 크게 볼 수 있습니다. 위쪽 \"다음 · 날짜 시간 ›\"을 누르면 그 일정 카드로 바로 갑니다.":
+    "Use the list icon to the left of \"Settings\" to switch cards between one-line and large view. Tap \"Next · date time ›\" at the top to jump straight to that schedule's card.",
+  "지난 일정은 \"지난 일정 N건 보기\"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 검색·기간 조건을 쓰면 접지 않습니다.":
+    "Past schedules are folded under \"Show N past schedules\" so upcoming ones stay on top. Tap to expand; they are not folded while you search or filter by period.",
 };

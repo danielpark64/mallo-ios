@@ -218,3 +218,112 @@ describe('findItemLocation', () => {
     expect(findItemLocation(sections, 'x')).toBeNull();
   });
 });
+
+// ── 일정 탭(D안): 날짜 감각("모레·2주 뒤")과 빈 날 줄 ──
+import { relativeDayLabel, emptyGapBetween, formatEmptyGap } from '../dateUtils';
+describe('relativeDayLabel', () => {
+  const now = new Date(2026, 9, 18, 14, 30); // 10월 18일(일) 오후
+  const at = (m: number, d: number, h = 9) => new Date(2026, m - 1, d, h);
+  test('오늘·내일·모레·어제', () => {
+    expect(relativeDayLabel(at(10, 18, 23), now)).toBe('오늘');
+    expect(relativeDayLabel(at(10, 19), now)).toBe('내일');
+    expect(relativeDayLabel(at(10, 20), now)).toBe('모레');
+    expect(relativeDayLabel(at(10, 17), now)).toBe('어제');
+  });
+  test('3~13일은 N일 뒤, 2주부터 N주 뒤, 두 달부터 N개월 뒤', () => {
+    expect(relativeDayLabel(at(10, 21), now)).toBe('3일 뒤');
+    expect(relativeDayLabel(at(10, 31), now)).toBe('13일 뒤');
+    expect(relativeDayLabel(at(11, 1), now)).toBe('2주 뒤');
+    expect(relativeDayLabel(at(11, 14), now)).toBe('3주 뒤');
+    expect(relativeDayLabel(new Date(2027, 0, 5), now)).toBe('2개월 뒤');
+  });
+  test('그저께 이전은 표시하지 않는다(지난 일정은 날짜만)', () => {
+    expect(relativeDayLabel(at(10, 16), now)).toBeNull();
+  });
+});
+
+describe('빈 날 줄', () => {
+  const today = new Date(2026, 9, 18);
+  const d = (m: number, day: number) => new Date(2026, m - 1, day);
+  test('하루가 비면 그 날 하나, 여러 날이면 범위와 일수', () => {
+    expect(emptyGapBetween(d(10, 18), d(10, 20), today)).toEqual({ from: d(10, 19), to: d(10, 19), days: 1 });
+    expect(emptyGapBetween(d(10, 21), d(10, 28), today)).toEqual({ from: d(10, 22), to: d(10, 27), days: 6 });
+  });
+  test('붙어 있는 날·지난 구간은 줄이 없다', () => {
+    expect(emptyGapBetween(d(10, 20), d(10, 21), today)).toBeNull();
+    expect(emptyGapBetween(d(10, 1), d(10, 10), today)).toBeNull();
+  });
+  test('지난 날과 미래 사이는 오늘부터 센다', () => {
+    expect(emptyGapBetween(d(10, 10), d(10, 21), today)).toEqual({ from: d(10, 18), to: d(10, 20), days: 3 });
+  });
+  test('문구', () => {
+    expect(formatEmptyGap({ from: d(10, 19), to: d(10, 19), days: 1 })).toBe('10월 19일 비어 있음');
+    expect(formatEmptyGap({ from: d(10, 22), to: d(10, 27), days: 6 })).toBe('10월 22일 ~ 10월 27일 · 6일 비어 있음');
+  });
+});
+
+// ── 기간 일정: 달력 점·빈 날 계산이 끝나는 날까지 덮는다 ──
+import { coveredDayKeys, formatRangeTail, daysWithSchedules, coverEnd } from '../dateUtils';
+describe('기간 일정 표시', () => {
+  const rec = (start: Date, end?: Date) => ({
+    id: 'v', uri: '', durationSec: 0, transcript: '', content: '휴가', scheduleAt: start.getTime(), scheduleDisplay: '',
+    hasDate: true, hasTime: false, createdAt: 1, ...(end ? { endAt: end.getTime() } : {}),
+  }) as any;
+  test('덮는 날 전부 (달을 넘어가도)', () => {
+    expect(coveredDayKeys(rec(new Date(2026, 9, 30), new Date(2026, 10, 2)))).toEqual(['2026-10-30', '2026-10-31', '2026-11-1', '2026-11-2']);
+    expect(coveredDayKeys(rec(new Date(2026, 9, 30)))).toEqual(['2026-10-30']);
+  });
+  test('달력 점도 기간 전체에', () => {
+    const s = daysWithSchedules([rec(new Date(2026, 9, 20), new Date(2026, 9, 22))]);
+    expect([...s].sort()).toEqual(['2026-10-20', '2026-10-21', '2026-10-22']);
+  });
+  test('카드 꼬리 문구 "~ 10월 24일 (토) · 5일"', () => {
+    expect(formatRangeTail(rec(new Date(2026, 9, 20), new Date(2026, 9, 24)))).toBe('~ 10월 24일 (토) · 5일');
+    expect(formatRangeTail(rec(new Date(2026, 9, 20)))).toBeNull();
+  });
+  test('coverEnd: 기간이면 끝나는 날, 아니면 그날', () => {
+    expect(coverEnd(rec(new Date(2026, 9, 20, 9), new Date(2026, 9, 24))).getDate()).toBe(24);
+    expect(coverEnd(rec(new Date(2026, 9, 20, 9))).getDate()).toBe(20);
+  });
+});
+
+// ── 휴가 중인 날에 일정을 넣으려 하면 먼저 알린다(그래도 넣을 수 있음) ──
+import { rangesCovering, itemsWithinRange } from '../dateUtils';
+describe('기간 겹침 확인', () => {
+  const r = (id: string, start: Date, end?: Date) => ({
+    id, uri: '', durationSec: 0, transcript: '', content: id, scheduleAt: start.getTime(), scheduleDisplay: '',
+    hasDate: true, hasTime: !end, createdAt: 1, ...(end ? { endAt: end.getTime() } : {}),
+  }) as any;
+  const vac = r('휴가', new Date(2026, 9, 22), new Date(2026, 9, 26));
+  const dentist = r('치과', new Date(2026, 9, 24, 15));
+  const later = r('회의', new Date(2026, 9, 27, 10));
+  test('그 날을 덮는 기간 일정을 찾는다(시작일·끝나는 날 포함, 자기 자신 제외)', () => {
+    expect(rangesCovering([vac, dentist], new Date(2026, 9, 24, 15)).map((x) => x.id)).toEqual(['휴가']);
+    expect(rangesCovering([vac], new Date(2026, 9, 22, 9)).length).toBe(1);
+    expect(rangesCovering([vac], new Date(2026, 9, 26, 23)).length).toBe(1);
+    expect(rangesCovering([vac], new Date(2026, 9, 27, 9)).length).toBe(0);
+    expect(rangesCovering([vac], new Date(2026, 9, 24), '휴가').length).toBe(0);
+  });
+  test('새 기간 안에 이미 있는 하루짜리 일정', () => {
+    expect(itemsWithinRange([vac, dentist, later], new Date(2026, 9, 22), new Date(2026, 9, 26)).map((x) => x.id)).toEqual(['치과']);
+    expect(itemsWithinRange([dentist], new Date(2026, 9, 22), new Date(2026, 9, 26), '치과')).toEqual([]);
+  });
+});
+
+// ── 기간 일정은 끝나는 날이 지나야 "지난 일정", 달력 목록은 겹치는 기간에 나온다 ──
+import { isPastItem, schedulesOn } from '../dateUtils';
+describe('진행 중인 기간 일정', () => {
+  const vac = { id: 'v', uri: '', durationSec: 0, transcript: '', content: '휴가', scheduleAt: new Date(2026, 9, 20).getTime(),
+    endAt: new Date(2026, 9, 24).getTime(), scheduleDisplay: '', hasDate: true, hasTime: false, createdAt: 1 } as any;
+  test('휴가 중(22일)엔 지난 일정이 아니고, 끝난 다음 날(25일)부터 지난 일정', () => {
+    expect(isPastItem(vac, new Date(2026, 9, 22, 12).getTime())).toBe(false);
+    expect(isPastItem(vac, new Date(2026, 9, 24, 23).getTime())).toBe(false);
+    expect(isPastItem(vac, new Date(2026, 9, 25, 0, 1).getTime())).toBe(true);
+  });
+  test('달을 넘는 휴가는 다음 달 목록·중간 날에도 나온다', () => {
+    const cross = { ...vac, scheduleAt: new Date(2026, 9, 30).getTime(), endAt: new Date(2026, 10, 2).getTime() };
+    expect(schedulesBetween([cross], new Date(2026, 10, 1), new Date(2026, 10, 30)).length).toBe(1);
+    expect(schedulesOn([vac], new Date(2026, 9, 22)).length).toBe(1);
+    expect(schedulesOn([vac], new Date(2026, 9, 25)).length).toBe(0);
+  });
+});

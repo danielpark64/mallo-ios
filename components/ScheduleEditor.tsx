@@ -30,6 +30,8 @@ export type EditorResult = {
   content: string;
   date: Date;
   hasTime: boolean;
+  /** 기간 일정(휴가 등)의 끝나는 날. 없으면 하루짜리 */
+  endDate?: Date | null;
   alarmMode: AlarmMode;
   remindBefore: number[];
   exactAlarm: boolean;
@@ -97,6 +99,9 @@ export function ScheduleEditor({
   const toggleRemind = (m: number) =>
     setRemindBefore((cur) => normalizeRemind(cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
   const [showCal, setShowCal]     = useState(false);
+  // 기간 일정: 끝나는 날(없으면 하루짜리)
+  const [endDate, setEndDate]     = useState<Date | null>(null);
+  const [showEndCal, setShowEndCal] = useState(false);
 
   // ── 내용 입력 STT (일반 수정/생성 — 텍스트만, 오디오 저장 없음) ──────────────────
   const [sttOn, setSttOn]         = useState(false);
@@ -347,6 +352,7 @@ export function ScheduleEditor({
       setRemindBefore(normalizeRemind(record.needsDate && !(record.remindBefore ?? []).length ? (defaultRemind ?? []) : (record.remindBefore ?? [])));
       setExactAlarm(record.exactAlarm !== false);
       setVoiceAlarm(voiceAlarmOn(record)); // 일정에 따로 정한 값이 없으면 설정을 따른다
+      setEndDate(record.endAt != null && !appendMode ? new Date(record.endAt) : null);
     } else {
       setContent('');
       setDate(new Date(defaultDate));
@@ -356,9 +362,18 @@ export function ScheduleEditor({
       setRemindBefore(normalizeRemind(defaultRemind ?? []));
       setExactAlarm(true);
       setVoiceAlarm(defaultVoice);
+      setEndDate(null);
     }
     setShowCal(false);
+    setShowEndCal(false);
   }, [visible, record, appendMode]);
+
+  // 시작일을 바꿨는데 끝나는 날보다 뒤면 기간을 지운다(거꾸로 된 기간 방지)
+  useEffect(() => {
+    if (endDate && new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime()
+      <= new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) setEndDate(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
 
   const pastConfirmedRef = useRef(false);
   const handleSave = () => {
@@ -394,6 +409,7 @@ export function ScheduleEditor({
     const matches = appendCapture && content.trim() === appendCapture.transcript.trim();
     onSave({
       id: record?.id, content: content.trim(), date: d, hasTime: true, alarmMode, remindBefore, exactAlarm,
+      endDate: endDate && endDate.toDateString() !== d.toDateString() && endDate.getTime() > d.getTime() ? endDate : null,
       // 진동 전용이어도 선택은 남겨 둔다(울릴 때 voiceUriOf가 걸러 준다) — 소리 모드로 되돌리면 그대로 살아난다
       voiceAlarm: voiceAlarm && hasVoiceSource,
       append: editAppendMode && extraText.trim()
@@ -514,6 +530,46 @@ export function ScheduleEditor({
                   <Calendar
                     selectedDate={date}
                     onSelectDate={(d) => { timeTouchedRef.current = true; setDate(d); setShowCal(false); }}
+                    markedDays={markedDays}
+                  />
+                </View>
+              )}
+
+              {/* 기간 일정(휴가·출장·여행): 끝나는 날. 알람은 시작하는 날에만 울린다 */}
+              {endDate ? (
+                <View style={styles.endRow}>
+                  <TouchableOpacity style={[styles.dateBtn, { flex: 1 }]} onPress={() => setShowEndCal((v) => !v)} accessibilityRole="button" accessibilityLabel={`${t('끝나는 날')}, ${formatDayHeader(endDate)}`}>
+                    <Text style={styles.dateBtnText}>~ {formatDayHeader(endDate)}</Text>
+                    <Text style={styles.dateBtnChevron}>{showEndCal ? '▲' : '▼'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.endClear} onPress={() => { setEndDate(null); setShowEndCal(false); }} accessibilityRole="button" accessibilityLabel={t('기간 지우기')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={styles.endClearText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.endAdd}
+                  onPress={() => {
+                    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+                    setEndDate(d);
+                    setShowEndCal(true);
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.endAddText}>{t('＋ 기간 (끝나는 날)')}</Text>
+                </TouchableOpacity>
+              )}
+              {endDate && showEndCal && (
+                <View style={styles.calBox}>
+                  <Calendar
+                    selectedDate={endDate}
+                    onSelectDate={(d) => {
+                      // 시작일과 같거나 앞이면 기간이 아니다
+                      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+                      if (d.getTime() <= start) { setEndDate(null); setShowEndCal(false); return; }
+                      setEndDate(d);
+                      setShowEndCal(false);
+                    }}
                     markedDays={markedDays}
                   />
                 </View>
@@ -762,6 +818,11 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   dateBtnText:    { color: C.text, fontSize: 16, fontWeight: '500' },
   dateBtnChevron: { color: C.accent, fontSize: 12 },
   calBox:         { borderRadius: 12, marginTop: 8 },
+  endRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  endClear:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  endClearText:   { color: C.textSub, fontSize: 14, fontWeight: '700' },
+  endAdd:         { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: C.border, borderStyle: 'dashed' },
+  endAddText:     { color: C.accent, fontSize: 13, fontWeight: '700' },
 
   // 왼쪽 휠(시:분)은 flex로 줄어들고, 오른쪽 알람 영역은 내용 크기만큼만 차지해 박스 밖으로 나가지 않게 한다
   pickerRow: {

@@ -11,6 +11,8 @@ const { withAppDelegate } = require('@expo/config-plugins');
 function withIosSceneDelegate(config) {
   return withAppDelegate(config, (config) => {
     let contents = config.modResults.contents;
+    // 이미 적용된 프로젝트(prebuild를 --clean 없이 다시 돌린 경우)는 건너뛴다 — 두 번 고치려다 실패하던 문제(2026-10-18)
+    if (contents.includes('class SceneDelegate')) return config;
 
     const launchOptionsPropertyAnchor = 'var window: UIWindow?';
     if (!contents.includes(launchOptionsPropertyAnchor)) {

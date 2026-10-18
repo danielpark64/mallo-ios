@@ -2,6 +2,16 @@
 
 > 최신순. 각 항목의 **상태**가 "미커밋"이면 작업 트리에만 있고 아직 커밋되지 않은 수정이다.
 
+## 2026-10-18 · iPhone — 한국어 기기인데 홈 화면 이름이 "SayRam"
+
+**상태**: 미커밋
+**증상**: iOS 한국어 기기에서 앱 이름·권한 창이 "SayRam"(세이람이어야 함). Android는 정상.
+**원인**: `plugins/withLocalizedAppName.js`가 `ios/SayRam/ko.lproj/InfoPlist.strings` 파일만 쓰고 Xcode 프로젝트에 등록하지 않아 앱 묶음에 안 들어감.
+**수정**: iOS는 Expo 기본 기능 app.json `"locales": { "ko": "./locales/ko.json" }`(lproj를 프로젝트에 등록까지 함)으로, 플러그인은 Android·LSHasLocalizedDisplayName만.
+덤: `plugins/withIosSceneDelegate.js`가 이미 적용된 AppDelegate에 다시 돌면 실패 → `class SceneDelegate`가 있으면 건너뜀.
+**확인**: 빌드된 SayRam.app/ko.lproj/InfoPlist.strings = 세이람, 시뮬레이터 홈 화면 "세이람".
+**재발 감시 포인트**: iOS에 리소스 파일을 추가하는 플러그인은 파일 쓰기만으로 끝나지 않는다 — Xcode 프로젝트 등록 여부를 빌드 결과물(.app 안)로 확인할 것.
+
 ## 2026-10-18 · iPhone — 새로 녹음한 일정 ▶가 무음 (녹음 파일은 있는데 소리가 0.2초)
 
 **상태**: 미커밋

@@ -243,3 +243,16 @@ describe('ScheduleCard 한 줄 보기', () => {
     expect(getByTestId('card-highlight')).toBeTruthy();
   });
 });
+
+describe('ScheduleCard 기간 일정', () => {
+  const vac = { ...item, hasTime: false, scheduleAt: new Date(2026, 9, 22).getTime(), endAt: new Date(2026, 9, 26).getTime(), content: '가족 휴가' };
+  test('시간 칸에 "5일간", 크게 보기엔 "~ 10월 26일 (월) · 5일"', async () => {
+    const { getByText } = await render(wrap(<ScheduleCard item={vac} onPress={() => {}} onAppend={() => {}} />));
+    expect(getByText('5일간')).toBeTruthy();
+    expect(getByText('~ 10월 26일 (월) · 5일')).toBeTruthy();
+  });
+  test('한 줄 보기엔 "~10월 26일"', async () => {
+    const { getByText } = await render(wrap(<ScheduleCard item={vac} compact onPress={() => {}} onAppend={() => {}} />));
+    expect(getByText('~10월 26일')).toBeTruthy();
+  });
+});

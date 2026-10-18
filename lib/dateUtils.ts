@@ -118,7 +118,8 @@ export function startOfDay(d: Date): Date {
 export function schedulesOn(records: ScheduleRecord[], date: Date): ScheduleRecord[] {
   const k = dayKey(date);
   return records
-    .filter((r) => r.scheduleAt != null && dayKeyFromMs(r.scheduleAt) === k)
+    // 기간 일정은 덮는 날 모두에 나온다(달력 점과 목록이 맞게)
+    .filter((r) => r.scheduleAt != null && (r.endAt != null ? coveredDayKeys(r).includes(k) : dayKeyFromMs(r.scheduleAt) === k))
     .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
 }
 
@@ -126,7 +127,9 @@ export function schedulesOn(records: ScheduleRecord[], date: Date): ScheduleReco
 export function daysWithSchedules(records: ScheduleRecord[]): Set<string> {
   const s = new Set<string>();
   for (const r of records) {
-    if (r.scheduleAt != null) s.add(dayKeyFromMs(r.scheduleAt));
+    if (r.scheduleAt == null) continue;
+    if (r.endAt != null) for (const k of coveredDayKeys(r)) s.add(k); // 기간 일정은 끝나는 날까지
+    else s.add(dayKeyFromMs(r.scheduleAt));
   }
   return s;
 }
@@ -181,7 +184,8 @@ export function schedulesBetween(records: ScheduleRecord[], start: Date, end: Da
   const s = startOfDay(start).getTime();
   const e = addDays(startOfDay(end), 1).getTime();
   return records
-    .filter((r) => r.scheduleAt != null && r.scheduleAt >= s && r.scheduleAt < e)
+    // 기간 일정은 보이는 기간과 겹치면 나온다(달을 넘는 휴가)
+    .filter((r) => r.scheduleAt != null && r.scheduleAt < e && (r.endAt != null ? r.endAt >= s : r.scheduleAt >= s))
     .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
 }
 
@@ -367,6 +371,8 @@ export function mergePreAlarms(sections: DaySection[], items: PreAlarmItem[]): D
 export function isPastItem(x: DayListItem, now: number = Date.now()): boolean {
   if (isPreAlarmItem(x)) return x.fireAt <= now;
   if (x.scheduleAt == null) return false; // 날짜 미정은 지난 것으로 보지 않는다
+  // 기간 일정(휴가 등)은 끝나는 날이 지나야 지난 것 — 휴가 중에 접히거나 흐려지지 않게
+  if (x.endAt != null) return startOfDay(new Date(x.endAt)).getTime() + 86_400_000 <= now;
   // 날짜를 안 정한 녹음(녹음 시각으로 저장)은 그날 하루 동안 펼쳐 두고 다음 날부터 지난 것으로 접는다
   if (x.needsDate) {
     const d = new Date(x.scheduleAt);
@@ -415,4 +421,96 @@ export function findItemLocation(
     if (ii >= 0) return { sectionIndex: si, itemIndex: ii };
   }
   return null;
+}
+
+// ─── 일정 탭(D안): 날짜 감각과 빈 날 ───────────────────────────────────────────
+// 목록만 봐도 "얼마나 남았나"와 "언제가 비어 있나"가 보이게 한다(2026-10-18 사용자: 전체 일정이 더 보기 편하다 →
+// 달력의 장점인 빈 날·날짜 감각을 목록에 옮김).
+const DAY_MS = 86_400_000;
+const fill = (key: string, vars: Record<string, string | number>) =>
+  t(key).replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''));
+const dayDiff = (a: Date, b: Date) => Math.round((startOfDay(a).getTime() - startOfDay(b).getTime()) / DAY_MS);
+
+/** "오늘·내일·모레·3일 뒤·2주 뒤·2개월 뒤·어제". 그저께 이전은 null(지난 일정은 날짜만 보여 준다) */
+export function relativeDayLabel(date: Date, now: Date = new Date()): string | null {
+  const d = dayDiff(date, now);
+  if (d === 0) return t('오늘');
+  if (d === 1) return t('내일');
+  if (d === 2) return t('모레');
+  if (d === -1) return t('어제');
+  if (d < -1) return null;
+  if (d < 14) return fill('{n}일 뒤', { n: d });
+  if (d < 60) return fill('{n}주 뒤', { n: Math.floor(d / 7) });
+  return fill('{n}개월 뒤', { n: Math.floor(d / 30) });
+}
+
+export type EmptyGap = { from: Date; to: Date; days: number };
+
+/** 앞 날짜 묶음과 다음 날짜 묶음 사이의 빈 날. 지난 날은 세지 않는다(오늘부터) */
+export function emptyGapBetween(prev: Date, next: Date, today: Date = new Date()): EmptyGap | null {
+  // 하루를 24시간으로 더하지 않고 달력으로 더한다(서머타임이 있는 나라에서 하루가 23·25시간인 날)
+  const t0 = startOfDay(today);
+  const afterPrev = addDays(startOfDay(prev), 1);
+  const from = afterPrev.getTime() > t0.getTime() ? afterPrev : t0;
+  const to = addDays(startOfDay(next), -1);
+  if (to.getTime() < from.getTime()) return null;
+  return { from, to, days: dayDiff(to, from) + 1 };
+}
+
+const monthDay = (d: Date) => fill('{m}월 {d}일', { m: d.getMonth() + 1, d: d.getDate() });
+
+/** "10월 19일 비어 있음" / "10월 22일 ~ 10월 27일 · 6일 비어 있음" */
+export function formatEmptyGap(g: EmptyGap): string {
+  if (g.days === 1) return fill('{date} 비어 있음', { date: monthDay(g.from) });
+  return fill('{from} ~ {to} · {n}일 비어 있음', { from: monthDay(g.from), to: monthDay(g.to), n: g.days });
+}
+
+// ─── 기간 일정 (휴가·출장·여행: endAt) ──────────────────────────────────────────
+/** 일정이 덮는 마지막 날(0시). 기간이 아니면 그날 */
+export function coverEnd(r: ScheduleRecord): Date {
+  return startOfDay(new Date(r.endAt ?? r.scheduleAt ?? 0));
+}
+
+/** 시작일부터 끝나는 날까지의 dayKey (최대 400일) */
+export function coveredDayKeys(r: ScheduleRecord): string[] {
+  if (r.scheduleAt == null) return [];
+  const out: string[] = [];
+  const end = coverEnd(r).getTime();
+  for (let d = startOfDay(new Date(r.scheduleAt)); d.getTime() <= end && out.length < 400; d = addDays(d, 1)) out.push(dayKey(d));
+  return out;
+}
+
+/** 카드에 붙는 "~ 10월 24일 (토) · 5일". 기간이 아니면 null */
+export function formatRangeTail(r: ScheduleRecord): string | null {
+  if (r.endAt == null || r.scheduleAt == null) return null;
+  const n = dayDiff(new Date(r.endAt), new Date(r.scheduleAt)) + 1;
+  return fill('~ {date} · {n}일', { date: formatDayHeader(new Date(r.endAt)), n });
+}
+
+/** 그 날을 덮는 기간 일정(휴가 등) — 새 일정을 넣기 전에 "휴가 중이에요"를 알리려고 */
+export function rangesCovering(records: ScheduleRecord[], date: Date, excludeId?: string): ScheduleRecord[] {
+  const d = startOfDay(date).getTime();
+  return records.filter((r) =>
+    r.id !== excludeId && r.endAt != null && r.scheduleAt != null &&
+    startOfDay(new Date(r.scheduleAt)).getTime() <= d && d <= startOfDay(new Date(r.endAt)).getTime());
+}
+
+/** 새 기간 안에 이미 있는 하루짜리 일정 — 휴가를 넣기 전에 "이 기간에 일정 N건"을 알리려고 */
+export function itemsWithinRange(records: ScheduleRecord[], start: Date, end: Date, excludeId?: string): ScheduleRecord[] {
+  const s = startOfDay(start).getTime();
+  const e = startOfDay(end).getTime();
+  return records.filter((r) => {
+    if (r.id === excludeId || r.endAt != null || r.scheduleAt == null) return false;
+    const d = startOfDay(new Date(r.scheduleAt)).getTime();
+    return s <= d && d <= e;
+  });
+}
+
+/** 짧은 달 이름(1년 보기) — ko "10월", en "Oct", ja·zh "10月", es·fr·de·pt 약어 */
+export function formatMonthShort(month: number): string {
+  const l = getLang();
+  if (l === 'ko') return `${month + 1}월`;
+  if (l === 'en') return MONTHS_EN[month];
+  if (isCjk(l)) return `${month + 1}月`;
+  return INTL_MON[l as 'es' | 'fr' | 'de' | 'pt'][month];
 }

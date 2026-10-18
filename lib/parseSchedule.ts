@@ -19,6 +19,8 @@ export type ParsedSchedule = {
   display: string;
   /** "30분 전에 알려줘"처럼 말로 정한 미리 알림(분). 말하지 않았으면 undefined → 기본값 사용 */
   remindBefore?: number[];
+  /** 기간 일정의 끝나는 날(그날 0시). "20일부터 24일까지 휴가" → 24일. 하루짜리 일정은 undefined */
+  endDate?: Date;
 };
 
 // 한글 고유어 수사 → 숫자 (시(時)에 주로 쓰임: 한시~열두시)
@@ -59,7 +61,7 @@ export function parseSchedule(input: string, base: Date = new Date()): ParsedSch
   if (lang === 'en') return parseScheduleEn(input, base);
   if (lang !== 'ko') return parseScheduleIntl(input, base, lang);
   const pre = extractRemindBefore((input ?? '').trim());
-  const result0 = parseScheduleCore(pre.text, base);
+  const result0 = parseRangeKo(pre.text, base) ?? parseScheduleCore(pre.text, base);
   return pre.remindBefore ? { ...result0, remindBefore: pre.remindBefore } : result0;
 }
 
@@ -277,6 +279,48 @@ function parseScheduleCore(input: string, base: Date): ParsedSchedule {
     content,
     display: formatDisplay(result, hasDate, hasTime),
   };
+}
+
+// ─── 기간 일정 (휴가·출장·여행) ──────────────────────────────────────────────────
+// "20일부터 24일까지 휴가" / "다음 주 월요일부터 금요일까지 교육" / "11월 3일부터 3박 4일 제주 여행" / "20일부터 5일간 연수"
+// 시작일(과 시간)은 평소 파서로, 끝나는 날은 시작일을 기준으로 다시 읽는다("24일"·"금요일"이 시작일 뒤로 가게).
+// 하루 안의 시간 범위("2시부터 4시까지 회의")는 기간이 아니므로 null → 평소 파서가 처리한다.
+function parseRangeKo(text: string, base: Date): ParsedSchedule | null {
+  const withEnd = (start: ParsedSchedule, end: Date): ParsedSchedule | null => {
+    if (!start.date || !start.hasDate) return null;
+    const endDay = startOfDay(end);
+    if (endDay.getTime() <= startOfDay(start.date).getTime()) return null;
+    return {
+      ...start,
+      endDate: endDay,
+      display: `${formatDisplay(start.date, true, start.hasTime)} ~ ${formatDisplay(endDay, true, false)}`,
+    };
+  };
+  const addDays = (d: Date, n: number) => { const c = startOfDay(d); c.setDate(c.getDate() + n); return c; };
+
+  // N박 N일 / N일간·N일 동안 — 길이로 말한 기간 (토큰을 먼저 지워야 "4일"을 날짜로 읽지 않는다)
+  // "부터"가 있을 때만 — "내일 3박 4일 여행 준비물 사기"·"어제 3일 동안 못 잤어" 같은 일상 문장은 기간이 아니다
+  const nights = text.match(/(\d+)\s*박\s*(\d+)\s*일/);
+  const span = nights ?? text.match(/(\d+)\s*일\s*(?:간|동안)/);
+  if (span && /부터/.test(text)) {
+    const days = parseInt(nights ? span[2] : span[1], 10);
+    if (days >= 2 && days <= 366) {
+      const start = parseScheduleCore(text.replace(span[0], ' ').replace(/부터/, ' '), base);
+      if (start.date) return withEnd(start, addDays(start.date, days - 1));
+    }
+  }
+
+  // A부터 B까지
+  const m = text.match(/^(.*?)부터\s*(.+?)\s*까지(.*)$/);
+  if (m) {
+    const start = parseScheduleCore(`${m[1]} ${m[3]}`, base);
+    if (!start.date || !start.hasDate) return null;
+    const end = parseScheduleCore(m[2], startOfDay(start.date));
+    // 끝에 날짜가 없으면(시간만) 하루 안의 범위
+    if (!end.date || !/(일|요일|내일|모레|글피|주)/.test(m[2])) return null;
+    return withEnd(start, end.date);
+  }
+  return null;
 }
 
 // ─── 내용 추출: 매칭된 날짜·시간 토큰과 조사 제거 ────────────────────────────────

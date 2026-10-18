@@ -23,26 +23,13 @@ function withLocalizedAppName(config) {
       return config;
     },
   ]);
-  // iOS: <lang>.lproj/InfoPlist.strings + LSHasLocalizedDisplayName
+  // iOS: 이름이 언어별로 바뀐다는 표시(LSHasLocalizedDisplayName)
   config = withInfoPlist(config, (config) => {
     config.modResults.LSHasLocalizedDisplayName = true;
     return config;
   });
-  config = withDangerousMod(config, [
-    'ios',
-    async (config) => {
-      const appDir = path.join(config.modRequest.platformProjectRoot, config.modRequest.projectName);
-      for (const [lang, name] of Object.entries(NAMES)) {
-        const dir = path.join(appDir, `${lang}.lproj`);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(
-          path.join(dir, 'InfoPlist.strings'),
-          `CFBundleDisplayName = "${name}";\nCFBundleName = "${name}";\n`
-        );
-      }
-      return config;
-    },
-  ]);
+  // iOS 한국어 이름은 app.json "locales"(locales/ko.json)가 맡는다 — Expo 기본 기능이 lproj를 Xcode 프로젝트에 등록까지 한다.
+  // (예전엔 여기서 ko.lproj 파일만 만들고 프로젝트에 등록하지 않아 iOS 홈 화면에 "SayRam"으로 나왔다 — 2026-10-18)
   return config;
 }
 

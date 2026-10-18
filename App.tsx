@@ -1,7 +1,7 @@
 import { installCrashLogger } from './lib/crashLog';
 installCrashLogger();
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Keyboard, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View, AppState } from 'react-native';
+import { Alert, Animated, Keyboard, Linking, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View, AppState } from 'react-native';
 import { Text } from './components/AppText';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,23 +15,23 @@ import { recordedAtStamp } from './lib/autoDate';
 import {
   dayKey,
   findItemLocation,
+  relativeDayLabel,
+  coverEnd,
+  rangesCovering,
+  itemsWithinRange,
+  startOfDay,
+  emptyGapBetween,
+  formatEmptyGap,
+  type EmptyGap,
   daysWithSchedules,
-  endOfMonth,
-  endOfWeek,
   formatDayHeader,
-  formatMonthLabel,
   formatTime,
-  formatWeekLabel,
   groupByDay,
   isSameDay,
-  schedulesBetween,
-  startOfMonth,
-  startOfWeek,
   type DaySection,
-  daysWithPreAlarms, isPreAlarmItem, mergePreAlarms, preAlarmItems, collapsePast, PAST_PAGE,
-  type DayListItem, type DayListSection,
+  collapsePast, PAST_PAGE,
 } from './lib/dateUtils';
-import { loadPrefs, savePrefs, type CalendarMode } from './lib/prefs';
+import { loadPrefs, savePrefs } from './lib/prefs';
 import { normalizeRemind, parsePreRecordId } from './lib/reminders';
 import { setNativeAlarmLabels } from './lib/nativeAlarm';
 import { LanguageProvider, useT } from './lib/i18n';
@@ -69,7 +69,6 @@ import { healEmptyRecordingsOnce } from './lib/healRecordings';
 import { removeVoiceAlarm, setVoiceAlarmDefault, voiceAlarmOn, voiceAlarmToStore, voiceUriOf } from './lib/voiceAlarm';
 import { ThemeProvider, useFontScale, useResolvedTheme, useTheme, type Palette } from './lib/theme';
 import { copyRecords } from './lib/exportUtils';
-import { Calendar, type DateRange } from './components/Calendar';
 import { ExportPreview, type ExportKind } from './components/ExportPreview';
 import { FilterSheet } from './components/FilterSheet';
 import { SettingsSheet } from './components/SettingsSheet';
@@ -77,14 +76,24 @@ import { MicIcon } from './components/MicIcon';
 import { PromoBanner } from './components/PromoBanner';
 import { Waveform, formatDuration } from './components/Waveform';
 import { ScheduleCard } from './components/ScheduleCard';
-import { PreAlarmRow } from './components/PreAlarmRow';
+import { MiniMonthSheet } from './components/MiniMonthSheet';
+import { CalendarIcon } from './components/CalendarIcon';
+import { ListDensityIcon } from './components/ListDensityIcon';
+import { MonthScroll, monthScrollYearRange } from './components/MonthScroll';
+import { YearView } from './components/YearView';
+import { DaySheet } from './components/DaySheet';
+import type { CalEvent } from './lib/calendarKit/monthLayout';
+import { ymdKey } from './lib/calendarKit/holidays';
+import { publishOwnShare, readSiblingShifts, siblingShareAvailable } from './lib/siblingShare';
+import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, parseShiftImportUrl, saveShifts, SHIFT_REQUEST_URL, type ShiftData } from './lib/shiftImport';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorResult } from './components/ScheduleEditor';
 
 
 
-// ─── 전체 일정 탭 ──────────────────────────────────────────────────────────────
+// ─── 일정 탭 (옛 이름 "전체 일정") ─────────────────────────────────────────────────
 // 검색창 + 기간 칩(전체/오늘/이번 주/이번 달/직접 선택)으로 바로 걸러진다. "조회하기" 버튼 없음.
+// 2026-10-18 D안: 날짜 머리에 "모레·2주 뒤", 일정 사이에 "N일 비어 있음" 줄, 날짜 머리 📅 → 작은 점 달력.
 function AllSchedulesList({
   records,
   onPress,
@@ -92,7 +101,8 @@ function AllSchedulesList({
   onFixDate,
   onLongPress,
   compact,
-  onToggleCompact,
+  onAddOnDate,
+  jump,
 }: {
   records: ScheduleRecord[];
   onPress: (r: ScheduleRecord) => void;
@@ -101,7 +111,10 @@ function AllSchedulesList({
   onLongPress?: (r: ScheduleRecord) => void;
   /** 한 줄 보기 (달력 탭과 같은 설정) */
   compact: boolean;
-  onToggleCompact: () => void;
+  /** 빈 날 줄을 누르면 그 날로 새 일정 */
+  onAddOnDate: (d: Date) => void;
+  /** 위쪽 "다음 ›"으로 이 일정 카드로 이동(잠깐 강조). nonce가 바뀔 때마다 */
+  jump: { id: string; nonce: number } | null;
 }) {
   const C = useTheme();
   const { t, lang } = useT();
@@ -122,6 +135,58 @@ function AllSchedulesList({
   // 복사/내보내기는 화면과 같은 순서(날짜순, 날짜 미정은 맨 뒤)로
   const exportList = useMemo(() => allSections.flatMap((sec) => sec.data), [allSections]);
   const active = isFilterActive(filter);
+
+  // 빈 날 줄: 검색·기간 조건이 없을 때만(걸러진 목록에선 "비어 있음"이 사실이 아니다)
+  const gapAfter = useMemo(() => {
+    const m = new Map<string, EmptyGap>();
+    if (active) return m;
+    const today = new Date();
+    // 기간 일정(휴가 등)이 덮는 날은 비어 있지 않다 — 지금까지 덮인 마지막 날부터 센다
+    let covered = 0;
+    for (let i = 0; i + 1 < sections.length; i++) {
+      const a = sections[i];
+      const b = sections[i + 1];
+      if (a.key === 'undated' || b.key === 'undated') continue;
+      covered = Math.max(covered, a.date.getTime(), ...a.data.map((r) => coverEnd(r).getTime()));
+      const g = emptyGapBetween(new Date(covered), b.date, today);
+      if (g) m.set(a.key, g);
+    }
+    return m;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, active, dayKey(new Date())]); // 자정이 지나면 "오늘부터"가 바뀐다
+  // 작은 점 달력: 일정 있는 날 표시, 누른 날로 목록 이동
+  const listRef = useRef<SectionList<ScheduleRecord, DaySection>>(null);
+  // 닫히는 동안에도 마지막 날짜를 유지해야 선택 동그라미가 오늘로 튀지 않는다
+  const [miniOpen, setMiniOpen] = useState(false);
+  const [miniDate, setMiniDate] = useState<Date>(() => new Date());
+  const marked = useMemo(() => daysWithSchedules(records), [records]);
+  const pendingIdxRef = useRef<number | null>(null);
+  const [highlight, setHighlight] = useState<string | null>(null);
+  useEffect(() => {
+    if (!jump) return;
+    const loc = findItemLocation(sections, jump.id);
+    if (!loc) return;
+    setHighlight(jump.id);
+    pendingIdxRef.current = loc.sectionIndex;
+    // 탭이 막 바뀐 직후라 목록이 그려진 뒤 스크롤. itemIndex는 0이 날짜 머리라 +1
+    const t1 = setTimeout(() => {
+      try { listRef.current?.scrollToLocation({ sectionIndex: loc.sectionIndex, itemIndex: loc.itemIndex + 1, viewOffset: 40, animated: true }); } catch {}
+    }, 120);
+    const t2 = setTimeout(() => setHighlight(null), 2600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jump]);
+  const jumpToDay = (d: Date) => {
+    setMiniOpen(false);
+    const t0 = startOfDay(d).getTime();
+    let idx = sections.findIndex((sec) => sec.key !== 'undated' && sec.date.getTime() >= t0);
+    if (idx < 0) idx = sections.length - 1;
+    if (idx < 0) return;
+    pendingIdxRef.current = idx;
+    setTimeout(() => {
+      try { listRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, viewOffset: 8, animated: true }); } catch {}
+    }, 250); // 창이 닫히는 애니메이션 뒤
+  };
 
   // 직접 선택 휠의 연도 후보: 일정이 있는 해 ± 1년 (올해 포함)
   const yearChoices = useMemo(() => {
@@ -205,9 +270,6 @@ function AllSchedulesList({
           )}
           {filtered.length > 0 && (
             <>
-              <TouchableOpacity style={styles.resultBtn} onPress={onToggleCompact} accessibilityRole="button" accessibilityLabel={t(compact ? '크게 보기' : '한 줄 보기')}>
-                <Text style={styles.resultBtnText}>{t(compact ? '크게 보기' : '한 줄 보기')}</Text>
-              </TouchableOpacity>
               <TouchableOpacity style={styles.resultBtn} onPress={() => copyRecords(exportList)}>
                 <Text style={styles.resultBtnText}>{t('복사')}</Text>
               </TouchableOpacity>
@@ -227,9 +289,19 @@ function AllSchedulesList({
   return (
     <View style={{ flex: 1 }}>
       <SectionList
+        ref={listRef}
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.allListContent}
+        onScrollToIndexFailed={(info) => {
+          const idx = pendingIdxRef.current;
+          try { listRef.current?.getScrollResponder()?.scrollTo({ y: info.averageItemLength * info.index, animated: false }); } catch {}
+          if (idx == null) return;
+          setTimeout(() => {
+            try { listRef.current?.scrollToLocation({ sectionIndex: idx, itemIndex: 0, viewOffset: 8, animated: true }); } catch {}
+            pendingIdxRef.current = null;
+          }, 120);
+        }}
         stickySectionHeadersEnabled={false}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
@@ -257,7 +329,8 @@ function AllSchedulesList({
         }
         ListEmptyComponent={
           <View style={styles.emptyAll}>
-            <Text style={styles.emptyAllIcon}>📅</Text>
+            {/* 📅 이모지는 기기마다 "JUL 17" 그림이라 직접 그린 아이콘 */}
+            <View style={{ marginBottom: 16 }}><CalendarIcon size={40} color={C.textSub} /></View>
             <Text style={styles.emptyAllText}>{active ? t('조건에 맞는 일정이 없어요') : collapsing ? t('앞으로 올 일정이 없어요') : t('등록된 일정이 없어요')}</Text>
             {!active && <Text style={styles.emptyAllSub}>{t('아래 마이크 버튼으로 말해서 바로 추가해보세요')}</Text>}
           </View>
@@ -265,20 +338,56 @@ function AllSchedulesList({
         renderSectionHeader={({ section }) => {
           const isToday = isSameDay(section.date, today);
           const isPast = section.date.getTime() < todayMidnight;
+          const undated = section.key === 'undated';
+          const rel = undated ? null : relativeDayLabel(section.date, today);
+          if (undated) {
+            return (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderText}>{section.title}</Text>
+              </View>
+            );
+          }
+          // 날짜 머리를 누르면 그 달의 작은 점 달력 (앞뒤로 뭐가 있나·빈 날 확인)
           return (
-            <View style={styles.sectionHeader}>
+            <TouchableOpacity
+              style={styles.sectionHeader}
+              onPress={() => { setMiniDate(section.date); setMiniOpen(true); }}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel={`${rel ? rel + ' · ' : ''}${section.title}, ${t('달력으로 보기')}`}
+            >
+              {rel && (
+                isToday ? (
+                  <View style={styles.todayChip}><Text style={styles.todayChipText}>{rel}</Text></View>
+                ) : (
+                  <Text style={[styles.sectionRel, isPast && styles.sectionHeaderPast]}>{rel}</Text>
+                )
+              )}
               <Text style={[styles.sectionHeaderText, isToday && styles.sectionHeaderToday, isPast && styles.sectionHeaderPast]}>
                 {section.title}
               </Text>
-              {isToday && (
-                <View style={styles.todayChip}>
-                  <Text style={styles.todayChipText}>{t('오늘')}</Text>
-                </View>
-              )}
-            </View>
+              <View style={styles.sectionCal}><CalendarIcon size={15} color={C.textSub} /></View>
+            </TouchableOpacity>
           );
         }}
-        renderItem={({ item }) => <ScheduleCard item={item} compact={compact} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} onLongPress={onLongPress} />}
+        renderSectionFooter={({ section }) => {
+          const g = gapAfter.get(section.key);
+          if (!g) return null;
+          return (
+            <TouchableOpacity
+              style={styles.gapRow}
+              onPress={() => onAddOnDate(g.from)}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel={`${formatEmptyGap(g)}, ${t('일정 추가')}`}
+            >
+              <View style={styles.gapLine} />
+              <Text style={styles.gapText}>{formatEmptyGap(g)}</Text>
+              <View style={styles.gapLine} />
+            </TouchableOpacity>
+          );
+        }}
+        renderItem={({ item }) => <ScheduleCard item={item} compact={compact} highlight={highlight === item.id} onPress={onPress} onAppend={onAppend} onFixDate={onFixDate} onLongPress={onLongPress} />}
         SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         ListFooterComponent={<PromoBanner />}
       />
@@ -295,6 +404,7 @@ function AllSchedulesList({
         onClose={() => setSheetOpen(false)}
       />
       <ExportPreview visible={preview != null} kind={preview ?? 'txt'} records={exportList} onClose={() => setPreview(null)} />
+      <MiniMonthSheet visible={miniOpen} selected={miniDate} markedDays={marked} onPick={jumpToDay} onClose={() => setMiniOpen(false)} />
     </View>
   );
 }
@@ -376,20 +486,6 @@ function AppInner() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'calendar' | 'all'>('calendar');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // 달력 보기(월/주)는 사용자가 고른 값을 저장해 다음 실행에도 유지
-  const [calendarMode, setCalendarMode] = useState<CalendarMode>(() => loadPrefs().calendarMode);
-  // 첫 렌더부터 목록이 채워지도록 초기 기간을 미리 계산 (Calendar가 곧 같은 값을 통지한다)
-  const [visibleRange, setVisibleRange] = useState<DateRange>(() => {
-    const n = new Date();
-    const t = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-    return loadPrefs().calendarMode === 'week'
-      ? { start: startOfWeek(t), end: endOfWeek(t) }
-      : { start: startOfMonth(t), end: endOfMonth(t) };
-  });
-  const periodListRef = useRef<SectionList<DayListItem, DayListSection>>(null);
-  // scrollToLocation이 아직 렌더 안 된 섹션 때문에 실패하면 대략 위치로 옮긴 뒤 한 번 더 시도
-  type ScrollTarget = { sectionIndex: number; itemIndex: number; viewOffset: number };
-  const pendingScrollRef = useRef<ScrollTarget | null>(null);
 
   // 알림 응답 핸들러가 최신 records를 참조할 수 있도록 ref 유지
   const recordsRef = useRef<ScheduleRecord[]>([]);
@@ -459,37 +555,12 @@ function AppInner() {
 
   const liveParsed = useMemo(() => parseSchedule(voice.liveText), [voice.liveText]);
   const marked = useMemo(() => daysWithSchedules(records), [records]);
-  // 달력에 보이는 달/주의 일정 전부를 날짜별로 묶어 아래 목록에 보여준다
-  const preMarked = useMemo(() => daysWithPreAlarms(records), [records]);
-  const periodSections = useMemo(
-    () => mergePreAlarms(
-      groupByDay(schedulesBetween(records, visibleRange.start, visibleRange.end)),
-      preAlarmItems(records, visibleRange.start, visibleRange.end),
-    ),
-    [records, visibleRange, lang],
-  );
-  const periodCount = periodSections.reduce((n, sec) => n + sec.data.filter((x) => !isPreAlarmItem(x)).length, 0);
-  const [showPastPeriod, setShowPastPeriod] = useState(false);
   // 한 줄 보기(일정이 많을 때 한 화면에 많이) — 달력·전체 일정 탭 공용, 재시작해도 유지
   const [listCompact, setListCompact] = useState<boolean>(() => loadPrefs().listCompact);
   const toggleListCompact = () => {
     setListCompact((v) => { savePrefs({ listCompact: !v }); return !v; });
   };
-  // 위쪽 "다음 · …"을 눌러 바로 간 카드 — 잠깐 강조, 목록이 바뀐 뒤 스크롤할 대상
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  // 바로가기 대기(목록이 바뀐 뒤 스크롤). 3초 지나면 버린다 — 나중에 탭을 오갈 때 갑자기 튀지 않게
-  const pendingJumpRef = useRef<{ id: string; at: number } | null>(null);
-  const periodCollapsed = useMemo(() => collapsePast(periodSections), [periodSections]);
-  const periodListSections = showPastPeriod || periodCollapsed.pastCount === 0 ? periodSections : periodCollapsed.sections;
-  const periodLabel =
-    calendarMode === 'week'
-      ? formatWeekLabel(visibleRange.start)
-      : formatMonthLabel(visibleRange.start.getFullYear(), visibleRange.start.getMonth());
 
-  const handleCalendarMode = (m: CalendarMode) => {
-    setCalendarMode(m);
-    savePrefs({ calendarMode: m });
-  };
   // 새 일정의 기본 미리 알림(설정). 일정에는 저장 시점 값이 확정돼 들어간다
   const [defaultRemind, setDefaultRemind] = useState<number[]>(() => loadPrefs().defaultRemind);
   const handleDefaultRemind = (list: number[]) => {
@@ -508,30 +579,6 @@ function AppInner() {
     resyncAlarms(recordsRef.current).catch(() => {});
   };
 
-  const scrollToSection = useCallback((idx: number) => {
-    const target = { sectionIndex: idx, itemIndex: 0, viewOffset: 8 };
-    pendingScrollRef.current = target;
-    try {
-      periodListRef.current?.scrollToLocation({ ...target, animated: true });
-    } catch {}
-  }, []);
-
-  // 달력에서 날짜를 누르면 그 날짜(없으면 그 다음 날짜)의 묶음으로 목록을 스크롤.
-  // 보이는 기간 밖 날짜("오늘로" 등)는 기간이 바뀌며 목록이 통째로 교체되므로 맨 위로만 올린다.
-  const handleSelectDate = useCallback((d: Date) => {
-    setSelectedDate(d);
-    const t = d.getTime();
-    if (t < visibleRange.start.getTime() || t > visibleRange.end.getTime() + 86_400_000) {
-      pendingScrollRef.current = null;
-      try { periodListRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, viewOffset: 9999, animated: false }); } catch {}
-      return;
-    }
-    const key = dayKey(d);
-    let idx = periodListSections.findIndex((sec) => sec.key === key);
-    if (idx < 0) idx = periodListSections.findIndex((sec) => sec.date.getTime() >= t);
-    if (idx < 0) return;
-    scrollToSection(idx);
-  }, [periodListSections, visibleRange, scrollToSection]);
 
   const nextSchedule = useMemo(() => {
     const now = Date.now();
@@ -540,46 +587,144 @@ function AppInner() {
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0))[0] ?? null;
   }, [records, currentTime]);
 
-  // 위쪽 "다음 · …"을 누르면 달력 탭에서 그 일정 카드로 바로 간다(잠깐 강조).
-  // 보이는 기간 밖이면 달력이 그 달/주로 넘어가며 목록이 바뀌므로, 바뀐 뒤 아래 효과가 마저 스크롤한다.
-  const scrollToRecord = useCallback((id: string): boolean => {
-    const loc = findItemLocation(periodListSections, id);
-    if (!loc) return false;
-    // SectionList의 itemIndex는 0이 묶음 머리(날짜)라 data 순번에 1을 더해야 그 카드다
-    const target = { sectionIndex: loc.sectionIndex, itemIndex: loc.itemIndex + 1, viewOffset: 40 };
-    pendingScrollRef.current = target;
-    try { periodListRef.current?.scrollToLocation({ ...target, animated: true }); } catch {}
-    return true;
-  }, [periodListSections]);
+  // 위쪽 "다음 · …"을 누르면 일정 탭에서 그 일정 카드로 바로 간다(잠깐 강조).
+  // 2026-10-18 달력 탭이 목록 없는 큰 달력으로 바뀌어, 카드가 있는 일정 탭으로 간다.
+  // 새 달력 탭: 한 달(연속 스크롤) ↔ 1년, 날짜 시트, 음력 표시
+  const [calMode, setCalMode] = useState<'month' | 'year'>('month');
+  const [yearShown, setYearShown] = useState(() => new Date().getFullYear());
+  const [monthJump, setMonthJump] = useState<{ y: number; m: number; nonce: number } | null>(null);
+  const [daySheet, setDaySheet] = useState<Date | null>(null);
+  const [showLunar, setShowLunar] = useState(false);
+  const toggleLunar = useCallback(() => setShowLunar((v) => !v), []);
+  // 교대알람에서 가져온 근무표(같은 폰, URL로 주고받음 — lib/shiftImport.ts). 일정·알람은 만들지 않는다
+  const [shifts, setShifts] = useState<ShiftData | null>(() => loadShifts());
+  const shiftsInfo = useMemo(() => {
+    if (!shifts) return null;
+    const [y, m, d] = shifts.from.split('-').map(Number);
+    const from = new Date(y, m - 1, d);
+    const to = new Date(y, m - 1, d + shifts.days.length - 1);
+    return t('{from} ~ {to} 근무', { from: formatDayHeader(from), to: formatDayHeader(to) });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shifts, lang]);
+  const importShifts = async () => {
+    try {
+      markShiftRequest(); // 돌아온 근무표가 사용자가 요청한 것인지 구분(요청 없이 온 것은 묻는다)
+      await Linking.openURL(SHIFT_REQUEST_URL);
+    } catch {
+      Alert.alert(t('교대알람이 없어요'), t('같은 폰에 교대알람이 설치되어 있어야 근무표를 가져올 수 있어요.'));
+    }
+  };
+  const clearShifts = () => {
+    Alert.alert(t('가져온 근무 지우기'), t('달력에서 교대알람 근무 표시를 지울까요? 교대알람 앱의 근무표는 그대로예요.'), [
+      { text: t('취소'), style: 'cancel' },
+      { text: t('지우기'), style: 'destructive', onPress: () => { saveShifts(null); setShifts(null); } },
+    ]);
+  };
+  // ── 교대알람 자동 공유(v2, Android): 두 앱만 깔려 있으면 버튼 없이, 한쪽 설정만 켜도 — lib/siblingShare.ts ──
+  const [shareOn, setShareOn] = useState<boolean>(() => loadPrefs().shareWithAlarmApp);
+  const changeShareOn = (on: boolean) => { setShareOn(on); savePrefs({ shareWithAlarmApp: on }); };
+  // 내 일정·설정을 공유 자리에 둔다(교대알람이 열릴 때 읽는다)
+  // 시작 직후 records 초기값([])으로 빈 일정을 덮어쓰지 않게, 불러온 뒤부터 쓴다
+  const recordsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!recordsLoadedRef.current) { recordsLoadedRef.current = records.length > 0 || loadRecords().length === 0; if (!recordsLoadedRef.current) return; }
+    publishOwnShare(records, shareOn);
+  }, [records, shareOn]);
+  // 교대알람 근무표 읽기 — 시작할 때와 앱이 앞으로 올 때만(폴링 없음, 세이람 규칙 10)
+  const refreshSibling = useCallback(async () => {
+    if (!siblingShareAvailable) return;
+    const d = await readSiblingShifts(shareOn);
+    if (d) {
+      // 그대로면 다시 저장·그리지 않는다(달력 전체 다시 그리기 방지)
+      const cur = shiftsRef.current;
+      if (cur?.source === 'auto' && cur.from === d.from && cur.days.join() === d.days.join() && cur.labels.join() === d.labels.join() && cur.colors.join() === d.colors.join()) return;
+      const auto = { ...d, source: 'auto' as const, importedAt: Date.now() };
+      setShifts(auto);
+      saveShifts(auto);
+    } else if (shiftsRef.current?.source === 'auto') {
+      // 공유를 끄거나 교대알람을 지웠으면 자동으로 받은 근무도 지운다
+      setShifts(null);
+      saveShifts(null);
+    }
+  }, [shareOn]);
+  useEffect(() => {
+    refreshSibling();
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') refreshSibling(); });
+    return () => sub.remove();
+  }, [refreshSibling]);
+
+  // 링크 처리는 앱 시작 때 한 번 등록되므로 최신 번역 함수·근무표를 ref로 읽는다
+  const tRef = useRef(t);
+  tRef.current = t;
+  const shiftsRef = useRef(shifts);
+  shiftsRef.current = shifts;
+  useEffect(() => {
+    const handle = (url: string | null) => {
+      if (!url) return;
+      const d = parseShiftImportUrl(url);
+      if (!d) return;
+      // 같은 링크로 앱이 다시 열려도(Android 최근 앱) 옛 근무표가 새것을 덮지 않게
+      if (!isNewerThan(d, shiftsRef.current)) return;
+      const tt = tRef.current;
+      const apply = () => {
+        const saved = { ...d, importedAt: Date.now() };
+        saveShifts(saved);
+        setShifts(saved);
+        setSettingsOpen(false);
+        setActiveTab('calendar');
+        // 설정 창이 닫힌 뒤에 알린다(모달 위 알림 창 겹침 방지)
+        setTimeout(() => Alert.alert(tt('교대알람 근무표를 가져왔어요'), tt('달력 칸에 근무가 작게 보여요. 근무표를 바꾸면 다시 가져와 주세요.')), 500);
+      };
+      // 사용자가 [가져오기]를 누르고 10분 안에 돌아온 것만 바로 받는다. 아니면 묻는다(다른 앱이 마음대로 바꾸지 못하게)
+      if (consumeRecentShiftRequest()) apply();
+      else Alert.alert(tt('교대알람 근무표로 바꿀까요?'), tt('달력에 보이는 근무가 이 근무표로 바뀌어요.'), [
+        { text: tt('취소'), style: 'cancel' },
+        { text: tt('바꾸기'), onPress: apply },
+      ]);
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener('url', (e) => handle(e.url));
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 달력 확대 단계(두 손가락·달 제목 두 번 탭), 재시작해도 유지
+  const [calDensity, setCalDensity] = useState<0 | 1 | 2>(() => loadPrefs().calDensity);
+  const changeDensity = useCallback((d: 0 | 1 | 2) => { setCalDensity(d); savePrefs({ calDensity: d }); }, []);
+  const pickYearMonth = useCallback((y: number, m: number) => { setCalMode('month'); setMonthJump({ y, m, nonce: Date.now() }); }, []);
+  const yearRange = useMemo(() => monthScrollYearRange(), []);
+  // 일정을 저장하면(녹음·편집기) 그 날짜로 selectedDate가 바뀐다 → 달력도 그 달로 간다
+  useEffect(() => {
+    setMonthJump({ y: selectedDate.getFullYear(), m: selectedDate.getMonth(), nonce: Date.now() });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
+  // 다른 탭에 다녀오면 오늘 달부터(예전에 고른 달로 다시 튀지 않게)
+  useEffect(() => { if (activeTab !== 'calendar') setMonthJump(null); }, [activeTab]);
+  const calEvents = useMemo<CalEvent[]>(() => records
+    .filter((r) => r.scheduleAt != null)
+    .map((r) => {
+      const at = new Date(r.scheduleAt!);
+      const start = new Date(at.getFullYear(), at.getMonth(), at.getDate());
+      const end = r.endAt != null ? startOfDay(new Date(r.endAt)) : start;
+      return {
+        id: r.id, title: (r.content || r.transcript || '').split('\n')[0], start, end,
+        time: r.hasTime && !r.needsDate ? at.getHours() * 60 + at.getMinutes() : undefined,
+      };
+    }), [records]);
+  const busyDays = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of calEvents) for (let d = e.start; d.getTime() <= e.end.getTime() && set.size < 20000; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) set.add(ymdKey(d));
+    return set;
+  }, [calEvents]);
+  // 시트를 닫은 뒤에 다른 창(상세·편집기)을 연다 — iOS는 모달 위에 모달을 띄우면 무시한다
+  const afterSheet = (fn: () => void) => { setDaySheet(null); setTimeout(fn, 450); }; // 상세→편집기 전환과 같은 지연
+
+  const [listJump, setListJump] = useState<{ id: string; nonce: number } | null>(null);
   const jumpToNext = () => {
     if (!nextSchedule?.scheduleAt) return;
-    const id = nextSchedule.id;
-    // 같은 일정을 다시 눌러도 강조가 처음부터 다시 보이게
-    setHighlightId(null);
-    setTimeout(() => setHighlightId(id), 0);
-    pendingJumpRef.current = { id, at: Date.now() };
-    setActiveTab('calendar');
-    const d = new Date(nextSchedule.scheduleAt);
-    setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-    // 이미 달력 탭에 그 날짜가 보이면 목록이 안 바뀌므로 바로 스크롤
-    if (activeTab === 'calendar' && scrollToRecord(id)) pendingJumpRef.current = null;
+    setActiveTab('all');
+    setListJump({ id: nextSchedule.id, nonce: Date.now() });
   };
-  useEffect(() => {
-    const pending = pendingJumpRef.current;
-    if (!pending || activeTab !== 'calendar') return;
-    if (Date.now() - pending.at > 3000) { pendingJumpRef.current = null; return; }
-    // 목록이 막 그려진 직후라 한 박자 쉬고 스크롤
-    const timer = setTimeout(() => {
-      if (pendingJumpRef.current !== pending) return;
-      if (scrollToRecord(pending.id)) pendingJumpRef.current = null;
-    }, 80);
-    return () => clearTimeout(timer);
-  }, [periodListSections, activeTab, scrollToRecord]);
-  useEffect(() => {
-    if (!highlightId) return;
-    const timer = setTimeout(() => setHighlightId(null), 2500);
-    return () => clearTimeout(timer);
-  }, [highlightId]);
 
   // ── 저장 헬퍼 ─────────────────────────────────────────────────────────────────
   const commit = (next: ScheduleRecord[]) => {
@@ -658,6 +803,7 @@ function AppInner() {
     }
 
     const saveAsNew = async () => {
+      if (parsed.date && !(await confirmOverlap(parsed.date, parsed.endDate?.getTime()))) return;
       const id = Date.now().toString();
       const savedUri = keepAudio(id);
       let notifIds: string[] | undefined;
@@ -671,6 +817,7 @@ function AppInner() {
         content: parsed.content,
         scheduleAt: parsed.date ? parsed.date.getTime() : null,
         scheduleDisplay: parsed.display,
+        endAt: parsed.endDate ? parsed.endDate.getTime() : undefined, // 기간 일정(휴가 등) — 알람은 시작에만
         hasDate: parsed.hasDate, hasTime: parsed.hasTime,
         notifIds,
         segments: capturedSegments.length ? [...capturedSegments] : undefined,
@@ -769,7 +916,10 @@ function AppInner() {
   );
   const openDetail = (r: ScheduleRecord) => setDetailId(r.id);
 
-  const openNew = () => { setEditing(null); setAppendMode(false); setEditorOpen(true); };
+  // 새 일정의 기본 날짜: 보통은 달력에서 고른 날, 일정 탭의 빈 날 줄에서 열면 그 날(취소해도 달력 선택은 그대로)
+  const [newDefaultDate, setNewDefaultDate] = useState<Date | null>(null);
+  const openNew = () => { setNewDefaultDate(null); setEditing(null); setAppendMode(false); setEditorOpen(true); };
+  const openNewOn = (d: Date) => { setNewDefaultDate(d); setEditing(null); setAppendMode(false); setEditorOpen(true); };
   const openEdit = (r: ScheduleRecord) => { setEditing(r); setAppendMode(false); setEditorOpen(true); };
   const openAppend = (r: ScheduleRecord) => { setEditing(r); setAppendMode(true); setEditorOpen(true); };
 
@@ -796,8 +946,42 @@ function AppInner() {
     ));
   };
 
+  // 휴가 같은 기간 일정과 겹치면 저장 전에 먼저 알린다 — 그래도 넣을 수 있다(2026-10-18 사용자 요청).
+  // ① 하루짜리를 기간 중인 날에 넣을 때 ② 이미 일정이 있는 날들에 기간을 넣을 때
+  const confirmOverlap = (date: Date, endAt: number | undefined, excludeId?: string): Promise<boolean> => {
+    const all = recordsRef.current;
+    let title = '';
+    let body = '';
+    if (endAt != null) {
+      const inside = itemsWithinRange(all, date, new Date(endAt), excludeId);
+      if (!inside.length) return Promise.resolve(true);
+      title = t('이 기간에 일정 {n}건이 있어요', { n: inside.length });
+      body = inside.slice(0, 3).map((r) => `• ${formatDayHeader(new Date(r.scheduleAt!))} ${r.content || r.transcript}`).join('\n')
+        + (inside.length > 3 ? `\n…` : '');
+    } else {
+      const ranges = rangesCovering(all, date, excludeId);
+      if (!ranges.length) return Promise.resolve(true);
+      const r = ranges[0];
+      title = t("'{name}' 기간이에요", { name: (r.content || r.transcript).slice(0, 20) });
+      body = `${formatDayHeader(new Date(r.scheduleAt!))} ~ ${formatDayHeader(new Date(r.endAt!))}`;
+    }
+    return new Promise((resolve) => {
+      Alert.alert(title, body + '\n\n' + t('그래도 넣을까요?'), [
+        { text: t('취소'), style: 'cancel', onPress: () => resolve(false) },
+        { text: t('그대로 넣기'), onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) });
+    });
+  };
+
   const handleEditorSave = async (res: EditorResult) => {
-    const display = formatDisplay(res.date, true, res.hasTime);
+    // 기간 일정: 끝나는 날이 시작일 뒤일 때만 (같은 날·앞이면 하루짜리)
+    const endAt = res.endDate && startOfDay(res.endDate).getTime() > startOfDay(res.date).getTime()
+      ? startOfDay(res.endDate).getTime() : undefined;
+    const display = formatDisplay(res.date, true, res.hasTime) + (endAt ? ` ~ ${formatDisplay(new Date(endAt), true, false)}` : '');
+    // 날짜·기간이 그대로인 수정(내용만 고침)에는 묻지 않는다
+    const before = res.id ? records.find((r) => r.id === res.id) : undefined;
+    const dateChanged = !before || !before.scheduleAt || dayKey(new Date(before.scheduleAt)) !== dayKey(res.date) || before.endAt !== endAt;
+    if (dateChanged && !(await confirmOverlap(res.date, endAt, res.id))) return; // 취소 → 수정 화면 그대로
     const notifAt = res.hasTime && res.date.getTime() > Date.now() ? res.date : null;
     if (res.id) {
       const old = records.find((r) => r.id === res.id);
@@ -816,6 +1000,7 @@ function AppInner() {
               content: res.content,
               scheduleAt: res.date.getTime(),
               scheduleDisplay: display,
+              endAt,
               hasDate: true,
               hasTime: res.hasTime,
               needsDate: false, // 사용자가 날짜·시간을 정했으니 꼬리표 해제
@@ -851,7 +1036,7 @@ function AppInner() {
       const rec: ScheduleRecord = {
         id, uri, durationSec: uri ? res.capture!.durationSec : 0, transcript: res.capture?.transcript ?? '',
         segments: uri ? res.capture!.segments : undefined,
-        content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display,
+        content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display, endAt,
         hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode,
         remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, voiceAlarm, createdAt: Date.now(),
       };
@@ -966,6 +1151,17 @@ function AppInner() {
             <Text style={styles.clockText} numberOfLines={1}>{formatTime(currentTime)}</Text>
           )}
           <View style={styles.headerBtns} onLayout={(e) => setBtnsW(Math.ceil(e.nativeEvent.layout.width))}>
+            {/* 목록 보기: 한 줄 ↔ 크게 (달력·일정 탭 공용). 아이콘은 누르면 바뀔 모양 */}
+            <TouchableOpacity
+              style={styles.densityBtn}
+              onPress={toggleListCompact}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={t(listCompact ? '크게 보기' : '한 줄 보기')}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <ListDensityIcon compact={!listCompact} size={16} color={C.textSub} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsOpen(true)} activeOpacity={0.75} accessibilityLabel={t('설정')}>
               <Text style={styles.settingsBtnText}>{t('설정')}</Text>
             </TouchableOpacity>
@@ -998,7 +1194,7 @@ function AppInner() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segTabText, activeTab === 'all' && styles.segTabTextActive]}>
-              {t('전체 일정')}
+              {t('일정')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1006,86 +1202,32 @@ function AppInner() {
 
       {/* ── 컨텐츠 ── */}
       {activeTab === 'calendar' ? (
-        <SectionList
-          ref={periodListRef}
-          sections={periodListSections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.dayListContent}
-          ListFooterComponent={<PromoBanner />}
-          stickySectionHeadersEnabled={false}
-          showsVerticalScrollIndicator={false}
-          onScrollToIndexFailed={(info) => {
-            // 아직 렌더되지 않은 섹션 → 평균 높이로 근처까지 옮긴 뒤 다시 시도
-            const target = pendingScrollRef.current;
-            try {
-              periodListRef.current?.getScrollResponder()?.scrollTo({ y: info.averageItemLength * info.index, animated: false });
-            } catch {}
-            if (target == null) return;
-            setTimeout(() => {
-              try { periodListRef.current?.scrollToLocation({ ...target, animated: true }); } catch {}
-              pendingScrollRef.current = null;
-            }, 120);
-          }}
-          ListHeaderComponent={
-            <>
-              <Calendar
-                selectedDate={selectedDate}
-                onSelectDate={handleSelectDate}
-                markedDays={marked}
-                preMarkedDays={preMarked}
-                mode={calendarMode}
-                onModeChange={handleCalendarMode}
-                onVisibleRangeChange={setVisibleRange}
-              />
-              <View style={styles.dayHeader}>
-                <Text style={styles.dayHeaderText} numberOfLines={2}>{t('{label} 일정', { label: periodLabel })}</Text>
-                <Text style={styles.dayCount}>{periodCount > 0 ? t('{n}건', { n: periodCount }) : ''}</Text>
-                {periodCount > 0 && (
-                  <TouchableOpacity style={styles.viewToggle} onPress={toggleListCompact} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={t(listCompact ? '크게 보기' : '한 줄 보기')}>
-                    <Text style={styles.viewToggleText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t(listCompact ? '크게 보기' : '한 줄 보기')}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {periodCollapsed.pastCount > 0 && (
-                <TouchableOpacity style={styles.pastToggle} onPress={() => setShowPastPeriod((v) => !v)} activeOpacity={0.7} accessibilityLabel={t(showPastPeriod ? '지난 일정 접기' : '지난 일정 보기')}>
-                  <Text style={styles.pastToggleText}>
-                    {showPastPeriod ? t('지난 일정 접기 ▴') : t('지난 일정 {n}건 보기 ▾', { n: periodCollapsed.pastCount })}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyDay}>
-              <Text style={styles.emptyDayText}>{periodCollapsed.pastCount > 0 && !showPastPeriod ? t('앞으로 올 일정이 없어요') : calendarMode === 'week' ? t('이 주에는 일정이 없어요') : t('이 달에는 일정이 없어요')}</Text>
-            </View>
-          }
-          renderSectionHeader={({ section }) => {
-            const isSelected = section.key === dayKey(selectedDate);
-            const isToday = isSameDay(section.date, new Date());
-            return (
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionHeaderText, (isSelected || isToday) && styles.sectionHeaderToday]}>
-                  {section.title}
-                </Text>
-                {isToday && (
-                  <View style={styles.todayChip}>
-                    <Text style={styles.todayChipText}>{t('오늘')}</Text>
-                  </View>
-                )}
-              </View>
-            );
-          }}
-          renderItem={({ item }) =>
-            isPreAlarmItem(item)
-              ? <PreAlarmRow item={item} onPress={openDetail} compact={listCompact} />
-              : <ScheduleCard item={item} compact={listCompact} highlight={highlightId === item.id} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} />
-          }
-          SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
-        />
+        calMode === 'year' ? (
+          <YearView
+            year={yearShown}
+            minYear={yearRange.min}
+            maxYear={yearRange.max}
+            busyDays={busyDays}
+            onClose={() => setCalMode('month')}
+            onPickMonth={pickYearMonth}
+          />
+        ) : (
+          <MonthScroll
+            events={calEvents}
+            selected={daySheet}
+            showLunar={showLunar && lang === 'ko'}
+            onToggleLunar={lang === 'ko' ? toggleLunar : undefined}
+            onPickDay={setDaySheet}
+            onYearPress={(y) => { setYearShown(y); setCalMode('year'); }}
+            jumpTo={monthJump}
+            density={1} // 칸 크기 단계는 쓰지 않는다 — 두 손가락은 화면 확대(2026-10-18 사용자: 사진처럼 확대)
+            onDensity={changeDensity}
+            shifts={shifts}
+          />
+        )
       ) : (
         <View style={styles.allWrap}>
-          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} compact={listCompact} onToggleCompact={toggleListCompact} />
+          <AllSchedulesList records={records} onPress={openDetail} onAppend={openAppend} onFixDate={openEdit} onLongPress={openCardMenu} compact={listCompact} onAddOnDate={openNewOn} jump={listJump} />
         </View>
       )}
 
@@ -1096,12 +1238,31 @@ function AppInner() {
         </TouchableOpacity>
       </View>
 
+      {/* ── 달력에서 누른 날의 일정 ── */}
+      <DaySheet
+        day={daySheet}
+        records={records}
+        compact={listCompact}
+        shifts={shifts}
+        onClose={() => setDaySheet(null)}
+        onOpen={(r) => afterSheet(() => openDetail(r))}
+        onAppend={(r) => afterSheet(() => openAppend(r))}
+        onFixDate={(r) => afterSheet(() => openEdit(r))}
+        onAdd={(d) => afterSheet(() => openNewOn(d))}
+      />
+
       {/* ── 설정 (달력 기본 보기 · 백업 · 사용설명서 · 앱 정보) ── */}
       <SettingsSheet
         visible={settingsOpen}
         records={records}
-        calendarMode={calendarMode}
-        onCalendarMode={handleCalendarMode}
+        calendarMode="month"
+        onCalendarMode={() => {}}
+        shiftsInfo={shiftsInfo}
+        // Android는 자동 공유 스위치, iOS는 App Group이 생기기 전까지 링크로 가져오기
+        shareOn={shareOn}
+        onShareOn={siblingShareAvailable ? changeShareOn : undefined}
+        onImportShifts={siblingShareAvailable ? undefined : importShifts}
+        onClearShifts={clearShifts}
         defaultRemind={defaultRemind}
         onDefaultRemind={handleDefaultRemind}
         defaultVoice={defaultVoice}
@@ -1131,7 +1292,7 @@ function AppInner() {
       <ScheduleEditor
         visible={editorOpen}
         record={editing}
-        defaultDate={selectedDate}
+        defaultDate={newDefaultDate ?? new Date()} // 새 달력은 날짜 선택 상태가 없다 — 기본은 오늘, 날짜 시트·빈 날 줄에서 열면 그 날
         markedDays={marked}
         appendMode={appendMode}
         defaultRemind={defaultRemind}
@@ -1208,6 +1369,7 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   clockText: { color: C.textSub, fontSize: 18, fontWeight: '300', letterSpacing: 0.5 },
   measure: { position: 'absolute', opacity: 0, left: 0, top: 0 },
   clockUnderTitle: { color: C.textSub, fontSize: 14, fontWeight: '400', marginTop: 2 },
+  densityBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: C.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   settingsBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: C.surfaceHigh },
   settingsBtnText: { color: C.textSub, fontSize: 12, fontWeight: '700' },
   addCircleBtn: {
@@ -1239,8 +1401,7 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   dayHeaderText: { color: C.text, fontSize: 17, fontWeight: '700', flex: 1, marginRight: 8 },
   dayCount: { color: C.textSub, fontSize: 13, fontWeight: '500', flexShrink: 0 },
   // 긴 번역(독일어 등)·큰 글자에서도 기간 제목을 밀어내지 않게 폭 제한
-  viewToggle: { marginLeft: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: C.surfaceHigh, alignSelf: 'center', maxWidth: 120, flexShrink: 1 },
-  viewToggleText: { color: C.text, fontSize: 12, fontWeight: '600' },
+
   dayList: { flex: 1 },
   dayListContent: { paddingHorizontal: 16, paddingBottom: 24 },
   emptyDay: { paddingTop: 48, alignItems: 'center' },
@@ -1253,9 +1414,15 @@ const makeStyles = (C: Palette) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingTop: 20, paddingBottom: 8,
   },
-  sectionHeaderText: { color: C.textSub, fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
+  sectionHeaderText: { color: C.textSub, fontSize: 13, fontWeight: '600', letterSpacing: 0.3, flexShrink: 1 },
   sectionHeaderToday: { color: C.text, fontSize: 14 },
   sectionHeaderPast: { color: C.textDim },
+  sectionRel: { color: C.accent, fontSize: 13, fontWeight: '700' },
+  sectionCal: { marginLeft: 'auto', paddingLeft: 8 },
+  // 빈 날 줄 — 점선 사이 작은 글씨. 누르면 그 날 새 일정
+  gapRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 4 },
+  gapLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.border },
+  gapText: { color: C.textDim, fontSize: 12, fontWeight: '500' },
   todayChip: {
     backgroundColor: C.accent, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
   },

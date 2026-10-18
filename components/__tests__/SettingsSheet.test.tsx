@@ -1,4 +1,4 @@
-// 설정 화면: 달력 기본 보기 토글, 백업/설명서 진입
+// 설정 화면: 백업/설명서 진입 (달력 기본 보기 토글은 2026-10-18 없앰)
 import { fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '1.2.3' } } }));
@@ -27,18 +27,15 @@ import { ThemeProvider } from '../../lib/theme';
 const base = { visible: true, records: [], onRestored: () => {}, onClose: () => {}, defaultRemind: [30], onDefaultRemind: () => {} };
 
 describe('SettingsSheet', () => {
-  test('버전과 항목이 보이고, 주 보기를 누르면 onCalendarMode("week")', async () => {
-    const onMode = jest.fn();
-    const { getByText, getByLabelText } = await render(
-      <SettingsSheet {...base} calendarMode="month" onCalendarMode={onMode} />
+  test('버전과 항목이 보이고, 달력 기본 보기(월/주)는 없다(새 달력은 위아래 연속 스크롤 — 2026-10-18)', async () => {
+    const { getByText, queryByLabelText } = await render(
+      <SettingsSheet {...base} calendarMode="month" onCalendarMode={() => {}} />
     );
     expect(getByText('1.2.3')).toBeTruthy();
     expect(getByText('백업 · 폰 옮기기')).toBeTruthy();
     expect(getByText('사용설명서')).toBeTruthy();
-    await fireEvent.press(getByLabelText('월 보기'));
-    expect(onMode).not.toHaveBeenCalled();
-    await fireEvent.press(getByLabelText('주 보기'));
-    expect(onMode).toHaveBeenCalledWith('week');
+    expect(queryByLabelText('월 보기')).toBeNull();
+    expect(queryByLabelText('주 보기')).toBeNull();
   });
 
   test('사용설명서를 누르면 설명서 화면이 열린다', async () => {

@@ -78,6 +78,9 @@
       "./plugins/withIosSceneDelegate.js",
       "./plugins/withAndroidReleaseSigning.js",
       "./plugins/withLocalizedAppName.js"
-    ]
+    ],
+    "locales": {
+      "ko": "./locales/ko.json"
+    }
   }
 }

@@ -2,7 +2,7 @@
 // 화면(테마·글자 크기·언어), 알람, 달력 기본 보기, 백업 · 폰 옮기기, 사용설명서, 앱 정보를 한곳에 모은다.
 // 문구는 모두 t()로 감싸 설정 언어(시스템/한국어/English)를 따른다.
 import { useState, useMemo, useEffect } from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View, AppState, Platform } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Switch, TouchableOpacity, View, AppState, Platform } from 'react-native';
 import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -22,6 +22,11 @@ export function SettingsSheet({
   records,
   calendarMode,
   onCalendarMode,
+  shiftsInfo = null,
+  shareOn = false,
+  onShareOn,
+  onImportShifts,
+  onClearShifts,
   defaultRemind,
   onDefaultRemind,
   defaultVoice = false,
@@ -33,6 +38,13 @@ export function SettingsSheet({
   records: ScheduleRecord[];
   calendarMode: CalendarMode;
   onCalendarMode: (m: CalendarMode) => void;
+  /** 교대알람에서 가져온 근무표 안내("10월 18일 ~ 4월 16일") — 없으면 null */
+  shiftsInfo?: string | null;
+  /** 교대알람 자동 공유 스위치(Android). 없으면 iOS처럼 링크로 가져오기 버튼만 */
+  shareOn?: boolean;
+  onShareOn?: (on: boolean) => void;
+  onImportShifts?: () => void;
+  onClearShifts?: () => void;
   defaultRemind: number[];
   onDefaultRemind: (list: number[]) => void;
   /** 새 일정의 알람 소리: false = 기본 알람음, true = 내 목소리 */
@@ -189,28 +201,38 @@ export function SettingsSheet({
               )}
             </View>
 
-            <Text style={s.sectionLabel}>{t('달력')}</Text>
-            <View style={s.card}>
-              <View style={s.rowBetween}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.rowTitle}>{t('기본 보기')}</Text>
-                  <Text style={s.rowSub}>{t('앱을 열 때 달력을 어떻게 보여줄지')}</Text>
-                </View>
-                <View style={s.segment}>
-                  {(['month', 'week'] as const).map((m) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[s.segBtn, calendarMode === m && s.segBtnOn]}
-                      onPress={() => calendarMode !== m && onCalendarMode(m)}
-                      accessibilityState={{ selected: calendarMode === m }}
-                      accessibilityLabel={m === 'month' ? '월 보기' : '주 보기'}
-                    >
-                      <Text style={[s.segText, calendarMode === m && s.segTextOn]}>{m === 'month' ? t('월') : t('주')}</Text>
+            {/* '달력 기본 보기(월/주)'는 2026-10-18 새 달력(위아래 연속 스크롤)으로 바뀌며 없앴다 */}
+            {(onImportShifts || onShareOn) && (
+              <>
+                <Text style={s.sectionLabel}>{t('달력')}</Text>
+                <View style={s.card}>
+                  {onShareOn && (
+                    // 자동 공유: 두 앱만 깔려 있으면 버튼 없이. 교대알람이나 세이람 중 한쪽만 켜도 된다
+                    <View style={s.rowBetween}>
+                      <View style={{ flex: 1, paddingRight: 10 }}>
+                        <Text style={s.rowTitle}>{t('교대알람과 일정 공유')}</Text>
+                        <Text style={s.rowSub}>{shiftsInfo ?? t('같은 폰의 교대알람 근무가 달력에, 세이람 일정이 교대알람 달력에 보여요. 한쪽 앱에서만 켜도 돼요.')}</Text>
+                      </View>
+                      <Switch value={shareOn} onValueChange={onShareOn} accessibilityLabel={t('교대알람과 일정 공유')} />
+                    </View>
+                  )}
+                  {/* 같은 폰의 교대알람에서 근무표(초번·말번…)를 받아 달력 칸에 작게 보여 준다 — lib/shiftImport.ts
+                      (자동 공유가 없는 iOS용. 유료 개발자 계정의 App Group이 생기면 자동 공유로 바꾼다) */}
+                  {onImportShifts && <TouchableOpacity style={s.rowBetween} onPress={onImportShifts} activeOpacity={0.7} accessibilityRole="button">
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle}>{t('교대알람 근무 가져오기')}</Text>
+                      <Text style={s.rowSub}>{shiftsInfo ?? t('같은 폰의 교대알람 근무표를 달력에 함께 보여 줘요')}</Text>
+                    </View>
+                    <Text style={s.rowValue}>›</Text>
+                  </TouchableOpacity>}
+                  {shiftsInfo && onClearShifts && !onShareOn && (
+                    <TouchableOpacity style={s.rowBetween} onPress={onClearShifts} activeOpacity={0.7} accessibilityRole="button">
+                      <Text style={[s.rowTitle, { color: C.red }]}>{t('가져온 근무 지우기')}</Text>
                     </TouchableOpacity>
-                  ))}
+                  )}
                 </View>
-              </View>
-            </View>
+              </>
+            )}
 
             <Text style={s.sectionLabel}>{t('데이터')}</Text>
             <View style={s.card}>
