@@ -216,7 +216,9 @@ export function SettingsSheet({
                         <Text style={s.rowTitle}>{t('교대알람과 일정 공유')}</Text>
                         <Text style={s.rowSub}>{shiftsInfo ?? t('같은 폰의 교대알람 근무가 달력에, 세이람 일정이 교대알람 달력에 보여요. 한쪽 앱에서만 켜도 돼요.')}</Text>
                       </View>
-                      <Switch value={shareOn} onValueChange={onShareOn} accessibilityLabel={t('교대알람과 일정 공유')} />
+                      {/* 꺼진 상태도 잘 보이게 회색 바탕(기본값은 밝은 화면에서 거의 하얗게 묻혀 "스위치가 없어졌다"고 보였다 — 2026-10-20 사용자) */}
+                      <Switch value={shareOn} onValueChange={onShareOn} accessibilityLabel={t('교대알람과 일정 공유')}
+                        trackColor={{ false: C.textDim, true: C.accent }} ios_backgroundColor={C.textDim} thumbColor="#FFFFFF" />
                     </View>
                   )}
                   {/* 같은 폰의 교대알람에서 근무표(초번·말번…)를 받아 달력 칸에 작게 보여 준다 — lib/shiftImport.ts
