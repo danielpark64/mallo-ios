@@ -139,9 +139,13 @@ export function buildShiftShare(alarms: Alarm[], overrides: DayOverrides, today:
 
 ---
 
-## v2 자동 공유 (iOS, 나중에)
-App Group `group.com.danielpark.shared`를 두 앱에 켜고(유료 개발자 계정 필요), 공용 컨테이너에 `shifts.json`·`events.json`·`config-alarmapp.json`·`config-sayram.json`을 같은 형식으로 둔다. 세이람 `modules/sayram-share`에 iOS 쪽을 더하면 JS(`lib/siblingShare.ts`)는 그대로 쓴다.
+## iOS 자동 공유 (2026-10-19~, App Group)
+- 두 앱 모두 entitlements에 `com.apple.security.application-groups = ["group.com.danielpark.shared"]`(애플 개발자 사이트에서 App Group 등록 + 각 App ID에 연결 완료).
+- 공유 폴더 안 **앱별 하위 폴더**: `<그룹>/sayram/events.json`·`config.json`(세이람이 씀) / `<그룹>/alarmapp/shifts.json`·`config.json`(교대알람이 씀). 내용 형식은 Android와 같다(config는 `{"share":bool,"push":1,"t":ms}`).
+- iOS는 파일을 읽어도 상대 앱이 실행되지 않으므로 넣어 주기(push)가 필요 없다. 열 때 상대 폴더 파일을 바로 읽는다. 쓰기는 `.atomic`.
+- 설치 확인: 상대 URL scheme을 열 수 있는지(`canOpenURL`) — 세이람은 `alarmapp://`(Info.plist `LSApplicationQueriesSchemes`에 `alarmapp`), 교대알람은 `mallo://`(세이람 scheme, `LSApplicationQueriesSchemes`에 `mallo`). 실행당 1번, 메인 스레드 대기는 최대 0.3초.
+- 세이람 구현: `modules/sayram-share/ios/SayramShareModule.swift`(JS 함수 이름은 Android와 같음).
 
 ## 부록: v1 링크로 가져오기 (iOS 임시용)
 세이람 → `alarmapp://share-shifts?v=1&return=mallo` → 교대알람 "세이람에 근무표를 보낼까요?" → `mallo://import-shifts?v=1&p=<encodeURIComponent(위 근무표 JSON)>`.
-세이람은 사용자가 [가져오기]를 누르고 10분 안에 돌아온 것만 바로 받고, 아니면 "바꿀까요?"를 묻는다. 저장된 것보다 `t`가 오래되면 무시. iOS에서 App Group이 생기면 없앤다.
+세이람은 사용자가 [가져오기]를 누르고 10분 안에 돌아온 것만 바로 받고, 아니면 "바꿀까요?"를 묻는다. 저장된 것보다 `t`가 오래되면 무시. iOS 자동 공유가 생겨 새로 쓰지 않는다(세이람의 받기 코드는 옛 교대알람 대비로 남겨 둠).

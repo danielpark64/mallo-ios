@@ -23,6 +23,7 @@ export function SettingsSheet({
   calendarMode,
   onCalendarMode,
   shiftsInfo = null,
+  shiftsAuto = false,
   shareOn = false,
   onShareOn,
   onImportShifts,
@@ -40,6 +41,8 @@ export function SettingsSheet({
   onCalendarMode: (m: CalendarMode) => void;
   /** 교대알람에서 가져온 근무표 안내("10월 18일 ~ 4월 16일") — 없으면 null */
   shiftsInfo?: string | null;
+  /** 지금 근무표가 자동 공유로 받은 것인가(링크로 가져온 옛 근무면 false) */
+  shiftsAuto?: boolean;
   /** 교대알람 자동 공유 스위치(Android). 없으면 iOS처럼 링크로 가져오기 버튼만 */
   shareOn?: boolean;
   onShareOn?: (on: boolean) => void;
@@ -225,7 +228,8 @@ export function SettingsSheet({
                     </View>
                     <Text style={s.rowValue}>›</Text>
                   </TouchableOpacity>}
-                  {shiftsInfo && onClearShifts && !onShareOn && (
+                  {/* 링크로 가져온 옛 근무(자동 공유가 아닌 것)는 스위치가 있어도 지울 수 있게 */}
+                  {shiftsInfo && onClearShifts && (!onShareOn || !shiftsAuto) && (
                     <TouchableOpacity style={s.rowBetween} onPress={onClearShifts} activeOpacity={0.7} accessibilityRole="button">
                       <Text style={[s.rowTitle, { color: C.red }]}>{t('가져온 근무 지우기')}</Text>
                     </TouchableOpacity>

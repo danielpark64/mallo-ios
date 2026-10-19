@@ -1262,6 +1262,7 @@ function AppInner() {
         calendarMode="month"
         onCalendarMode={() => {}}
         shiftsInfo={shiftsInfo}
+        shiftsAuto={shifts?.source === 'auto'}
         // Android는 자동 공유 스위치, iOS는 App Group이 생기기 전까지 링크로 가져오기
         shareOn={shareOn}
         onShareOn={siblingShareAvailable ? changeShareOn : undefined}

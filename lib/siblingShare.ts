@@ -2,7 +2,7 @@
 // 2026-10-18 사용자 지시: "유저가 뭘 하는 게 아니고 두 앱만 깔고 한쪽 앱에서만이라도 공유를 원하면 그냥 공유".
 // - 각 앱은 자기 데이터를 공유 자리에 놓아 두고(세이람: 일정·공유 설정), 상대 앱이 열릴 때 읽는다.
 // - 한쪽 설정만 켜도 공유된다(shareEnabled). 인터넷은 쓰지 않는다.
-// - Android: 우리 두 앱끼리만 읽는 ContentProvider(modules/sayram-share). iOS: App Group(유료 계정 활성화 후, 아직 없음).
+// - Android: 우리 두 앱끼리만 읽는 ContentProvider(modules/sayram-share). iOS: App Group "group.com.danielpark.shared" 공유 폴더(2026-10-19~) — 파일만 읽으니 상대 앱이 깨지 않는다.
 // - v3(2026-10-18, 사용자 지시 "시스템 부하 절대 금지"): 앱을 열 때 상대 앱을 깨우지 않는다.
 //   내 데이터가 바뀌었을 때만, 앱을 떠날 때(background) 상대 창구에 한 번 넣어 준다(push).
 //   열 때는 상대가 넣어 준 파일(inbox)만 읽는다. 직접 가져오기(pull)는 처음 한 번·상대가 옛 버전일 때만(실행당 1번).
@@ -22,7 +22,7 @@ const native = requireOptionalNativeModule<Native>('SayramShare');
 const ALARMAPP = 'com.danielpark.alarmapp.share';
 
 /** 교대알람이 이 폰에 깔려 있는가 — 세이람 실행 때 한 번만 확인하고 기억한다(배너가 돌 때마다 묻지 않는다).
- *  Android만 알 수 있다 — iOS·모르면 false */
+ *  iOS는 alarmapp:// 를 열 수 있는지로 안다 — 모르면 false */
 let installedCache: boolean | null = null;
 export function alarmAppInstalled(): boolean {
   if (installedCache !== null) return installedCache;
@@ -34,7 +34,7 @@ export function alarmAppInstalled(): boolean {
   return installedCache;
 }
 
-/** 이 기기에서 자동 공유가 되는가(지금은 Android만) */
+/** 이 기기에서 자동 공유가 되는가(Android·iOS) */
 export const siblingShareAvailable = !!native;
 
 /** push: 1 = 바뀔 때 넣어 주는(v3) 상대 — 직접 가져올 필요 없음 */
