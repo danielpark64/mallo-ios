@@ -49,6 +49,7 @@ public class SayramShareModule: Module {
 
     // 교대알람 설치 여부 — 교대알람의 URL scheme(alarmapp://)을 열 수 있는지(Info.plist LSApplicationQueriesSchemes에 alarmapp).
     // canOpenURL은 메인 스레드에서만 — JS 스레드가 메인을 무한정 기다리지 않게 최대 0.3초만 기다린다(드문 교착 방지).
+    // 시간이 지나면 공유 폴더의 교대알람 파일(<그룹>/alarmapp/config.json)이 있는지로 대신 판단.
     Function("isInstalled") { (pkg: String) -> Bool in
       guard pkg == "com.danielpark.alarmapp", let url = URL(string: "alarmapp://") else { return false }
       if Thread.isMainThread { return UIApplication.shared.canOpenURL(url) }
@@ -58,7 +59,12 @@ public class SayramShareModule: Module {
         result = UIApplication.shared.canOpenURL(url)
         done.signal()
       }
-      _ = done.wait(timeout: .now() + 0.3)
+      if done.wait(timeout: .now() + 0.3) == .timedOut {
+        // 시간 안에 못 물어봤으면 공유 폴더에 교대알람 파일이 있는지로 대신 판단한다
+        // (JS가 실행당 한 번만 묻고 기억하므로, 잘못된 false로 그 실행 내내 공유가 끊기지 않게)
+        guard let d = self.dir(Self.sibling) else { return false }
+        return FileManager.default.fileExists(atPath: d.appendingPathComponent("config.json").path)
+      }
       return result
     }
   }
