@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.danielpark.sayram",
+      "buildNumber": "1",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ko",
         "CFBundleLocalizations": [
@@ -33,7 +34,8 @@
         "LSSupportsOpeningDocumentsInPlace": true,
         "LSApplicationQueriesSchemes": [
           "alarmapp"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.security.application-groups": [

@@ -369,7 +369,8 @@ const MonthBlock = memo(function MonthBlock({
                     {shift ? (
                       <Text style={shift.off ? s.shiftOff : [s.shift, { color: shift.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>{shift.label}</Text>
                     ) : null}
-                    {(hol || sub) ? (
+                    {/* 근무가 있으면 칸이 좁아 둘 다 잘리므로(말··· 개···) 근무만 — 공휴일은 빨간 숫자로 알 수 있고 이름은 날짜 시트에 */}
+                    {(hol || sub) && !shift ? (
                       <Text style={[s.sub, hol ? { color: C.red } : null]} numberOfLines={1} maxFontSizeMultiplier={1}>{hol ?? sub}</Text>
                     ) : null}
                   </View>
