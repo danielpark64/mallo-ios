@@ -337,7 +337,9 @@ function stripContent(text: string, matched: string[]): string {
     .replace(/(^|\s)(에서|에는|에|엔|까지|부터|쯤|경|마다|동안|날|쯤에)(?=\s|$)/g, ' ')
     .replace(/^[\s,./-]+|[\s,./-]+$/g, '')
     .replace(/\s{2,}/g, ' ')
-    .trim();
+    .trim()
+    // 시각을 떼고 맨 앞에 남은 "전에·전까지"("3시 30분 전에 미용실 예약" → "미용실 예약") — 가운데의 "회의 전에"는 그대로
+    .replace(/^(전에|이전에|전까지)\s+/, '');
   return out;
 }
 

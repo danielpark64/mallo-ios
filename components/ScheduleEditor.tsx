@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { Alert, Animated, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { sttBlockedNotice } from '../lib/sttErrors';
 import { Text } from './AppText';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -688,7 +689,7 @@ export function ScheduleEditor({
               <Text style={styles.sttHint} accessibilityLiveRegion="polite">
                 {appendVoice.listening
                   ? `${t('🎙 지금 말씀하세요')} · ${formatDuration(Math.floor((appendVoice.recorderState.durationMillis ?? 0) / 1000))}`
-                  : t('준비 중…')}
+                  : appendVoice.sttBlocked ? t(sttBlockedNotice(Platform.OS)) : t('준비 중…')}
               </Text>
             )}
             {kbOpen && !sttOn && !appendRecording && (

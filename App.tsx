@@ -1,7 +1,7 @@
 import { installCrashLogger } from './lib/crashLog';
 installCrashLogger();
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Keyboard, Linking, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View, AppState } from 'react-native';
+import { Alert, Animated, Keyboard, Linking, LogBox, Modal, ScrollView, SectionList, StyleSheet, TextInput, TouchableOpacity, View, AppState, Platform } from 'react-native';
 import { Text } from './components/AppText';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -53,6 +53,7 @@ import {
 } from './lib/storage';
 import { useVoiceRecorder } from './lib/useVoiceRecorder';
 import { NO_FILE_NOTICE } from './lib/voiceCapture';
+import { sttBlockedNotice } from './lib/sttErrors';
 import * as Notifications from 'expo-notifications';
 import {
   cancelAlarm, cancelAlarmGroup,
@@ -1313,9 +1314,11 @@ function AppInner() {
         <View style={styles.overlay}>
           <View style={[styles.sheet, { paddingBottom: 44 + insets.bottom }]}>
             <View style={styles.sheetHandle} />
-            <Text style={[styles.sheetTitle, !voice.listening && styles.sheetTitleWait]} accessibilityLiveRegion="polite">
-              {t(voice.listening ? '🎙 지금 말씀하세요' : '준비 중…')}
+            <Text style={[styles.sheetTitle, !voice.listening && !voice.sttBlocked && styles.sheetTitleWait]} accessibilityLiveRegion="polite">
+              {t(voice.listening ? '🎙 지금 말씀하세요' : voice.sttBlocked ? '🎙 녹음 중' : '준비 중…')}
             </Text>
+            {/* 음성 인식을 못 쓰면(아이폰 받아쓰기·Siri 꺼짐 등) "준비 중…"에 멈춘 듯 보이지 않게 이유와 방법을 알린다 */}
+            {voice.sttBlocked && <Text style={styles.sheetNotice}>{t(sttBlockedNotice(Platform.OS))}</Text>}
             <Waveform metering={voice.recorderState.metering} isRecording={voice.recorderState.isRecording} />
             {!voice.fileRecording && <Text style={styles.sheetNotice}>{NO_FILE_NOTICE}</Text>}
             <View style={styles.transcriptBox}>

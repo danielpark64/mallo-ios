@@ -16,6 +16,7 @@ import type { TranscriptSegment } from './storage';
 import { sttLang } from './sttLang';
 import { canRecordFileWhileRecognizing } from './voiceCapture';
 import { recordedFileIsEmpty } from './audioCheck';
+import { isSttBlockedError } from './sttErrors';
 import { hasUsableTimestamps, synthesizeSegmentTimes } from './wordRange';
 import { applyFinal, applyPartial, applySessionEnd, emptyMerge, mergedText, type MergeState } from './transcriptMerge';
 
@@ -116,6 +117,9 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
   const [liveText, setLiveText] = useState('');
   // 인식기가 실제로 듣기 시작했는지 — 화면이 '지금 말씀하세요'를 띄우는 신호
   const [listening, setListening] = useState(false);
+  // 음성 인식을 아예 쓸 수 없음(아이폰 Siri·받아쓰기 꺼짐 등) — 재시도를 멈추고 화면에 알린다(lib/sttErrors.ts)
+  const [sttBlocked, setSttBlocked] = useState(false);
+  const sttBlockedRef = useRef(false);
   const liveTextRef = useRef('');
   const liveSegmentsRef = useRef<TranscriptSegment[]>([]);
   // iOS STT는 중간에 세션이 끊겨 재시작됨 → 이전 세션 결과를 베이스로 누적
@@ -162,6 +166,13 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
   });
 
   useSpeechRecognitionEvent('error', (e) => {
+    if (isSttBlockedError(e.error)) {
+      if (!sttBlockedRef.current) console.warn('음성 인식 사용 불가:', e.error, e.message);
+      sttBlockedRef.current = true;
+      setSttBlocked(true);
+      setListening(false);
+      return;
+    }
     const ignored = ['aborted', 'no-speech', 'audio-capture', 'network'];
     if (ignored.includes(e.error)) return;
     console.warn('STT 에러:', e.error, e.message);
@@ -169,11 +180,11 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
 
   useSpeechRecognitionEvent('end', () => {
     if (stoppingRef.current) { endResolveRef.current?.(); return; }
-    if (!sttActiveRef.current) return;
+    if (!sttActiveRef.current || sttBlockedRef.current) return; // 못 쓰는 인식기는 다시 켜지 않는다
     mergeRef.current = applySessionEnd(mergeRef.current);
     sttBaseSegsRef.current = liveSegmentsRef.current;
     setTimeout(() => {
-      if (!sttActiveRef.current) return;
+      if (!sttActiveRef.current || sttBlockedRef.current) return;
       try {
         ExpoSpeechRecognitionModule.start({ lang: sttLang(), interimResults: true, continuous: true, iosCategory: STT_IOS_CATEGORY });
         sttOffsetMsRef.current = Date.now() - recordStartAtRef.current;
@@ -198,6 +209,8 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
 
   const start = async () => {
     setListening(false);
+    sttBlockedRef.current = false;
+    setSttBlocked(false);
     setLiveText('');
     liveTextRef.current = '';
     liveSegmentsRef.current = [];
@@ -310,5 +323,5 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     return { uri: uri ?? null, transcript, durationSec, segments, audioLost };
   };
 
-  return { recorderState, liveText, listening, start, stop, cancel, fileRecording };
+  return { recorderState, liveText, listening, sttBlocked, start, stop, cancel, fileRecording };
 }
