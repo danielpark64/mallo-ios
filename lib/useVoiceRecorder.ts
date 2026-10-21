@@ -17,6 +17,7 @@ import { sttLang } from './sttLang';
 import { canRecordFileWhileRecognizing } from './voiceCapture';
 import { recordedFileIsEmpty } from './audioCheck';
 import { isSttBlockedError } from './sttErrors';
+import { waitAudioSettled } from './audioPause';
 import { hasUsableTimestamps, synthesizeSegmentTimes } from './wordRange';
 import { applyFinal, applyPartial, applySessionEnd, emptyMerge, mergedText, type MergeState } from './transcriptMerge';
 
@@ -111,6 +112,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
   // 인식 전용 모드에서 stop() 뒤 'end'까지 기다리는 중 (마지막 단어가 stop 직후 도착하므로)
   const stoppingRef = useRef(false);
   const runIdRef = useRef(0); // start()가 준비 중일 때 cancel()이 끼어든 것을 알아채기 위한 번호
+  const startedRef = useRef(false); // 녹음(또는 인식 전용 타이머)이 실제로 켜졌는지
   const endResolveRef = useRef<(() => void) | null>(null);
   const recorderState: VoiceRecorderState = fileRecording ? fileState : sttOnlyState;
 
@@ -220,6 +222,9 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
     firstResultAtRef.current = 0;
     lastResultAtRef.current = 0;
     const run = ++runIdRef.current;
+    // 방금 재생기를 멈췄으면 0.1초 뒤 세션이 꺼지며 막 켠 녹음기가 같이 꺼진다 → 꺼진 뒤에 켠다 (lib/audioPause.ts)
+    await waitAudioSettled();
+    if (run !== runIdRef.current) return;
     if (fileRecording) {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
       await recorder.prepareToRecordAsync();
@@ -230,9 +235,11 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
       }
       recorder.record();
       recordingRef.current = true;
+      startedRef.current = true;
       startPoll();
     } else {
       stopTick();
+      startedRef.current = true;
       const startedAt = Date.now();
       setSttOnlyState({ isRecording: true, durationMillis: 0 });
       tickRef.current = setInterval(() => {
@@ -252,6 +259,7 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
 
   const cancel = async () => {
     runIdRef.current++;
+    startedRef.current = false;
     sttActiveRef.current = false;
     setListening(false);
     try { ExpoSpeechRecognitionModule.abort(); } catch {}
@@ -270,6 +278,13 @@ export function useVoiceRecorder(opts?: { fileRecording?: boolean }) {
 
   const stop = async (): Promise<VoiceCaptureResult> => {
     setListening(false);
+    // 아직 준비 중(녹음기·인식이 켜지기 전)에 멈추면: 뒤늦게 켜지지 않게 막고 빈 결과로 끝낸다
+    // (안 그러면 화면은 닫혔는데 마이크·인식만 계속 돈다)
+    if (!startedRef.current) {
+      await cancel();
+      return { uri: null, transcript: '', durationSec: 0, segments: [], audioLost: false };
+    }
+    startedRef.current = false;
     let uri: string | null = null;
     let durationMs = 0;
     let audioLost = false;

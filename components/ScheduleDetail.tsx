@@ -2,6 +2,7 @@
 // 카드 탭 → 상세. 메인 + 추가 엔트리 각각 단어칩 구간재생, 스피커/수화기 선택,
 // 전체 내용 복사/TXT/PDF 내보내기.
 import { useSharedPlayer } from '../lib/sharedPlayer';
+import { pauseIfPlaying } from '../lib/audioPause';
 import { RemindSheet } from './RemindSheet';
 import { voiceAlarmOn, voiceAlarmSupported, voiceUriOf } from '../lib/voiceAlarm';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -130,14 +131,14 @@ function EntryBlock({
 
   const stopSelfRef = useRef<() => void>(() => {});
   stopSelfRef.current = () => {
-    try { player.pause(); } catch {}
+    pauseIfPlaying(player, playingRef.current);
     setPlaying(false);
     segEndRef.current = null;
   };
   const stableStop = useRef(() => stopSelfRef.current()).current;
 
   useEffect(() => () => {
-    try { player.pause(); } catch {}
+    pauseIfPlaying(player, playingRef.current);
     if (activeStopperRef.current === stableStop) activeStopperRef.current = null;
     if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
     if (selectingRef.current) onSelectingChange?.(false); // 끌기 도중 모달이 닫혀도 부모 스크롤 잠금을 남기지 않는다
@@ -182,7 +183,7 @@ function EntryBlock({
 
   const toggle = () => {
     if (playing) {
-      player.pause();
+      pauseIfPlaying(player, true);
       setPlaying(false);
       segEndRef.current = null;
       return;
@@ -213,7 +214,7 @@ function EntryBlock({
     if (!playing) return;
     if (segEndRef.current != null && posSec >= segEndRef.current) {
       // 선택한 단어/구간의 끝에 도달 → 정지 (소리가 안 나와 status가 멈춰 있어도 시계로 끝낸다)
-      player.pause();
+      pauseIfPlaying(player, true);
       segEndRef.current = null;
       setPlaying(false);
     } else if ((status.didJustFinish && !statusStale) || (totalSec > 0 && posSec >= totalSec - 0.1)) {

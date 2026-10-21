@@ -71,6 +71,21 @@ describe('녹음 파일 모드', () => {
     expect(mockStt.start).not.toHaveBeenCalled();
   });
 
+  test('준비하는 사이 완료(stop)를 누르면 녹음기·인식을 뒤늦게 켜지 않고 빈 결과로 끝낸다', async () => {
+    let release: () => void = () => {};
+    mockRecorder.prepareToRecordAsync.mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    const { result } = await renderHook(() => useVoiceRecorder({ fileRecording: true }));
+    let started: Promise<void> = Promise.resolve();
+    await act(async () => { started = result.current.start(); });
+    let res: any;
+    await act(async () => { res = await result.current.stop(); });
+    await act(async () => { release(); await started; });
+    await wait(150);
+    expect(res).toMatchObject({ uri: null, transcript: '', audioLost: false });
+    expect(mockRecorder.record).not.toHaveBeenCalled();
+    expect(mockStt.start).not.toHaveBeenCalled();
+  });
+
   test("인식기의 'start' 신호가 와야 listening이 켜지고(화면의 '지금 말씀하세요'), 멈추면 꺼진다", async () => {
     const { result } = await renderHook(() => useVoiceRecorder({ fileRecording: true }));
     await act(async () => { await result.current.start(); });

@@ -141,6 +141,8 @@ describe('ScheduleCard 재생', () => {
     const at = new Date(2026, 9, 14, 15, 0).getTime();
     const { getByText, getByLabelText } = await renderTextOnly({ ...item, uri: '', scheduleAt: at });
     await fireEvent.press(getByLabelText('▶ 읽어 주기'));
+    // 앞 테스트에서 녹음 재생을 멈췄으면 세션이 가라앉은 뒤(최대 0.25초) 읽기 시작한다 (lib/audioPause.ts)
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
     expect(mockSpeech.speak).toHaveBeenCalledTimes(1);
     const [text, opts] = mockSpeech.speak.mock.calls[0];
     expect(text).toBe('10월 14일, 수, 오후 3:00. 회의');
