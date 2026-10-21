@@ -407,6 +407,8 @@ export const PT: Record<string, string> = {
     'Em gravações longas (reuniões, aulas), o reconhecimento pode parar em uma pausa entre frases e perder o restante. A gravação em si não é cortada; confira reproduzindo.',
   '녹음이 저장되지 않아요(Android 12 이하): 그 버전의 Android는 녹음과 음성 인식이 마이크를 같이 못 씁니다. 말한 내용은 글로 인식되어 일정·알람은 그대로 되지만 녹음 파일은 남지 않고, 녹음 화면에 그 안내가 보입니다. Android 13 이상 폰에서는 둘 다 됩니다.':
     'As gravações não são salvas (Android 12 ou anterior): nessas versões, gravação e reconhecimento de voz não podem usar o microfone ao mesmo tempo. Sua fala ainda é reconhecida e compromissos e alarmes funcionam, mas nenhum arquivo de áudio é mantido; a tela de gravação mostra um aviso. Android 13 ou superior suporta os dois.',
+  '알람이 안 울려요: iPhone은 설정 › 알림 › 세이람에서 알림 허용과 소리를 켜 주세요. 무음 스위치나 집중 모드(방해 금지·수면)가 켜져 있으면 소리 없이 알림만 오거나 알림 센터에 조용히 쌓일 수 있습니다. Android는 세이람의 알림과 "알람 및 리마인더" 권한을 켜고, 배터리 최적화를 꺼 주세요.':
+    'O alarme não toca: no iPhone, vá em Ajustes › Notificações › SayRam e ative Permitir Notificações e Sons. Com a chave de silêncio ou um modo de Foco (Não Perturbe, Sono) ativado, as notificações podem chegar sem som ou ficar acumuladas em silêncio na Central de Notificações. No Android, permita as notificações do SayRam e a permissão "Alarmes e lembretes", e desative a otimização de bateria.',
   '내 목소리': 'Minha voz',
   '기본 알람음': 'Alarme padrão',
   '알람 소리': 'Som do alarme',

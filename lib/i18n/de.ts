@@ -407,6 +407,8 @@ export const DE: Record<string, string> = {
     'Bei langen Aufnahmen (Besprechungen, Vorlesungen) kann die Erkennung bei einer Pause zwischen Sätzen abbrechen und den Rest auslassen. Die Aufnahme selbst wird nicht abgeschnitten; prüfen Sie sie durch Abspielen.',
   '녹음이 저장되지 않아요(Android 12 이하): 그 버전의 Android는 녹음과 음성 인식이 마이크를 같이 못 씁니다. 말한 내용은 글로 인식되어 일정·알람은 그대로 되지만 녹음 파일은 남지 않고, 녹음 화면에 그 안내가 보입니다. Android 13 이상 폰에서는 둘 다 됩니다.':
     'Aufnahmen werden nicht gespeichert (Android 12 und älter): Auf diesen Versionen können Aufnahme und Spracherkennung das Mikrofon nicht gleichzeitig nutzen. Ihre Worte werden trotzdem erkannt, Termine und Alarme funktionieren, aber es bleibt keine Audiodatei; der Aufnahmebildschirm weist darauf hin. Ab Android 13 geht beides.',
+  '알람이 안 울려요: iPhone은 설정 › 알림 › 세이람에서 알림 허용과 소리를 켜 주세요. 무음 스위치나 집중 모드(방해 금지·수면)가 켜져 있으면 소리 없이 알림만 오거나 알림 센터에 조용히 쌓일 수 있습니다. Android는 세이람의 알림과 "알람 및 리마인더" 권한을 켜고, 배터리 최적화를 꺼 주세요.':
+    'Der Alarm klingelt nicht: Auf dem iPhone unter Einstellungen › Mitteilungen › SayRam „Mitteilungen erlauben“ und Töne einschalten. Bei eingeschaltetem Stummschalter oder Fokus (Nicht stören, Schlafen) kommen Mitteilungen eventuell ohne Ton oder sammeln sich still in der Mitteilungszentrale. Auf Android die Mitteilungen von SayRam und die Berechtigung „Wecker und Erinnerungen“ erlauben und die Akkuoptimierung ausschalten.',
   '내 목소리': 'Meine Stimme',
   '기본 알람음': 'Standardalarm',
   '알람 소리': 'Alarmton',
