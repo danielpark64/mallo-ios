@@ -536,4 +536,28 @@ export const DE: Record<string, string> = {
     "Mit dem Listensymbol links neben „Einstellungen“ wechselst du die Karten zwischen einzeiliger und großer Ansicht. Tippe oben auf „Nächster · Datum Uhrzeit ›“, um direkt zu dieser Karte zu springen.",
   "지난 일정은 \"지난 일정 N건 보기\"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 검색·기간 조건을 쓰면 접지 않습니다.":
     "Vergangene Termine werden unter „N vergangene Termine anzeigen“ zusammengeklappt, damit die kommenden oben stehen. Tippe zum Aufklappen; bei einer Suche oder einem Zeitraumfilter wird nicht zusammengeklappt.",
+  // 지난 일정의 결과(못 했어요·덜 했어요·바뀌었어요)
+  "어떻게 됐나요?": "Wie lief es?",
+  "했으면 그대로 두세요": "Wenn erledigt, einfach so lassen",
+  "못 했어요": "Nicht geschafft",
+  "덜 했어요": "Halb erledigt",
+  "바뀌었어요": "Geändert",
+  "못 함": "Nicht erledigt",
+  "덜 함": "Halb",
+  "바뀜": "Geändert",
+  "← {date} 일정에서 다시 잡았어요": "← Verschoben vom {date}",
+  "→ {date}에 다시 잡았어요": "→ Verschoben auf {date}",
+  "표시를 풀까요?": "Markierung entfernen?",
+  "다시 잡은 일정({date})도 지울까요?": "Den verschobenen Termin ({date}) auch löschen?",
+  "일정은 남기기": "Termin behalten",
+  "같이 지우기": "Beide löschen",
+  "남은 걸 다시 잡을까요?": "Den Rest neu planen?",
+  "괜찮아요": "Nein danke",
+  "다시 잡기": "Neu planen",
+  "일정이 바뀌었나요?": "Termin verschoben?",
+  "다른 날로 미루면 새 일정으로 다시 잡아요": "Beim Verschieben wird ein neuer Termin angelegt",
+  "미루기": "Verschieben",
+  "미뤄서 이 일정은 알림이 울리지 않아요": "Verschoben – dieser Termin erinnert nicht mehr",
+  "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
+    "Erledigte vergangene Termine einfach so lassen. Wenn etwas nicht oder nur halb erledigt wurde oder sich geändert hat, den Termin öffnen und unter „Wie lief es?“ wählen. Auf der Karte erscheint eine Markierung, und mit „Geändert“ oder „Halb erledigt“ lässt sich ein neues Datum mit Erinnerung festlegen.",
 };

@@ -8,6 +8,7 @@ import { useSharedPlayer } from '../lib/sharedPlayer';
 import { recordSpeechText } from '../lib/speech';
 import { normalizeRemind, remindLabel } from '../lib/reminders';
 import { formatDayHeader, formatRangeTail, formatTime, isPastItem } from '../lib/dateUtils';
+import { isMovedAway, outcomeTag } from '../lib/outcome';
 import type { ScheduleRecord } from '../lib/storage';
 import { MicIcon } from './MicIcon';
 import { useT } from '../lib/i18n';
@@ -81,7 +82,7 @@ export function ScheduleCard({
   ) : null;
   const remind = normalizeRemind(item.remindBefore ?? []);
   // 알람이 걸리는 일정(시간 있음)에만 소리·진동·미리 알림 표시
-  const badges = mode && item.hasTime && !item.needsDate ? (
+  const badges = mode && item.hasTime && !item.needsDate && !isMovedAway(item) ? ( // 미룬 일정은 알람이 꺼져 있다
     <View style={styles.cardBadgeRow}>
       {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
       {/* 소리: 기본 알람음이면 종, 내 목소리 알람이면 마이크 */}
@@ -97,9 +98,12 @@ export function ScheduleCard({
   ) : <View />;
   // 기간 일정(휴가 등): "~ 10월 24일 (토) · 5일"
   const rangeTail = formatRangeTail(item);
+  // 지난 일정의 결과 꼬리표 — 안 했거나 덜 했거나 바뀐 것만(표시가 없으면 한 것). 미룬 일정은 오기 전에도 붙인다
+  const tag = isPast || isMovedAway(item) ? outcomeTag(item) : '';
   const extras = (
     <>
       {rangeTail && <Text style={styles.cardRange} numberOfLines={1}>{rangeTail}</Text>}
+      {tag ? <Text style={styles.outcomeTag} numberOfLines={1} testID="card-outcome">{tag}</Text> : null}
       {appendedNotes.map((note, i) => (
         <Text key={i} style={styles.cardAppendedNote}>+ {note}</Text>
       ))}
@@ -148,6 +152,7 @@ export function ScheduleCard({
           <Text style={styles.compactRange} numberOfLines={1}>~{formatDayHeader(new Date(item.endAt)).replace(/\s*\(.*\)$/, '')}</Text>
         )}
         {item.needsDate && <Text style={styles.compactNeeds}>{t('정하기')}</Text>}
+        {tag ? <Text style={styles.compactOutcome} numberOfLines={1}>{tag}</Text> : null}
         {appendCount > 0 && <Text style={styles.compactAppend}>+{appendCount}</Text>}
         {canPlay ? (
           <TouchableOpacity
@@ -322,6 +327,8 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   compactTitle: { flex: 1, color: C.text, fontSize: 15, fontWeight: '500' },
   compactNeeds: { color: '#fff', fontSize: 11, fontWeight: '700', backgroundColor: C.red, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, overflow: 'hidden' },
   compactAppend: { color: C.textSub, fontSize: 12, fontWeight: '700' },
+  outcomeTag: { alignSelf: 'flex-start', color: '#fff', fontSize: 12, fontWeight: '800', backgroundColor: C.red, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', marginTop: 4 },
+  compactOutcome: { color: '#fff', fontSize: 11, fontWeight: '800', backgroundColor: C.red, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, overflow: 'hidden', flexShrink: 0 },
   compactPlay: {
     width: 30, height: 30,
     alignItems: 'center', justifyContent: 'center',

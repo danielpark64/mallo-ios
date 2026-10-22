@@ -456,3 +456,50 @@ describe('상세 화면의 알림 바꾸기 시트', () => {
     expect(screen.queryByTestId('remind-open')).toBeNull();
   });
 });
+
+describe('지난 일정의 결과 버튼', () => {
+  // Date.now는 위 테스트에서 고정될 수 있어 테스트 안에서 시각을 잡는다
+  let past: ScheduleRecord;
+  beforeEach(() => { past = { ...record, id: 'p1', scheduleAt: Date.now() - 3_600_000 }; });
+
+  it('지난 일정에만 "어떻게 됐나요?"가 보이고, 누르면 부모에게 종류를 넘긴다', async () => {
+    const onOutcome = jest.fn();
+    const screen = await render(
+      <ScheduleDetail visible record={past} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={onOutcome} />
+    );
+    expect(screen.getByText('어떻게 됐나요?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('outcome-moved'));
+    expect(onOutcome).toHaveBeenCalledWith(past, 'moved');
+  });
+
+  it('앞으로의 일정에는 "미루기" 하나만 보이고, 누르면 바뀜(moved)으로 넘긴다', async () => {
+    const onOutcome = jest.fn();
+    const screen = await render(
+      <ScheduleDetail visible record={record} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={onOutcome} />
+    );
+    expect(screen.queryByText('어떻게 됐나요?')).toBeNull();
+    expect(screen.queryByTestId('outcome-skipped')).toBeNull();
+    await fireEvent.press(screen.getByText('미루기'));
+    expect(onOutcome).toHaveBeenCalledWith(record, 'moved');
+  });
+
+  it('앞으로의 기간 일정에는 미루기를 두지 않는다(날짜를 고쳐 옮긴다)', async () => {
+    const range = { ...record, endAt: (record.scheduleAt ?? 0) + 3 * 86_400_000 };
+    const screen = await render(
+      <ScheduleDetail visible record={range} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={jest.fn()} />
+    );
+    expect(screen.queryByTestId('outcome-box')).toBeNull();
+  });
+
+  it('다시 잡은 날짜를 누르면 그 일정으로, 원래 일정 줄을 누르면 원래 일정으로 간다', async () => {
+    const onOpenRecord = jest.fn();
+    const marked: ScheduleRecord = { ...past, outcome: { kind: 'moved', nextId: 'n1', nextAt: Date.now() + 86_400_000, nextHasTime: true } };
+    const screen = await render(
+      <ScheduleDetail visible record={marked} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={jest.fn()} onOpenRecord={onOpenRecord} origin={{ ...past, id: 'o1' }} />
+    );
+    await fireEvent.press(screen.getByTestId('outcome-next'));
+    expect(onOpenRecord).toHaveBeenCalledWith('n1');
+    await fireEvent.press(screen.getByTestId('outcome-origin'));
+    expect(onOpenRecord).toHaveBeenCalledWith('o1');
+  });
+});

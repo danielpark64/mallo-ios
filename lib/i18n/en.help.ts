@@ -187,4 +187,6 @@ export const EN_HELP: Record<string, string> = {
     "Use the list icon to the left of \"Settings\" to switch cards between one-line and large view. Tap \"Next · date time ›\" at the top to jump straight to that schedule's card.",
   "지난 일정은 \"지난 일정 N건 보기\"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 검색·기간 조건을 쓰면 접지 않습니다.":
     "Past schedules are folded under \"Show N past schedules\" so upcoming ones stay on top. Tap to expand; they are not folded while you search or filter by period.",
+  "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
+    "If you did a past event, just leave it. If you didn't, only partly did it, or it changed, open it and choose under \"How did it go?\". A tag appears on the card, and with \"Changed\" or \"Partly done\" you can pick a new date and set an alert.",
 };

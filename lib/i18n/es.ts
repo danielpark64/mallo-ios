@@ -536,4 +536,28 @@ export const ES: Record<string, string> = {
     "Con el icono de lista a la izquierda de \"Ajustes\" cambias las tarjetas entre vista de una línea y vista grande. Toca \"Siguiente · fecha hora ›\" arriba para ir directo a esa tarjeta.",
   "지난 일정은 \"지난 일정 N건 보기\"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 검색·기간 조건을 쓰면 접지 않습니다.":
     "Los eventos pasados se pliegan en \"Ver N eventos pasados\" para que los próximos queden arriba. Tócalo para desplegarlos; no se pliegan mientras buscas o filtras por periodo.",
+  // 지난 일정의 결과(못 했어요·덜 했어요·바뀌었어요)
+  "어떻게 됐나요?": "¿Cómo fue?",
+  "했으면 그대로 두세요": "Si lo hiciste, déjalo así",
+  "못 했어요": "No lo hice",
+  "덜 했어요": "A medias",
+  "바뀌었어요": "Cambió",
+  "못 함": "No hecho",
+  "덜 함": "A medias",
+  "바뀜": "Cambió",
+  "← {date} 일정에서 다시 잡았어요": "← Reprogramado desde {date}",
+  "→ {date}에 다시 잡았어요": "→ Reprogramado para {date}",
+  "표시를 풀까요?": "¿Quitar la marca?",
+  "다시 잡은 일정({date})도 지울까요?": "¿Borrar también el evento reprogramado ({date})?",
+  "일정은 남기기": "Conservar evento",
+  "같이 지우기": "Borrar ambos",
+  "남은 걸 다시 잡을까요?": "¿Reprogramar lo pendiente?",
+  "괜찮아요": "No, gracias",
+  "다시 잡기": "Reprogramar",
+  "일정이 바뀌었나요?": "¿Cambió el plan?",
+  "다른 날로 미루면 새 일정으로 다시 잡아요": "Al posponer se crea un nuevo evento en la nueva fecha",
+  "미루기": "Posponer",
+  "미뤄서 이 일정은 알림이 울리지 않아요": "Pospuesto: este ya no avisará",
+  "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
+    "Si hiciste un evento pasado, déjalo como está. Si no lo hiciste, lo hiciste a medias o cambió, ábrelo y elige en «¿Cómo fue?». Aparece una etiqueta en la tarjeta, y con «Cambió» o «A medias» puedes elegir una nueva fecha y poner un aviso.",
 };

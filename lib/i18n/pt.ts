@@ -536,4 +536,28 @@ export const PT: Record<string, string> = {
     "Use o ícone de lista à esquerda de \"Ajustes\" para alternar os cartões entre a vista de uma linha e a vista grande. Toque em \"Próximo · data hora ›\" no topo para ir direto ao cartão desse compromisso.",
   "지난 일정은 \"지난 일정 N건 보기\"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 검색·기간 조건을 쓰면 접지 않습니다.":
     "Os compromissos passados ficam recolhidos em \"Ver N compromissos passados\" para que os próximos fiquem no topo. Toque para expandir; não são recolhidos durante uma busca ou filtro por período.",
+  // 지난 일정의 결과(못 했어요·덜 했어요·바뀌었어요)
+  "어떻게 됐나요?": "Como foi?",
+  "했으면 그대로 두세요": "Se fez, deixe como está",
+  "못 했어요": "Não fiz",
+  "덜 했어요": "Fiz em parte",
+  "바뀌었어요": "Mudou",
+  "못 함": "Não feito",
+  "덜 함": "Em parte",
+  "바뀜": "Mudou",
+  "← {date} 일정에서 다시 잡았어요": "← Remarcado de {date}",
+  "→ {date}에 다시 잡았어요": "→ Remarcado para {date}",
+  "표시를 풀까요?": "Tirar a marca?",
+  "다시 잡은 일정({date})도 지울까요?": "Apagar também o compromisso remarcado ({date})?",
+  "일정은 남기기": "Manter compromisso",
+  "같이 지우기": "Apagar os dois",
+  "남은 걸 다시 잡을까요?": "Remarcar o que falta?",
+  "괜찮아요": "Não, obrigado",
+  "다시 잡기": "Remarcar",
+  "일정이 바뀌었나요?": "Mudou de planos?",
+  "다른 날로 미루면 새 일정으로 다시 잡아요": "Adiar cria um novo compromisso na nova data",
+  "미루기": "Adiar",
+  "미뤄서 이 일정은 알림이 울리지 않아요": "Adiado: este não vai mais avisar",
+  "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
+    "Se fez um compromisso passado, deixe como está. Se não fez, fez em parte ou mudou, abra-o e escolha em \"Como foi?\". Aparece uma etiqueta no cartão, e com \"Mudou\" ou \"Fiz em parte\" você escolhe uma nova data e define um aviso.",
 };

@@ -42,7 +42,18 @@ export type ScheduleRecord = {
   // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
   voiceAlarm?: boolean;   // 알람 소리를 이 일정만 따로 정함: true=내 목소리, false=기본 알람음, 없음=설정을 따름 (lib/voiceAlarm.ts)
   needsDate?: boolean;    // 날짜·시간 없이 녹음돼 오늘(시간 미정)로 임시 저장됨 → 사용자가 정하면 해제
+  outcome?: ScheduleOutcome; // 지난 일정의 결과. 없으면 한 것으로 본다 (lib/outcome.ts)
+  carriedFrom?: string;   // 바뀌었어요·덜 했어요로 다시 잡은 일정이면 원래 일정 id
   createdAt: number;      // 생성 시각(epoch ms)
+};
+
+/** 지난 일정의 결과: 못 했어요 / 덜 했어요 / 바뀌었어요 */
+export type OutcomeKind = 'skipped' | 'partial' | 'moved';
+export type ScheduleOutcome = {
+  kind: OutcomeKind;
+  nextId?: string;        // 다시 잡은 새 일정 id
+  nextAt?: number;        // 다시 잡은 날짜(꼬리표 "→ 10월 25일"용)
+  nextHasTime?: boolean;
 };
 
 const DB_DIR = new Directory(Paths.document, 'mallo');

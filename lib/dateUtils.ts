@@ -328,6 +328,7 @@ export function preAlarmItems(records: ScheduleRecord[], start?: Date, end?: Dat
   const out: PreAlarmItem[] = [];
   for (const r of records) {
     if (r.scheduleAt == null || !r.hasTime || r.scheduleAt <= now) continue;
+    if (r.outcome?.kind === 'moved') continue; // 미룬 일정은 알람이 꺼져 있다(lib/outcome isMovedAway)
     if (!(r.remindBefore ?? []).includes(1440)) continue;
     const at = new Date(r.scheduleAt);
     at.setDate(at.getDate() - 1);

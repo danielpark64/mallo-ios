@@ -268,6 +268,7 @@ export async function resyncAlarms(
     needsDate?: boolean;
     uri?: string;
     voiceAlarm?: boolean;
+    outcome?: { kind: string };
   }>
 ): Promise<void> {
   try {
@@ -277,6 +278,7 @@ export async function resyncAlarms(
     // 정각이 지났어도 미리 알림이 남아 있을 수는 없으므로(미리 알림은 정각보다 앞) 정각 기준으로 거른다
     const future = records
       .filter((r) => !r.needsDate && r.hasTime && r.scheduleAt != null && r.scheduleAt > now)
+      .filter((r) => r.outcome?.kind !== 'moved') // 다른 날로 미룬 일정은 새 일정 쪽에서만 울린다(lib/outcome isMovedAway)
       .sort((a, b) => (a.scheduleAt ?? 0) - (b.scheduleAt ?? 0));
     // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
     // 내 목소리 알람: 네이티브 예약을 비운 직후에 정리한다(그 전에 지우면 그 사이 울리는 알람이 기본음이 된다).

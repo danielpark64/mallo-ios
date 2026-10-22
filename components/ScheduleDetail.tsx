@@ -13,10 +13,11 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
 import { normalizeRemind, remindLabel } from '../lib/reminders';
-import { formatDayHeader, formatTime } from '../lib/dateUtils';
+import { formatDayHeader, formatTime, isPastItem } from '../lib/dateUtils';
+import { OUTCOME_BUTTON, OUTCOME_KINDS, isMovedAway, nextWhen } from '../lib/outcome';
 import { copyRecords } from '../lib/exportUtils';
 import { ExportPreview, type ExportKind } from './ExportPreview';
-import type { ScheduleRecord, TranscriptSegment } from '../lib/storage';
+import type { OutcomeKind, ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import {
   activeSegmentIndex,
   chipsForEntry,
@@ -456,6 +457,9 @@ export function ScheduleDetail({
   onAppend,
   onDelete,
   onAlarmChange,
+  onOutcome,
+  origin,
+  onOpenRecord,
 }: {
   visible: boolean;
   record: ScheduleRecord | null;
@@ -466,6 +470,12 @@ export function ScheduleDetail({
   onDelete?: (r: ScheduleRecord) => void;
   /** 상세에서 알림 칩을 눌러 바로 바꿀 때 (저장·재예약은 부모가) */
   onAlarmChange?: (r: ScheduleRecord, remindBefore: number[], exactAlarm: boolean, voiceAlarm?: boolean) => void;
+  /** 지난 일정의 결과 버튼(못 했어요·덜 했어요·바뀌었어요) — 저장·다시 잡기는 부모가 */
+  onOutcome?: (r: ScheduleRecord, kind: OutcomeKind) => void;
+  /** 이 일정이 다시 잡은 일정이면 원래 일정 */
+  origin?: ScheduleRecord | null;
+  /** 연결된 일정(원래 일정·다시 잡은 일정)으로 넘어가기 */
+  onOpenRecord?: (id: string) => void;
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -506,6 +516,7 @@ export function ScheduleDetail({
   if (!record) return null;
 
   // 날짜 미정 임시 일정은 "(시간 미정)" 대신 "(임시)" 꼬리표를 단다
+  const past = isPastItem(record); // 지난 일정이면 결과 버튼, 아직이면 미루기
   const dayPart = record.scheduleAt != null ? formatDayHeader(new Date(record.scheduleAt)) : null;
   const when =
     dayPart == null
@@ -540,6 +551,7 @@ export function ScheduleDetail({
         </View>
 
         <ScrollView
+          key={record.id} // 연결된 일정(→·←)으로 넘어가면 녹음 블록의 구간 선택·재생 상태를 새로 시작한다
           contentContainerStyle={s.body}
           showsVerticalScrollIndicator={false}
           // iOS: 터치 취소만 막는다(scrollEnabled를 끄면 진행 중 터치가 취소됨). Android: 그 속성이 없고 scrollEnabled 토글이 안전하다
@@ -554,7 +566,7 @@ export function ScheduleDetail({
               <Text style={s.needsDateBtn}>{t('정하기')}</Text>
             </TouchableOpacity>
           )}
-          {mode && record.hasTime && !record.needsDate ? (
+          {mode && record.hasTime && !record.needsDate && !isMovedAway(record) ? (
             <View style={s.badgeRow}>
               {mode !== 'vibe' && <Text style={s.badgeIcon}>{voiceUriOf(record) ? '🎙' : '🔔'}</Text>}
               {mode !== 'sound' && (
@@ -569,6 +581,7 @@ export function ScheduleDetail({
             const r = normalizeRemind(record.remindBefore ?? []);
             const exact = record.exactAlarm !== false;
             const past = record.scheduleAt != null && record.scheduleAt <= Date.now();
+            const movedAway = !past && isMovedAway(record); // 미룬 일정은 새 일정 쪽에서만 울린다
             // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
             const voice = voiceAlarmOn(record);
             const showVoice = voiceAlarmSupported() && !!record.uri && record.alarmMode !== 'vibe';
@@ -577,11 +590,13 @@ export function ScheduleDetail({
                 <Text style={s.remindLine}>
                   {past
                     ? t('지난 일정 (알림 없음)')
+                    : movedAway
+                    ? t('미뤄서 이 일정은 알림이 울리지 않아요')
                     : r.length
                       ? t('미리 알림 {list} · 정각 알림 {state}', { list: r.map((m) => t(remindLabel(m))).join(' · '), state: t(exact ? '켬' : '끔') })
                       : exact ? t('미리 알림 없음 · 정각 알림 켬') : t('알림 없음')}
                 </Text>
-                {!past && onAlarmChange ? (
+                {!past && !movedAway && onAlarmChange ? (
                   // 알림 줄 = "바꾸기" 버튼. 칩과 저장은 시트 안에서만(RemindSheet)
                   <TouchableOpacity
                     style={s.remindEditBtn}
@@ -593,7 +608,7 @@ export function ScheduleDetail({
                     <Text style={s.remindEditBtnText}>{t('🔔 알림 바꾸기 ›')}</Text>
                   </TouchableOpacity>
                 ) : null}
-                {!past && onAlarmChange ? (
+                {!past && !movedAway && onAlarmChange ? (
                   <RemindSheet
                     visible={remindOpen}
                     remindBefore={r}
@@ -607,6 +622,53 @@ export function ScheduleDetail({
               </View>
             );
           })()}
+
+          {/* 다시 잡은 일정이면 원래 일정으로 가는 줄 */}
+          {origin && origin.scheduleAt != null && onOpenRecord ? (
+            <TouchableOpacity style={s.linkRow} onPress={() => onOpenRecord(origin.id)} activeOpacity={0.7} accessibilityRole="button" testID="outcome-origin">
+              <Text style={s.linkText} numberOfLines={2}>
+                {t('← {date} 일정에서 다시 잡았어요', { date: formatDayHeader(new Date(origin.scheduleAt)) })}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {/* 지난 일정의 결과 — 표시가 없으면 한 것. 안 했거나 덜 했거나 바뀐 것만 누른다.
+              아직 오지 않은 일정은 "미루기" 하나만(새 날짜로 다시 잡고 원래 일정은 알람을 끈다). 기간 일정은 날짜를 고쳐서 옮긴다 */}
+          {onOutcome && !record.needsDate && record.scheduleAt != null && (isPastItem(record) || record.endAt == null) ? (
+            <View style={s.outcomeBox} testID="outcome-box">
+              <Text style={s.outcomeTitle}>{t(past ? '어떻게 됐나요?' : '일정이 바뀌었나요?')}</Text>
+              <Text style={s.outcomeHint}>{t(past ? '했으면 그대로 두세요' : '다른 날로 미루면 새 일정으로 다시 잡아요')}</Text>
+              <View style={s.outcomeRow}>
+                {(past ? OUTCOME_KINDS : (['moved'] as OutcomeKind[])).map((k) => {
+                  const on = record.outcome?.kind === k;
+                  return (
+                    <TouchableOpacity
+                      key={k}
+                      style={[s.outcomeChip, on && s.outcomeChipOn]}
+                      onPress={() => onOutcome(record, k)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      testID={`outcome-${k}`}
+                    >
+                      <Text style={[s.outcomeChipText, on && s.outcomeChipTextOn]}>{t(past ? OUTCOME_BUTTON[k] : '미루기')}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {record.outcome?.nextAt != null ? (
+                <TouchableOpacity
+                  style={s.linkRow}
+                  disabled={!record.outcome.nextId || !onOpenRecord}
+                  onPress={() => record.outcome?.nextId && onOpenRecord?.(record.outcome.nextId)}
+                  activeOpacity={0.7}
+                  testID="outcome-next"
+                >
+                  <Text style={s.linkText} numberOfLines={2}>{t('→ {date}에 다시 잡았어요', { date: nextWhen(record) })}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
 
           {/* 내용 — 메인 + 추가 엔트리를 각각 독립적으로 재생/구간선택 */}
           <Text style={s.sectionLabel}>{t('내용')}</Text>
@@ -704,6 +766,16 @@ const makeStyles = (C: Palette) => StyleSheet.create({
   badgeVibe: { width: 22, height: 22, resizeMode: 'contain' },
   badgeText: { color: C.textSub, fontSize: 13, fontWeight: '600', marginLeft: 2 },
   remindLine: { color: C.textSub, fontSize: 13, marginTop: 6 },
+  outcomeBox: { marginTop: 18, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
+  outcomeTitle: { color: C.text, fontSize: 15, fontWeight: '800' },
+  outcomeHint: { color: C.textSub, fontSize: 12, marginTop: 2 },
+  outcomeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  outcomeChip: { paddingHorizontal: 14, paddingVertical: 9, minHeight: 40, justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: C.bg },
+  outcomeChipOn: { borderColor: C.red, backgroundColor: C.red },
+  outcomeChipText: { color: C.text, fontSize: 14, fontWeight: '700' },
+  outcomeChipTextOn: { color: '#fff' },
+  linkRow: { marginTop: 10, paddingVertical: 4 },
+  linkText: { color: C.accent, fontSize: 14, fontWeight: '700' },
 
   sectionLabel: { color: C.accent, fontSize: 13, fontWeight: '700', marginTop: 24, marginBottom: 10 },
   contentText: { color: C.text, fontSize: 17, lineHeight: 26 },

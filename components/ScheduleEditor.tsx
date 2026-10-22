@@ -44,6 +44,16 @@ export type EditorResult = {
   capture?: { uri: string; durationSec: number; transcript: string; segments?: TranscriptSegment[] };
 };
 
+/** 새 일정 화면에 미리 채워 둘 값 (lib/outcome.ts의 다시 잡기) */
+export type EditorPrefill = {
+  content: string;
+  hour: number;
+  minute: number;
+  alarmMode: AlarmMode;
+  remindBefore: number[];
+  exactAlarm: boolean;
+};
+
 /** "추가" 저장 결과 — 메인과 동등하게 자기 녹음·전사·구간재생을 갖는 독립 엔트리 */
 export type AppendResult = {
   content: string;
@@ -62,7 +72,7 @@ const MINUTES     = [0,5,10,15,20,25,30,35,40,45,50,55];
 
 // ─── 편집기 (전체화면) ─────────────────────────────────────────────────────────
 export function ScheduleEditor({
-  visible, record, defaultDate, markedDays, appendMode = false, defaultRemind, defaultVoice = false,
+  visible, record, defaultDate, markedDays, appendMode = false, defaultRemind, defaultVoice = false, prefill,
   onSave, onAppend, onDelete, onClose,
 }: {
   visible: boolean;
@@ -74,6 +84,8 @@ export function ScheduleEditor({
   defaultRemind?: number[];
   /** 새 일정의 알람 소리 기본값(설정): true = 내 목소리 */
   defaultVoice?: boolean;
+  /** 새 일정을 지난 일정에서 다시 잡을 때(바뀌었어요·덜 했어요): 내용·시각·알림을 원래 일정에서 채워 둔다. 날짜는 defaultDate */
+  prefill?: EditorPrefill | null;
   onSave: (r: EditorResult) => void;
   onAppend: (id: string, entry: AppendResult) => void;
   onDelete: (id: string) => void;
@@ -354,6 +366,17 @@ export function ScheduleEditor({
       setExactAlarm(record.exactAlarm !== false);
       setVoiceAlarm(voiceAlarmOn(record)); // 일정에 따로 정한 값이 없으면 설정을 따른다
       setEndDate(record.endAt != null && !appendMode ? new Date(record.endAt) : null);
+    } else if (prefill) {
+      setContent(prefill.content);
+      setDate(new Date(defaultDate));
+      setHour(prefill.hour);
+      setMinute(prefill.minute);
+      setExtraMinute(prefill.minute % 5 ? prefill.minute : null);
+      setAlarmMode(prefill.alarmMode);
+      setRemindBefore(normalizeRemind(prefill.remindBefore));
+      setExactAlarm(prefill.exactAlarm);
+      setVoiceAlarm(false); // 다시 잡은 일정에는 녹음이 없다
+      setEndDate(null);
     } else {
       setContent('');
       setDate(new Date(defaultDate));
@@ -367,7 +390,7 @@ export function ScheduleEditor({
     }
     setShowCal(false);
     setShowEndCal(false);
-  }, [visible, record, appendMode]);
+  }, [visible, record, appendMode, prefill]);
 
   // 시작일을 바꿨는데 끝나는 날보다 뒤면 기간을 지운다(거꾸로 된 기간 방지)
   useEffect(() => {

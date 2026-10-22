@@ -536,4 +536,28 @@ export const FR: Record<string, string> = {
     "L’icône de liste à gauche de « Réglages » fait passer les cartes de l’affichage sur une ligne à l’affichage agrandi. Touchez « Suivant · date heure › » en haut pour aller directement à cette carte.",
   "지난 일정은 \"지난 일정 N건 보기\"로 접혀 있어 지금부터의 일정이 맨 위에 옵니다. 누르면 펼쳐지고, 검색·기간 조건을 쓰면 접지 않습니다.":
     "Les événements passés sont repliés sous « Voir N événements passés » pour que les prochains restent en haut. Touchez pour déplier ; ils ne sont pas repliés pendant une recherche ou un filtre par période.",
+  // 지난 일정의 결과(못 했어요·덜 했어요·바뀌었어요)
+  "어떻게 됐나요?": "Comment ça s’est passé ?",
+  "했으면 그대로 두세요": "Si c’est fait, ne touchez à rien",
+  "못 했어요": "Pas fait",
+  "덜 했어요": "Pas fini",
+  "바뀌었어요": "Changé",
+  "못 함": "Pas fait",
+  "덜 함": "Pas fini",
+  "바뀜": "Changé",
+  "← {date} 일정에서 다시 잡았어요": "← Reporté depuis le {date}",
+  "→ {date}에 다시 잡았어요": "→ Reporté au {date}",
+  "표시를 풀까요?": "Retirer la marque ?",
+  "다시 잡은 일정({date})도 지울까요?": "Supprimer aussi l’événement reporté ({date}) ?",
+  "일정은 남기기": "Garder l’événement",
+  "같이 지우기": "Supprimer les deux",
+  "남은 걸 다시 잡을까요?": "Reporter le reste ?",
+  "괜찮아요": "Non merci",
+  "다시 잡기": "Reporter",
+  "일정이 바뀌었나요?": "Changement de plan ?",
+  "다른 날로 미루면 새 일정으로 다시 잡아요": "Reporter crée un nouvel événement à la nouvelle date",
+  "미루기": "Reporter",
+  "미뤄서 이 일정은 알림이 울리지 않아요": "Reporté : pas d’alerte pour celui-ci",
+  "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
+    "Si un événement passé est fait, laissez-le tel quel. S’il n’a pas été fait, pas fini ou s’il a changé, ouvrez-le et choisissez sous « Comment ça s’est passé ? ». Une étiquette apparaît sur la carte, et avec « Changé » ou « Pas fini » vous pouvez choisir une nouvelle date et programmer une alerte.",
 };

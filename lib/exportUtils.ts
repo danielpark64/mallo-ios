@@ -4,8 +4,9 @@ import * as Clipboard from 'expo-clipboard';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Directory, File, Paths } from 'expo-file-system';
-import { formatDayHeader, formatTime } from './dateUtils';
+import { formatDayHeader, formatTime, isPastItem } from './dateUtils';
 import { t } from './i18n';
+import { isMovedAway, outcomeTag } from './outcome';
 import type { ScheduleRecord } from './storage';
 
 /** 기간 일정(휴가 등)이면 " ~ 10월 24일 (토)" */
@@ -22,7 +23,8 @@ export function recordToText(r: ScheduleRecord): string {
   }
   // 구버전 데이터 호환: 과거엔 추가 내용이 content 문자열에 '\n• '로 이어붙여 저장됨
   const [main, ...legacyNotes] = (r.content || r.transcript || t('(내용 없음)')).split('\n• ');
-  lines.push(main);
+  const tag = isPastItem(r) || isMovedAway(r) ? outcomeTag(r) : ''; // 지난 일정의 결과(못 함·덜 함·바뀜)
+  lines.push(tag ? `${main} [${tag}]` : main);
   for (const n of legacyNotes) lines.push(`  • ${n}`);
   for (const a of r.appends ?? []) lines.push(`  + ${a.content || a.transcript}`);
   return lines.join('\n');
@@ -46,7 +48,8 @@ export function recordRows(records: ScheduleRecord[]): DocRow[] {
         : t('날짜 미정');
     const [main, ...legacyNotes] = (r.content || r.transcript || t('(내용 없음)')).split('\n• ');
     const notes = [...legacyNotes, ...(r.appends ?? []).map((a) => a.content || a.transcript)];
-    return { when, main, notes };
+    const tag = isPastItem(r) || isMovedAway(r) ? outcomeTag(r) : '';
+    return { when, main: tag ? `${main} [${tag}]` : main, notes };
   });
 }
 
