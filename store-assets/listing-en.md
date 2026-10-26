@@ -31,14 +31,20 @@ Schedules without a recording (ones you typed in, or ones saved on Android 12 an
 ⏰ Early reminders + an on-time alarm
 An alarm at the exact appointment time is already too late. Choose any of 10 minutes, 30 minutes, 1 hour or a day before — or just say "remind me 30 minutes before". At the set time the alarm rings, and rings again 1 and 2 minutes later in case you missed it. Pick sound + vibration, sound only, or vibration only for each schedule.
 
-📅 Calendar and list in one view
-Month or week calendar on top, that period's schedules listed by day below. Past items are folded away so what's coming up stays on top. Day-before reminders show up on the day they ring.
+📅 A calendar you can read at a glance
+Months scroll up and down and schedule names appear right on the days. Tap a day and its schedules slide up from the bottom. Pinch to zoom small text, or tap the year to see all 12 months on one screen.
 
-🤔 No date? Meetings and lectures too
-If you don't say a date or time — a quick note like "buy milk", or a whole meeting or lecture — it's saved at the date and time you started recording. That time has already passed, so no alarm is set. The card shows "Saved at the time you recorded · Set". If it's something to do later, tap "Set" and pick a date and time to get an alarm. If it's a record of a meeting or lecture, just leave it as it is. You can replay the recording on that same screen while you choose the date.
+🧳 Vacations and business trips
+Say "vacation from the 20th to the 24th" and it is saved as a period, shown as a bar on the calendar. If you add something during your vacation, SayRam lets you know first.
 
-🔎 Search and export
-Search by content, or filter by today, this week, this month or any period. Preview the result as text or PDF, then export it.
+✅ Plans that don't just disappear
+If you did it, leave a past schedule as it is. If you couldn't, only partly did, or the plan changed, tap it and choose under "How did it go?". The card gets a tag, and you can reschedule it to a new date with an alert. Upcoming plans can be postponed too ("Postpone"): the original date keeps a "Changed" tag with the new date.
+
+🗂 Schedule tab
+Upcoming schedules are grouped by day with easy labels like "tomorrow" or "in 3 days", and free days are shown in a single line. Search by content, pick a period and export it as text or PDF.
+
+🤔 No date? No problem
+If you don't say a date or time, like a quick "buy milk" or a whole meeting or lecture, it is saved at the time you recorded it. Tap "Set" later to choose a date and get an alert.
 
 💾 Backup and move to a new phone
 Back up all schedules and recordings to one folder, then pick that folder on your new phone to bring everything back.
@@ -49,13 +55,10 @@ There is no account and no login. Your schedules and recordings stay on your pho
 🪶 Light on your phone
 SayRam only works while you record or play back. Nothing keeps running in the background.
 
-🌗 Dark / light theme · 4 text sizes
-Choose the theme that's easy on your eyes and one of four text sizes. Larger text also switches the layout so nothing gets cramped.
+🌗 Dark and light themes, 4 text sizes, 9 languages
+Korean, English, Japanese, Simplified Chinese, Traditional Chinese, Spanish, French, German and Portuguese.
 
-🌏 9 languages
-한국어, English, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português. Change the app language and the spoken language follows.
-
-Say it, and it's scheduled — SayRam.
+Say it, and it's scheduled. SayRam.
 
 ## Category
 Productivity

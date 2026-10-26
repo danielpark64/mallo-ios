@@ -16,13 +16,6 @@ Toque no microfone e fale do jeito que você fala no dia a dia. O SayRam identif
 
 Experimente "jantar com os amigos na sexta que vem às sete", "reunião da equipe daqui a três dias às dez da manhã" ou "tomar meus remédios em trinta minutos".
 
-📌 Feito para você se
-• Digitar compromissos em um teclado pequeno é uma chatice
-• Suas mãos estão ocupadas (dirigindo, cozinhando) e você precisa guardar um plano agora
-• Você prefere ouvir o que realmente disse a ler uma anotação curta
-• Você quer um app simples de alarme e agenda para seus pais
-• Você quer um app leve, para usar na hora, sem cadastro
-
 🔁 Ouça exatamente o que você disse
 Cada compromisso guarda a sua gravação. Toque em ▶ no cartão para ouvir a sua própria voz, ou abra a tela de detalhes e toque em uma palavra para repetir só aquele trecho. Toque e segure, depois arraste pelas palavras, para repetir em loop a parte de que você precisa.
 (As gravações salvas e a repetição por palavra exigem Android 13 ou superior. No Android 12 e anteriores, o que você fala é salvo como texto, e os compromissos e alarmes funcionam do mesmo jeito.)
@@ -31,14 +24,20 @@ Compromissos sem gravação (digitados ou salvos no Android 12 e anteriores) tam
 ⏰ Lembretes antecipados + alarme na hora certa
 Um alarme bem na hora do compromisso já é tarde demais. Escolha entre 10 minutos, 30 minutos, 1 hora ou um dia antes — ou simplesmente diga "me lembre trinta minutos antes". No horário definido o alarme toca, e toca de novo 1 e 2 minutos depois, caso você não tenha ouvido. Em cada compromisso, escolha som + vibração, só som ou só vibração.
 
-📅 Calendário e lista em uma única tela
-Calendário mensal ou semanal em cima e, embaixo, os compromissos do período organizados por dia. Os itens passados ficam recolhidos para que o que vem pela frente fique no topo. Os lembretes de um dia antes aparecem no dia em que tocam.
+📅 Um calendário fácil de ler
+Os meses rolam para cima e para baixo e os nomes dos compromissos aparecem em cada dia. Toque num dia e os compromissos sobem pela parte de baixo. Use dois dedos para ampliar o texto pequeno ou toque no ano para ver os 12 meses numa só tela.
 
-🤔 Sem data? Reuniões e aulas também
-Se você não disser data nem hora ("comprar leite", uma reunião, uma aula), fica salvo com a data e o horário em que você começou a gravar; como já passou, não há alarme. O cartão mostra "Salvo no horário em que você gravou · Definir". Se for algo para depois, toque em "Definir" e escolha data e hora (dá para ouvir a gravação de novo enquanto escolhe) para receber o alarme. Se for o registro de uma reunião ou aula, é só deixar como está.
+🧳 Férias e viagens de trabalho
+Diga "férias do dia 20 ao dia 24" e fica salvo como um período, mostrado como uma barra no calendário. Se você marcar algo durante as férias, o SayRam avisa antes.
 
-🔎 Busca e exportação
-Busque pelo conteúdo ou filtre por hoje, esta semana, este mês ou qualquer período. Visualize o resultado em texto ou PDF e depois exporte.
+✅ Planos que não ficam pelo caminho
+Se você fez, deixe o compromisso passado como está. Se não conseguiu, fez só uma parte ou o plano mudou, toque nele e escolha em "Como foi?". O cartão ganha uma etiqueta e você pode remarcar para uma nova data com aviso. Compromissos futuros também podem ser adiados ("Adiar"): a data original fica com a etiqueta "Mudou" e a nova data.
+
+🗂 Aba de compromissos
+Os próximos compromissos ficam agrupados por dia, com indicações simples como "amanhã" ou "daqui a 3 dias", e os dias livres aparecem numa linha. Pesquise pelo conteúdo, escolha um período e exporte como texto ou PDF.
+
+🤔 Sem data? Sem problema
+Se você não disser data nem hora, como um rápido "comprar leite" ou uma reunião ou aula inteira, fica salvo no horário em que você gravou. Depois toque em "Definir" para escolher a data e receber um aviso.
 
 💾 Backup e troca de celular
 Faça backup de todos os compromissos e gravações em uma única pasta e, no celular novo, escolha essa pasta para trazer tudo de volta.
@@ -49,13 +48,10 @@ Não há conta nem login. Seus compromissos e gravações ficam no seu celular. 
 🪶 Leve no seu celular
 O SayRam só trabalha enquanto você grava ou reproduz. Nada fica rodando em segundo plano.
 
-🌗 Tema escuro / claro · 4 tamanhos de texto
-Escolha o tema mais confortável para os seus olhos e um dos quatro tamanhos de texto. Com o texto maior, o layout também muda para que nada fique apertado.
+🌗 Tema escuro e claro, 4 tamanhos de texto, 9 idiomas
+Coreano, inglês, japonês, chinês simplificado, chinês tradicional, espanhol, francês, alemão e português.
 
-🌏 9 idiomas
-한국어, English, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português. Mude o idioma do app e o idioma da fala muda junto.
-
-Falou, está agendado — SayRam.
+Falou, está agendado. SayRam.
 
 ## Release notes (v1.0.0)
 

@@ -16,13 +16,6 @@ Tippe auf das Mikrofon und sprich so, wie du immer sprichst. SayRam erkennt Datu
 
 Probier „Abendessen mit Freunden nächsten Freitag um 19 Uhr“, „Teammeeting in 3 Tagen um 10 Uhr“ oder „in 30 Minuten Tabletten nehmen“.
 
-📌 Für dich gemacht, wenn
-• dir das Eintippen von Terminen auf einer kleinen Tastatur lästig ist
-• du die Hände voll hast – beim Autofahren, beim Kochen – und einen Termin sofort festhalten willst
-• du lieber hörst, was du wirklich gesagt hast, als eine kurze Notiz zu lesen
-• du eine einfache Alarm- und Termin-App für deine Eltern suchst
-• du eine schlanke App möchtest, die ohne Anmeldung sofort funktioniert
-
 🔁 Hör genau, was du gesagt hast
 Jeder Termin behält seine Aufnahme. Tippe auf einer Karte auf ▶, um deine Stimme zu hören, oder in der Detailansicht auf ein Wort, um nur diese Stelle abzuspielen. Halte gedrückt und ziehe über Wörter, um einen Abschnitt in Schleife zu hören.
 (Aufnahmen und Wort-Wiedergabe ab Android 13. Unter Android 12 und älter wird das Gesagte als Text gespeichert; Termine und Alarme funktionieren genauso. Bei Terminen ohne Aufnahme – auch eingetippten – liest die Stimme des Handys nach ▶ Datum, Uhrzeit und Inhalt vor, ohne Internet.)
@@ -30,14 +23,20 @@ Jeder Termin behält seine Aufnahme. Tippe auf einer Karte auf ▶, um deine Sti
 ⏰ Vorab-Erinnerungen + Alarm zur Terminzeit
 Ein Alarm genau zur Terminzeit kommt schon zu spät. Wähle beliebig aus 10 Minuten, 30 Minuten, 1 Stunde oder einem Tag vorher – oder sag einfach „erinnere mich 30 Minuten vorher“. Zur eingestellten Zeit klingelt der Alarm und noch einmal 1 und 2 Minuten später, falls du ihn überhört hast. Für jeden Termin wählst du Ton + Vibration, nur Ton oder nur Vibration.
 
-📅 Kalender und Liste in einer Ansicht
-Oben der Monats- oder Wochenkalender, darunter die Termine dieses Zeitraums nach Tagen sortiert. Vergangene Einträge sind eingeklappt, damit das Kommende oben bleibt. Erinnerungen vom Vortag erscheinen an dem Tag, an dem sie klingeln.
+📅 Ein Kalender auf einen Blick
+Die Monate scrollen nach oben und unten, und die Terminnamen stehen direkt an den Tagen. Tippe auf einen Tag, und seine Termine erscheinen von unten. Mit zwei Fingern kleinen Text vergrößern oder auf das Jahr tippen, um alle 12 Monate auf einem Bildschirm zu sehen.
 
-🤔 Kein Datum? Auch Besprechungen und Vorlesungen
-Ohne Datum und Uhrzeit („Milch kaufen“, eine Besprechung, eine Vorlesung) wird es zur Startzeit der Aufnahme gespeichert – die ist schon vorbei, also kein Alarm. Auf der Karte steht „Zur Aufnahmezeit gespeichert · Festlegen“. Für später tippst du auf „Festlegen“ und wählst Datum und Uhrzeit (die Aufnahme kannst du dabei nochmal hören) – dann kommt der Alarm. Mitschnitte lässt du einfach so.
+🧳 Urlaub und Dienstreisen
+Sag "Urlaub vom 20. bis zum 24." und es wird als Zeitraum gespeichert und als Balken im Kalender gezeigt. Trägst du etwas während deines Urlaubs ein, weist SayRam dich vorher darauf hin.
 
-🔎 Suchen und exportieren
-Suche nach Inhalt oder filtere nach heute, dieser Woche, diesem Monat oder einem beliebigen Zeitraum. Sieh dir das Ergebnis als Text oder PDF in der Vorschau an und exportiere es dann.
+✅ Pläne, die nicht einfach verschwinden
+Erledigt? Dann lass den vergangenen Termin einfach so. Nicht geschafft, nur halb erledigt oder hat sich der Plan geändert, tippe darauf und wähle unter "Wie lief es?". Die Karte bekommt ein Etikett, und du kannst den Termin mit Hinweis auf ein neues Datum legen. Auch künftige Termine lassen sich verschieben ("Verschieben"): Das ursprüngliche Datum behält das Etikett "Geändert" mit dem neuen Datum.
+
+🗂 Termine-Tab
+Kommende Termine sind nach Tagen sortiert, mit einfachen Angaben wie "morgen" oder "in 3 Tagen", freie Tage stehen in einer Zeile. Suche nach Inhalt, wähle einen Zeitraum und exportiere ihn als Text oder PDF.
+
+🤔 Kein Datum? Kein Problem
+Sagst du kein Datum und keine Uhrzeit, etwa ein schnelles "Milch kaufen" oder ein ganzes Meeting oder eine Vorlesung, wird es zur Aufnahmezeit gespeichert. Tippe später auf "Festlegen", um ein Datum zu wählen und einen Hinweis zu bekommen.
 
 💾 Backup und Umzug aufs neue Handy
 Sichere alle Termine und Aufnahmen in einem Ordner und wähle diesen Ordner auf deinem neuen Handy aus, um alles zurückzuholen.
@@ -48,13 +47,10 @@ Es gibt kein Konto und keinen Login. Deine Termine und Aufnahmen bleiben auf dei
 🪶 Schont dein Handy
 SayRam arbeitet nur, während du aufnimmst oder abspielst. Nichts läuft dauerhaft im Hintergrund.
 
-🌗 Dunkles / helles Design · 4 Schriftgrößen
-Wähle das Design, das für deine Augen angenehm ist, und eine von vier Schriftgrößen. Bei größerer Schrift passt sich auch das Layout an, damit nichts gedrängt wirkt.
+🌗 Dunkles und helles Design, 4 Textgrößen, 9 Sprachen
+Koreanisch, Englisch, Japanisch, vereinfachtes Chinesisch, traditionelles Chinesisch, Spanisch, Französisch, Deutsch und Portugiesisch.
 
-🌏 9 Sprachen
-한국어, English, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português. Ändere die App-Sprache, und die Sprache der Spracheingabe ändert sich mit.
-
-Gesagt, geplant – SayRam.
+Sag es, und es ist eingeplant. SayRam.
 
 ## Release notes (v1.0.0)
 

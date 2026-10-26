@@ -16,13 +16,6 @@ Toca el micrófono y habla como hablas siempre. SayRam detecta la fecha y la hor
 
 Prueba con «cena con amigos el viernes que viene a las siete», «reunión de equipo dentro de tres días a las diez de la mañana» o «tomar las pastillas en treinta minutos».
 
-📌 Pensada para ti si
-• Escribir tus planes en un teclado pequeño te resulta pesado
-• Tienes las manos ocupadas (conduciendo, cocinando) y necesitas guardar un plan ahora mismo
-• Prefieres oír lo que dijiste de verdad antes que leer una nota breve
-• Buscas una app sencilla de alarmas y agenda para tus padres
-• Quieres una app ligera que puedas usar al instante, sin registro
-
 🔁 Escucha exactamente lo que dijiste
 Cada evento conserva su grabación. Toca ▶ en una tarjeta para oír tu propia voz, o abre la pantalla de detalle y toca una palabra para volver a oír solo esa parte. Mantén pulsado y arrastra sobre las palabras para repetir en bucle el fragmento que necesites.
 (Las grabaciones guardadas y la reproducción por palabras requieren Android 13 o posterior. En Android 12 y versiones anteriores, lo que dices se guarda como texto, y los eventos y las alarmas funcionan igual.)
@@ -31,14 +24,20 @@ Los eventos sin grabación (tecleados o guardados en Android 12 o anterior) tamb
 ⏰ Avisos anticipados + alarma a la hora exacta
 Una alarma justo a la hora de la cita ya llega tarde. Elige entre 10 minutos, 30 minutos, 1 hora o un día antes, o simplemente di «avísame treinta minutos antes». A la hora fijada suena la alarma, y vuelve a sonar 1 y 2 minutos después por si no la oíste. En cada evento puedes elegir sonido + vibración, solo sonido o solo vibración.
 
-📅 Calendario y lista en una sola vista
-Arriba, el calendario mensual o semanal; debajo, los eventos de ese periodo ordenados por día. Los eventos pasados se pliegan para que lo próximo quede siempre arriba. Los avisos del día anterior aparecen en el día en que suenan.
+📅 Un calendario que se entiende de un vistazo
+Los meses se desplazan hacia arriba y abajo y los nombres de las citas aparecen en cada día. Toca un día y sus citas aparecen desde abajo. Pellizca para ampliar el texto pequeño o toca el año para ver los 12 meses en una sola pantalla.
 
-🤔 ¿Sin fecha? Reuniones y clases también
-Si no dices fecha ni hora («comprar leche», una reunión, una clase), se guarda con la fecha y hora en que empezaste a grabar; como ya pasó, no hay alarma. La tarjeta muestra «Guardado a la hora en que grabaste · Definir». Si es para más adelante, toca «Definir» y elige fecha y hora (puedes reescuchar la grabación) para tener alarma. Si es una reunión o clase, déjalo así.
+🧳 Vacaciones y viajes de trabajo
+Di "vacaciones del 20 al 24" y se guarda como un periodo, mostrado como una barra en el calendario. Si añades algo durante tus vacaciones, SayRam te avisa antes.
 
-🔎 Buscar y exportar
-Busca por contenido o filtra por hoy, esta semana, este mes o cualquier periodo. Previsualiza el resultado como texto o PDF y luego expórtalo.
+✅ Planes que no se quedan en el aire
+Si lo hiciste, deja la cita pasada como está. Si no pudiste, lo hiciste a medias o el plan cambió, tócala y elige en "¿Cómo fue?". La tarjeta recibe una etiqueta y puedes reprogramarla a una nueva fecha con aviso. Las citas futuras también se pueden posponer ("Posponer"): la fecha original conserva la etiqueta "Cambió" con la nueva fecha.
+
+🗂 Pestaña de citas
+Las próximas citas se agrupan por día con etiquetas claras como "mañana" o "en 3 días", y los días libres se muestran en una sola línea. Busca por contenido, elige un periodo y expórtalo como texto o PDF.
+
+🤔 ¿Sin fecha? No pasa nada
+Si no dices fecha ni hora, como un rápido "comprar leche" o una reunión o clase completa, se guarda con la hora en que grabaste. Más tarde toca "Definir" para elegir la fecha y recibir un aviso.
 
 💾 Copia de seguridad y cambio de móvil
 Guarda una copia de todos tus eventos y grabaciones en una carpeta y, en tu nuevo móvil, elige esa carpeta para recuperarlo todo.
@@ -49,13 +48,10 @@ No hay cuenta ni inicio de sesión. Tus eventos y grabaciones se quedan en tu te
 🪶 Ligera para tu teléfono
 SayRam solo trabaja mientras grabas o reproduces. Nada se queda funcionando en segundo plano.
 
-🌗 Tema oscuro / claro · 4 tamaños de texto
-Elige el tema que te resulte más cómodo a la vista y uno de los cuatro tamaños de texto. Con el texto más grande, el diseño también cambia para que nada quede apretado.
+🌗 Tema oscuro y claro, 4 tamaños de texto, 9 idiomas
+Coreano, inglés, japonés, chino simplificado, chino tradicional, español, francés, alemán y portugués.
 
-🌏 9 idiomas
-한국어, English, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português. Cambia el idioma de la app y el idioma de voz cambia con él.
-
-Dilo y queda agendado: SayRam.
+Dilo y queda agendado. SayRam.
 
 ## Release notes (v1.0.0)
 

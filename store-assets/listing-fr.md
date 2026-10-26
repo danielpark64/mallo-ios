@@ -16,13 +16,6 @@ Touchez le micro et parlez comme vous le faites d'habitude. SayRam repère la da
 
 Essayez « dîner entre amis vendredi prochain à 19h », « réunion d'équipe dans 3 jours à 10h » ou « prendre mes médicaments dans 30 minutes ».
 
-📌 Fait pour vous si
-• Saisir vos rendez-vous sur un petit clavier vous semble fastidieux
-• Vous avez les mains prises (au volant, en cuisine) et devez noter quelque chose tout de suite
-• Vous préférez réentendre ce que vous avez vraiment dit plutôt que lire une courte note
-• Vous cherchez une appli d'alarme et d'agenda simple pour vos parents
-• Vous voulez une appli légère, utilisable tout de suite, sans inscription
-
 🔁 Réécoutez exactement ce que vous avez dit
 Chaque événement garde son enregistrement : ▶ sur une carte fait entendre votre voix, un mot touché dans le détail rejoue ce passage, un appui long glissé sur les mots lit une partie en boucle.
 (Enregistrements et relecture mot par mot : Android 13 ou ultérieur ; sur Android 12 et antérieur, vos paroles sont gardées en texte, alarmes incluses. Sans enregistrement (saisie au clavier ou Android 12 et antérieur), ▶ fait lire date, heure et contenu par la voix du téléphone, sans Internet.)
@@ -30,14 +23,20 @@ Chaque événement garde son enregistrement : ▶ sur une carte fait entendre vo
 ⏰ Rappels anticipés + alarme à l'heure
 Une alarme pile à l'heure du rendez-vous, c'est déjà trop tard. Choisissez 10 minutes, 30 minutes, 1 heure ou un jour avant — ou dites simplement « rappelle-moi 30 minutes avant ». À l'heure prévue, l'alarme sonne, puis sonne de nouveau 1 et 2 minutes plus tard au cas où vous l'auriez manquée. Pour chaque événement, choisissez son + vibration, son seul ou vibration seule.
 
-📅 Calendrier et liste sur un même écran
-En haut, le calendrier par mois ou par semaine ; en dessous, les événements de la période classés par jour. Les éléments passés sont repliés pour que ce qui arrive reste en haut. Les rappels de la veille apparaissent le jour où ils sonnent.
+📅 Un calendrier lisible d'un coup d'oeil
+Les mois défilent de haut en bas et les noms des rendez-vous s'affichent sur chaque jour. Touchez un jour et ses rendez-vous apparaissent en bas. Touchez l'année pour voir les 12 mois sur un écran.
 
-🤔 Pas de date ? Réunions et cours aussi
-Sans date ni heure (« acheter du lait », réunion, cours), c'est classé à l'heure du début de l'enregistrement, déjà passée : pas d'alarme. La carte affiche « Enregistré à l’heure de l’enregistrement · Définir ». À faire plus tard ? Touchez « Définir » et choisissez date et heure (réécoute possible) pour régler l'alarme. Une réunion, un cours ? Laissez tel quel.
+🧳 Vacances et déplacements
+Dites "vacances du 20 au 24" et c'est enregistré comme une période, affichée en barre sur le calendrier. Si vous ajoutez quelque chose pendant vos vacances, SayRam vous prévient d'abord.
 
-🔎 Recherche et export
-Recherchez par contenu ou filtrez par aujourd'hui, cette semaine, ce mois-ci ou la période de votre choix. Prévisualisez le résultat en texte ou en PDF, puis exportez-le.
+✅ Des projets qui ne s'évaporent pas
+Si c'est fait, laissez le rendez-vous passé tel quel. Si vous n'avez pas pu, l'avez fait en partie ou si le projet a changé, touchez-le et choisissez sous "Comment ça s’est passé ?". La carte reçoit une étiquette et vous pouvez le reprogrammer à une nouvelle date avec alerte. Les rendez-vous à venir peuvent aussi être reportés ("Reporter") : la date d'origine garde l'étiquette "Changé" avec la nouvelle date.
+
+🗂 Onglet Agenda
+Les rendez-vous à venir sont regroupés par jour avec des repères simples comme "demain" ou "dans 3 jours", et les jours libres tiennent sur une ligne. Recherchez par contenu, choisissez une période et exportez-la en texte ou en PDF.
+
+🤔 Pas de date ? Pas de souci
+Si vous ne dites ni date ni heure, comme un rapide "acheter du lait" ou toute une réunion ou un cours, c'est enregistré à l'heure de l'enregistrement. Touchez "Définir" plus tard pour choisir une date et recevoir une alerte.
 
 💾 Sauvegarde et changement de téléphone
 Sauvegardez tous vos événements et enregistrements dans un seul dossier, puis sélectionnez ce dossier sur votre nouveau téléphone pour tout retrouver.
@@ -48,13 +47,10 @@ Pas de compte, pas de connexion. Vos événements et enregistrements restent sur
 🪶 Légère pour votre téléphone
 SayRam ne travaille que pendant l'enregistrement ou la lecture. Rien ne tourne en continu en arrière-plan.
 
-🌗 Thème sombre / clair · 4 tailles de texte
-Choisissez le thème le plus reposant pour vos yeux et l'une des quatre tailles de texte. Avec un texte plus grand, la mise en page s'adapte aussi pour que rien ne soit à l'étroit.
+🌗 Thème sombre et clair, 4 tailles de texte, 9 langues
+Coréen, anglais, japonais, chinois simplifié, chinois traditionnel, espagnol, français, allemand et portugais.
 
-🌏 9 langues
-한국어, English, 日本語, 简体中文, 繁體中文, Español, Français, Deutsch, Português. Changez la langue de l'application et la langue parlée suit.
-
-Dites-le, c'est noté — SayRam.
+Dites-le, c'est noté. SayRam.
 
 ## Release notes (v1.0.0)
 
