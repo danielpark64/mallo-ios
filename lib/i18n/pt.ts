@@ -560,4 +560,6 @@ export const PT: Record<string, string> = {
   "미뤄서 이 일정은 알림이 울리지 않아요": "Adiado: este não vai mais avisar",
   "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
     "Se fez um compromisso passado, deixe como está. Se não fez, fez em parte ou mudou, abra-o e escolha em \"Como foi?\". Aparece uma etiqueta no cartão, e com \"Mudou\" ou \"Fiz em parte\" você escolhe uma nova data e define um aviso.",
+  "앞으로의 일정도 일정을 눌러 \"미루기\"로 다른 날로 옮길 수 있습니다(기간 일정은 날짜를 고쳐서 옮깁니다). 새 날짜로 일정과 알림이 다시 잡히고, 원래 일정은 알람이 꺼진 채 \"바뀜 → 새 날짜\" 꼬리표로 남습니다. 원래 날짜가 오기 전에 새로 잡은 일정을 지우면 원래 일정이 되살아납니다.":
+    "Compromissos futuros também podem ir para outro dia: abra-o e toque em \"Adiar\" (num período, altere as datas). Um novo compromisso com aviso é criado na nova data, e o original fica com o alarme desligado e a etiqueta \"Mudou → nova data\". Se você apagar o novo compromisso antes da data original, o original volta.",
 };

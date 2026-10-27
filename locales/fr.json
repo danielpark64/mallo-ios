@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "SayRam",
+    "CFBundleName": "SayRam",
+    "NSMicrophoneUsageDescription": "SayRam a besoin du micro pour enregistrer vos notes vocales.",
+    "NSSpeechRecognitionUsageDescription": "SayRam a besoin de la reconnaissance vocale pour transformer vos paroles en texte.",
+    "NSPhotoLibraryUsageDescription": "SayRam n'utilise pas votre photothèque. Cette entrée est requise par un composant système utilisé pour enregistrer les fichiers."
+  }
+}

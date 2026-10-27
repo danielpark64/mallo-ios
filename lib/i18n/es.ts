@@ -560,4 +560,6 @@ export const ES: Record<string, string> = {
   "미뤄서 이 일정은 알림이 울리지 않아요": "Pospuesto: este ya no avisará",
   "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
     "Si hiciste un evento pasado, déjalo como está. Si no lo hiciste, lo hiciste a medias o cambió, ábrelo y elige en «¿Cómo fue?». Aparece una etiqueta en la tarjeta, y con «Cambió» o «A medias» puedes elegir una nueva fecha y poner un aviso.",
+  "앞으로의 일정도 일정을 눌러 \"미루기\"로 다른 날로 옮길 수 있습니다(기간 일정은 날짜를 고쳐서 옮깁니다). 새 날짜로 일정과 알림이 다시 잡히고, 원래 일정은 알람이 꺼진 채 \"바뀜 → 새 날짜\" 꼬리표로 남습니다. 원래 날짜가 오기 전에 새로 잡은 일정을 지우면 원래 일정이 되살아납니다.":
+    "Las citas futuras también se pueden mover a otro día: ábrela y toca «Posponer» (en un periodo, cambia sus fechas). Se crea una cita con aviso en la nueva fecha, y la original queda con la alarma apagada y la etiqueta «Cambió → nueva fecha». Si borras la nueva cita antes de la fecha original, la original vuelve.",
 };

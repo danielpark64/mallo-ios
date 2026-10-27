@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "SayRam",
+    "CFBundleName": "SayRam",
+    "NSMicrophoneUsageDescription": "SayRam benötigt Zugriff auf das Mikrofon, um deine Sprachnotizen aufzunehmen.",
+    "NSSpeechRecognitionUsageDescription": "SayRam benötigt die Spracherkennung, um Gesagtes in Text umzuwandeln.",
+    "NSPhotoLibraryUsageDescription": "SayRam verwendet deine Fotomediathek nicht. Dieser Eintrag wird von einer Systemkomponente zum Speichern von Dateien benötigt."
+  }
+}

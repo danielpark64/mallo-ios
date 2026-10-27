@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "SayRam",
+    "CFBundleName": "SayRam",
+    "NSMicrophoneUsageDescription": "需要使用麦克风来录制语音备忘。",
+    "NSSpeechRecognitionUsageDescription": "需要语音识别权限，把你说的话转成文字。",
+    "NSPhotoLibraryUsageDescription": "SayRam 不会使用照片图库。此项是保存文件所用的系统组件所必需的。"
+  }
+}

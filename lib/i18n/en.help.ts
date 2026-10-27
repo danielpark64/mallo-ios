@@ -189,4 +189,6 @@ export const EN_HELP: Record<string, string> = {
     "Past schedules are folded under \"Show N past schedules\" so upcoming ones stay on top. Tap to expand; they are not folded while you search or filter by period.",
   "지난 일정은 했으면 그대로 두면 됩니다. 못 했거나 덜 했거나 바뀌었으면 일정을 눌러 \"어떻게 됐나요?\"에서 골라 주세요. 카드에 꼬리표가 붙고, \"바뀌었어요\"·\"덜 했어요\"는 새 날짜로 다시 잡아 알림을 걸어 둘 수 있습니다.":
     "If you did a past event, just leave it. If you didn't, only partly did it, or it changed, open it and choose under \"How did it go?\". A tag appears on the card, and with \"Changed\" or \"Partly done\" you can pick a new date and set an alert.",
+  "앞으로의 일정도 일정을 눌러 \"미루기\"로 다른 날로 옮길 수 있습니다(기간 일정은 날짜를 고쳐서 옮깁니다). 새 날짜로 일정과 알림이 다시 잡히고, 원래 일정은 알람이 꺼진 채 \"바뀜 → 새 날짜\" 꼬리표로 남습니다. 원래 날짜가 오기 전에 새로 잡은 일정을 지우면 원래 일정이 되살아납니다.":
+    "Upcoming schedules can be moved to another day too: open one and tap \"Postpone\" (for a period, edit its dates instead). A new schedule and alert are set for the new date, and the original stays with its alarm off and a \"Changed → new date\" tag. If you delete the new schedule before the original date, the original comes back.",
 };
