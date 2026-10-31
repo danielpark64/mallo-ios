@@ -505,7 +505,9 @@ class AlarmService : Service() {
     private fun buildAlertNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean): Notification {
         val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn)
         val snoozePi = servicePi(11, ACTION_SNOOZE, recordId, title, body, soundOn, vibOn)
+        // 알림을 누르면 앱을 열고 이 일정 ID를 넘긴다(앱이 그 일정 상세 화면을 연다 — MalloAlarmModule.consumeOpenRecordId)
         val launch = packageManager.getLaunchIntentForPackage(packageName)
+            ?.putExtra(AlarmScheduling.EXTRA_OPEN_RECORD_ID, recordId)
         val openPi = launch?.let {
             PendingIntent.getActivity(this, 13, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }

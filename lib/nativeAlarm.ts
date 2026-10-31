@@ -23,6 +23,8 @@ type MalloAlarmNative = {
   setVoice?(recordId: string, path: string): void;
   clearVoices?(): void;
   listScheduled(): Array<{ key: string; recordId: string; at: number }>;
+  consumeOpenRecordId?(): string | null;
+  addListener?(event: 'onOpenRecord', listener: () => void): { remove(): void };
 };
 
 /**
@@ -147,4 +149,21 @@ export function clearNativeAlarmVoices(): void {
   const native = getNative();
   if (!native?.clearVoices) return;
   try { native.clearVoices(); } catch {}
+}
+
+/**
+ * 네이티브 알람 알림을 눌러 앱이 열렸으면 그 일정 ID를 한 번만 돌려준다(읽으면 비운다). 없으면 null.
+ * 앱이 꺼져 있다가 열린 경우(시작 시)와 이미 켜져 있던 경우(onOpenRecord 이벤트 뒤) 모두 이것으로 읽는다.
+ */
+export function consumeNativeOpenRecordId(): string | null {
+  const native = getNative();
+  if (!native?.consumeOpenRecordId) return null;
+  try { return native.consumeOpenRecordId(); } catch { return null; }
+}
+
+/** 앱이 켜져 있는 동안 네이티브 알람 알림을 눌렀을 때 부른다. iOS·구버전 네이티브는 아무것도 안 함. */
+export function addNativeOpenRecordListener(listener: () => void): { remove(): void } {
+  const native = getNative();
+  if (!native?.addListener) return { remove() {} };
+  try { return native.addListener('onOpenRecord', listener); } catch { return { remove() {} }; }
 }

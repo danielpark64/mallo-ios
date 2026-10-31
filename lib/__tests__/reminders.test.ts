@@ -1,5 +1,5 @@
 // 미리 알림: 울릴 시각, 문구, 식별자, 말로 한 요청 추출
-import { extractRemindBefore, normalizeRemind, parsePreRecordId, preRecordId, remindBody, remindFireAt, remindLabel } from '../reminders';
+import { extractRemindBefore, normalizeRemind, parsePreRecordId, preRecordId, remindBody, remindFireAt, remindLabel, baseRecordId } from '../reminders';
 import { parseSchedule } from '../parseSchedule';
 
 describe('remindFireAt / remindBody / 라벨', () => {
@@ -78,5 +78,15 @@ describe('영어 라벨 (언어 설정 en)', () => {
     expect(remindBody(30, 'Dentist', at)).toBe('In 30 min · Dentist');
     expect(remindBody(60, 'Dentist', at)).toBe('In 1 hour · Dentist');
     expect(remindBody(1440, 'Dentist', at)).toBe('Tomorrow 3:00 PM · Dentist');
+  });
+});
+
+describe('baseRecordId — 알림을 눌렀을 때 열 일정', () => {
+  test('미리 알림이면 원래 일정 ID', () => {
+    expect(baseRecordId('abc123#pre30')).toBe('abc123');
+    expect(baseRecordId('abc123#pre1440')).toBe('abc123');
+  });
+  test('정각 알람은 그대로', () => {
+    expect(baseRecordId('abc123')).toBe('abc123');
   });
 });

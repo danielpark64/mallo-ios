@@ -33,8 +33,8 @@ import {
   collapsePast, PAST_PAGE,
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs } from './lib/prefs';
-import { normalizeRemind, parsePreRecordId } from './lib/reminders';
-import { setNativeAlarmLabels } from './lib/nativeAlarm';
+import { baseRecordId, normalizeRemind, parsePreRecordId } from './lib/reminders';
+import { addNativeOpenRecordListener, consumeNativeOpenRecordId, setNativeAlarmLabels } from './lib/nativeAlarm';
 import { LanguageProvider, useT } from './lib/i18n';
 import {
   EMPTY_FILTER,
@@ -522,11 +522,36 @@ function AppInner() {
     })();
   }, []);
 
+  // 지금 열려 있는 창 — 알림으로 상세를 열 때 겹치지 않게 본다(값은 아래 daySheet 선언 뒤 effect에서 채운다)
+  const openWindowsRef = useRef({ editor: false, recorder: false, settings: false, day: false, detail: null as string | null });
+
+  // 알람·미리 알림을 눌러 앱을 열면 달력 대신 그 일정의 상세 화면을 연다(지워진 일정이면 아무것도 안 함)
+  const openRecordFromAlarm = (id: string) => {
+    const target = baseRecordId(id);
+    if (!recordsRef.current.some((r) => r.id === target)) return;
+    const w = openWindowsRef.current;
+    // 쓰거나 녹음하던 중이면 그 화면을 지키고 열지 않는다(알람은 이미 꺼졌다)
+    if (w.editor || w.recorder || w.detail === target) return;
+    if (w.settings || w.day || w.detail) {
+      // iOS는 창(Modal)을 두 개 동시에 못 띄운다 → 열린 창을 닫고 상세→편집기 전환과 같은 450ms 뒤에 연다
+      setSettingsOpen(false);
+      setDaySheet(null);
+      setDetailId(null);
+      setTimeout(() => setDetailId(target), 450);
+      return;
+    }
+    setDetailId(target);
+  };
+
   useEffect(() => {
     const handleResponse = async (response: Notifications.NotificationResponse) => {
       const data = response.notification.request.content.data as any;
       const recordId: string | undefined = data?.recordId;
       if (!recordId) return;
+      // 처리한 응답을 지워 둔다 — 남겨 두면 화면이 다시 만들어질 때(getLast…) 같은 응답을 또 처리한다
+      try { Notifications.clearLastNotificationResponse(); } catch {}
+      // 알림 본문을 누른 경우만 연다(끄기·5분 뒤·밀어서 닫기는 열지 않는다)
+      if (response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) openRecordFromAlarm(recordId);
       const pre = parsePreRecordId(recordId);
       if (pre) {
         // 미리 알림(한 번짜리): 끄기/닫기는 할 일 없음, 5분 뒤 다시는 같은 문구로 한 번만
@@ -556,7 +581,17 @@ function AppInner() {
     Notifications.getLastNotificationResponseAsync()
       .then((r) => { if (r) handleResponse(r); })
       .catch(() => {});
-    return () => sub.remove();
+    // Android 네이티브 알람 알림을 눌러 열린 경우: 앱이 꺼져 있었으면 지금, 켜져 있었으면 이벤트로 받는다
+    // 알림을 누른 것은 알람을 본 것이므로 Expo 알림과 같게 울림을 멈추고 남은 재알림(+1/+2분)도 두 경로 모두 취소한다
+    const openNative = () => {
+      const id = consumeNativeOpenRecordId();
+      if (!id) return;
+      cancelAlarmByRecordId(id).catch(() => {});
+      openRecordFromAlarm(id);
+    };
+    openNative();
+    const nativeSub = addNativeOpenRecordListener(openNative);
+    return () => { sub.remove(); nativeSub.remove(); };
   }, []);
 
   const liveParsed = useMemo(() => parseSchedule(voice.liveText), [voice.liveText]);
@@ -600,6 +635,9 @@ function AppInner() {
   const [yearShown, setYearShown] = useState(() => new Date().getFullYear());
   const [monthJump, setMonthJump] = useState<{ y: number; m: number; nonce: number } | null>(null);
   const [daySheet, setDaySheet] = useState<Date | null>(null);
+  useEffect(() => {
+    openWindowsRef.current = { editor: editorOpen, recorder: showRecorder, settings: settingsOpen, day: daySheet != null, detail: detailId };
+  }, [editorOpen, showRecorder, settingsOpen, daySheet, detailId]);
   const [showLunar, setShowLunar] = useState(false);
   const toggleLunar = useCallback(() => setShowLunar((v) => !v), []);
   // 교대알람에서 가져온 근무표(같은 폰, URL로 주고받음 — lib/shiftImport.ts). 일정·알람은 만들지 않는다

@@ -104,6 +104,10 @@ export function parsePreRecordId(id: string): { recordId: string; minutes: numbe
   const mm = /^(.+)#pre(\d+)$/.exec(id);
   return mm ? { recordId: mm[1], minutes: Number(mm[2]) } : null;
 }
+/** 알림을 눌렀을 때 열 일정 — 미리 알림("id#pre30")이면 원래 일정 "id", 정각 알람이면 그대로 */
+export function baseRecordId(id: string): string {
+  return parsePreRecordId(id)?.recordId ?? id;
+}
 
 const KO_HOUR: Record<string, number> = { 한: 1, 두: 2, 세: 3, 1: 1, 2: 2, 3: 3 };
 

@@ -20,6 +20,23 @@ class MalloAlarmModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("MalloAlarm")
 
+        // 앱이 켜져 있을 때 알람 알림을 누르면 새 인텐트로 들어온다 → 일정 ID를 받아 두고 JS에 알린다
+        Events("onOpenRecord")
+        OnNewIntent { intent ->
+            takeOpenRecordId(intent)?.let {
+                pendingOpenRecordId = it
+                sendEvent("onOpenRecord", mapOf("recordId" to it))
+            }
+        }
+
+        /** 알람 알림을 눌러 열린 일정 ID를 한 번만 돌려준다(꺼져 있다가 열렸으면 시작 인텐트에서 읽는다). 없으면 null */
+        Function("consumeOpenRecordId") { ->
+            appContext.currentActivity?.intent?.let { takeOpenRecordId(it) }?.let { pendingOpenRecordId = it }
+            val id = pendingOpenRecordId
+            pendingOpenRecordId = null
+            id
+        }
+
         /** key = Expo 식별자와 동일(mallo_<recordId>_<slot>). 같은 키로 다시 부르면 덮어쓴다. */
         Function("schedule") { key: String, recordId: String, triggerAtMs: Double, title: String, body: String, soundOn: Boolean, vibOn: Boolean ->
             val e = AlarmStore.Entry(
@@ -99,5 +116,18 @@ class MalloAlarmModule : Module() {
         Function("listScheduled") { ->
             AlarmStore.all(context).map { mapOf("key" to it.key, "recordId" to it.recordId, "at" to it.triggerAtMs.toDouble()) }
         }
+    }
+
+    /** 일정 ID를 꺼내고 인텐트에서 지운다 — 화면 회전 등으로 같은 인텐트를 다시 읽어도 또 열리지 않게 */
+    private fun takeOpenRecordId(intent: Intent): String? {
+        val id = intent.getStringExtra(AlarmScheduling.EXTRA_OPEN_RECORD_ID) ?: return null
+        intent.removeExtra(AlarmScheduling.EXTRA_OPEN_RECORD_ID)
+        // 최근 앱 목록에서 다시 열면 시스템이 처음 인텐트를 그대로 다시 준다 → 옛 알람 일정을 또 열지 않는다
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
+        return id
+    }
+
+    companion object {
+        @Volatile private var pendingOpenRecordId: String? = null
     }
 }

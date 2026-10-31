@@ -18,6 +18,8 @@ import android.os.Build
 object AlarmScheduling {
     const val EXTRA_KEY = "key"
     const val EXTRA_RECORD_ID = "recordId"
+    /** 알람 알림을 눌러 앱을 열 때 실어 보내는 일정 ID — 앱이 받아 그 일정 상세 화면을 연다 */
+    const val EXTRA_OPEN_RECORD_ID = "malloOpenRecordId"
     const val EXTRA_TITLE = "title"
     const val EXTRA_BODY = "body"
     const val EXTRA_SOUND_ON = "soundOn"
