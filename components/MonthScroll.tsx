@@ -12,7 +12,7 @@ import { clampZoom, panZoom, pinchZoom, type Zoom } from '../lib/calendarKit/zoo
 import { cellMetrics, monthWeeks, singleDayIndex, weekBars, type CalDensity, type CalEvent, type CellMetrics } from '../lib/calendarKit/monthLayout';
 import { getHolidayShort, ymdKey } from '../lib/calendarKit/holidays';
 import { getSolarTerm } from '../lib/calendarKit/solarTerms';
-import { lunarShortText } from '../lib/calendarKit/lunar';
+import { lunarCellText } from '../lib/calendarKit/lunar';
 import { shiftOn, type ShiftData } from '../lib/shiftImport';
 
 const BEFORE = 24; // 오늘 기준 앞뒤로 그릴 달 수
@@ -345,7 +345,9 @@ const MonthBlock = memo(function MonthBlock({
               const isSel = k === selKey;
               const hol = getHolidayShort(d);
               const shift = shiftOn(shifts, d);
-              const sub = showLunar ? (getSolarTerm(k) ?? lunarShortText(d)) : '';
+              // 음력 초하루("10.1")는 몇 월인지 알려 주는 칸이라 절기보다 먼저 — 나머지 날은 절기가 먼저
+              const lun = showLunar ? lunarCellText(d) : '';
+              const sub = showLunar ? (lun.includes('.') ? lun : (getSolarTerm(k) ?? lun)) : '';
               const items = singles.get(k) ?? [];
               const barTitles = bars.filter((b) => ci >= b.startCol && ci <= b.endCol).map((b) => b.title);
               const free = Math.max(0, maxLines - lanes);
@@ -369,8 +371,11 @@ const MonthBlock = memo(function MonthBlock({
                     {shift ? (
                       <Text style={shift.off ? s.shiftOff : [s.shift, { color: shift.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>{shift.label}</Text>
                     ) : null}
-                    {/* 근무가 있으면 칸이 좁아 둘 다 잘리므로(말··· 개···) 근무만 — 공휴일은 빨간 숫자로 알 수 있고 이름은 날짜 시트에 */}
-                    {(hol || sub) && !shift ? (
+                    {/* 근무가 있으면 칸이 좁아 둘 다 잘리므로(말··· 개···) 공휴일 이름은 빼고 — 빨간 숫자로 알 수 있고 이름은 날짜 시트에.
+                        음력은 사용자가 켠 것이라 근무가 있어도 함께 보인다(근무표가 매일 있으면 음력이 하나도 안 나왔다) */}
+                    {shift ? (
+                      sub ? <Text style={[s.sub, { flexShrink: 10 }]} numberOfLines={1} maxFontSizeMultiplier={1}>{sub}</Text> : null
+                    ) : (hol || sub) ? (
                       <Text style={[s.sub, hol ? { color: C.red } : null]} numberOfLines={1} maxFontSizeMultiplier={1}>{hol ?? sub}</Text>
                     ) : null}
                   </View>

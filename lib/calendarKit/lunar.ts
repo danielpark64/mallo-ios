@@ -22,3 +22,13 @@ export function lunarShortText(d: Date): string {
   memo.set(key, out);
   return out;
 }
+
+/** 달력 칸용 더 짧은 음력: 음력 초하루만 "10.1"(윤달 "윤6.1"), 나머지 날은 일만 "15".
+ *  칸이 좁아 "10.10"이 "10…."로 잘렸다(노트에서도). 몇 월인지는 초하루 칸과 날짜 시트에서 알 수 있다. */
+export function lunarCellText(d: Date): string {
+  const full = lunarShortText(d);
+  if (!full) return '';
+  const dot = full.indexOf('.');
+  const day = full.slice(dot + 1);
+  return day === '1' ? full : day;
+}
