@@ -64,3 +64,18 @@ describe('달력 확대·축소', () => {
     expect(cellMetrics(1, 1.3).cellH).toBeGreaterThan(b.cellH);
   });
 });
+
+describe('cellMetrics 음력 줄', () => {
+  test('음력을 켜면 칸이 음력 한 줄만큼 길어지고, 일정 줄 수는 그대로', () => {
+    for (const scale of [1, 1.45]) {
+      for (const d of [0, 1, 2] as const) {
+        const off = cellMetrics(d, scale);
+        const on = cellMetrics(d, scale, true);
+        expect(off.lunarH).toBe(0);
+        expect(on.lunarH).toBeGreaterThan(0);
+        expect(on.cellH - on.lunarH).toBe(off.cellH);
+        expect(Math.floor((on.cellH - on.numH - on.lunarH - 4) / on.laneH)).toBe(Math.floor((off.cellH - off.numH - 4) / off.laneH));
+      }
+    }
+  });
+});

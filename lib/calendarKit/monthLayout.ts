@@ -78,14 +78,16 @@ export function densityAfterDoubleTap(cur: CalDensity): CalDensity {
   return cur < 2 ? ((cur + 1) as CalDensity) : 1;
 }
 
-export type CellMetrics = { titleH: number; cellH: number; numH: number; laneH: number; showNames: boolean };
+export type CellMetrics = { titleH: number; cellH: number; numH: number; lunarH: number; laneH: number; showNames: boolean };
 
-/** 단계·글자 배율에 따른 칸 크기 */
-export function cellMetrics(d: CalDensity, scale: number): CellMetrics {
+/** 단계·글자 배율에 따른 칸 크기.
+ *  음력을 켜면 날짜 줄 아래에 음력 한 줄(lunarH)을 더한다 — 글자가 크면 날짜·근무 옆에 음력 자리가 없어 "1…"로 잘렸다 */
+export function cellMetrics(d: CalDensity, scale: number, lunar = false): CellMetrics {
   const numH = Math.round(22 * scale);
+  const lunarH = lunar ? Math.round(12 * scale) : 0;
   const laneH = Math.round(15 * scale);
   const titleH = Math.round(44 * scale);
-  if (d === 0) return { titleH, numH, laneH: Math.round(5 * scale), cellH: numH + Math.round(12 * scale), showNames: false };
+  if (d === 0) return { titleH, numH, lunarH, laneH: Math.round(5 * scale), cellH: numH + lunarH + Math.round(12 * scale), showNames: false };
   const lines = d === 1 ? 4 : 8;
-  return { titleH, numH, laneH, cellH: numH + laneH * lines + 6, showNames: true };
+  return { titleH, numH, lunarH, laneH, cellH: numH + lunarH + laneH * lines + 6, showNames: true };
 }

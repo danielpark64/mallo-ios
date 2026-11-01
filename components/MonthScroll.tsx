@@ -66,7 +66,7 @@ export const MonthScroll = memo(function MonthScroll({
   const { scale } = useFontScale();
   const s = useMemo(() => makeStyles(C, scale), [C, scale]);
   const base = useMemo(() => new Date(), []);
-  const metrics: Metrics = useMemo(() => cellMetrics(density, scale), [density, scale]);
+  const metrics: Metrics = useMemo(() => cellMetrics(density, scale, showLunar), [density, scale, showLunar]);
 
   const months = useMemo(() => Array.from({ length: BEFORE + AFTER + 1 }, (_, i) => i), []);
   // 달마다 높이가 다르다(5주/6주) → 누적 위치표
@@ -324,7 +324,7 @@ const MonthBlock = memo(function MonthBlock({
     const me = new Date(y, m + 1, 0).getTime();
     return events.filter((e) => e.start.getTime() <= me && e.end.getTime() >= ms);
   }, [events, y, m]);
-  const { cellH, numH, laneH, showNames } = metrics;
+  const { cellH, numH, lunarH, laneH, showNames } = metrics;
   return (
     <View>
       <TouchableOpacity activeOpacity={1} onPress={onTitleTap} style={{ height: metrics.titleH, justifyContent: 'flex-end', paddingBottom: 6, paddingHorizontal: 6 }}>
@@ -332,7 +332,7 @@ const MonthBlock = memo(function MonthBlock({
       </TouchableOpacity>
       {weeks.map((week, wi) => {
         // 막대 + 하루 일정이 들어갈 줄 수(작게는 얇은 막대 1줄 + 점)
-        const maxLines = showNames ? Math.floor((cellH - numH - 4) / laneH) : 1;
+        const maxLines = showNames ? Math.floor((cellH - numH - lunarH - 4) / laneH) : 1;
         // 기간 막대가 칸 아래로 넘치지 않게 줄 수를 제한한다(넘친 막대는 그날 시트에서 보인다)
         const bars = weekBars(monthEvents, week).filter((b) => b.lane < maxLines);
         const lanes = bars.reduce((n, b) => Math.max(n, b.lane + 1), 0);
@@ -371,14 +371,17 @@ const MonthBlock = memo(function MonthBlock({
                     {shift ? (
                       <Text style={shift.off ? s.shiftOff : [s.shift, { color: shift.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>{shift.label}</Text>
                     ) : null}
-                    {/* 근무가 있으면 칸이 좁아 둘 다 잘리므로(말··· 개···) 공휴일 이름은 빼고 — 빨간 숫자로 알 수 있고 이름은 날짜 시트에.
-                        음력은 사용자가 켠 것이라 근무가 있어도 함께 보인다(근무표가 매일 있으면 음력이 하나도 안 나왔다) */}
-                    {shift ? (
-                      sub ? <Text style={[s.sub, { flexShrink: 10 }]} numberOfLines={1} maxFontSizeMultiplier={1}>{sub}</Text> : null
-                    ) : (hol || sub) ? (
-                      <Text style={[s.sub, hol ? { color: C.red } : null]} numberOfLines={1} maxFontSizeMultiplier={1}>{hol ?? sub}</Text>
+                    {/* 근무가 있으면 칸이 좁아 둘 다 잘리므로(말··· 개···) 공휴일 이름은 빼고 — 빨간 숫자로 알 수 있고 이름은 날짜 시트에 */}
+                    {!shift && hol ? (
+                      <Text style={[s.sub, { color: C.red }]} numberOfLines={1} maxFontSizeMultiplier={1}>{hol}</Text>
                     ) : null}
                   </View>
+                  {/* 음력·절기는 날짜 줄 아래 따로 한 줄 — 같은 줄이면 근무가 있거나 글자가 클 때 "1…"로 잘렸다 */}
+                  {lunarH > 0 ? (
+                    <View style={[s.lunarRow, { height: lunarH }]}>
+                      {sub ? <Text style={[s.sub, s.lunarText]} numberOfLines={1} maxFontSizeMultiplier={1}>{sub}</Text> : null}
+                    </View>
+                  ) : null}
                   {/* 기간 막대 자리만큼 비운다 */}
                   <View style={{ height: lanes * laneH }} />
                   {showNames ? (
@@ -405,7 +408,7 @@ const MonthBlock = memo(function MonthBlock({
                 style={[
                   s.bar,
                   {
-                    top: numH + b.lane * laneH,
+                    top: numH + lunarH + b.lane * laneH,
                     height: laneH - 2,
                     left: `${(b.startCol / 7) * 100}%`,
                     width: `${((b.endCol - b.startCol + 1) / 7) * 100}%`,
@@ -448,6 +451,9 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   shift: { fontSize: 9, fontWeight: '800', flexShrink: 1, maxWidth: '55%' },
   shiftOff: { fontSize: 9, fontWeight: '800', flexShrink: 1, maxWidth: '60%', color: C.bg, backgroundColor: C.green, borderRadius: 4, paddingHorizontal: 3, overflow: 'hidden' },
   sub: { flexShrink: 1, color: C.textDim, fontSize: 9 },
+  lunarRow: { alignItems: 'center', justifyContent: 'center' },
+  // Android 글자 위아래 여백을 빼서 '아주 크게'에서도 음력 줄(12×배율) 안에 들어가게
+  lunarText: { includeFontPadding: false },
   chip: { fontSize: 10, color: C.text, backgroundColor: C.surfaceHigh, borderRadius: 3, paddingHorizontal: 2, marginBottom: 1, overflow: 'hidden' },
   more: { fontSize: 10, color: C.textSub, paddingHorizontal: 2 },
   dots: { flexDirection: 'row', gap: 3, paddingLeft: 4, marginTop: 1 },
