@@ -71,7 +71,7 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.USE_FULL_SCREEN_INTENT"
       ],
-      "versionCode": 2,
+      "versionCode": 3,
       "blockedPermissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
@@ -96,7 +96,16 @@
       "expo-sharing",
       "./plugins/withIosSceneDelegate.js",
       "./plugins/withAndroidReleaseSigning.js",
-      "./plugins/withLocalizedAppName.js"
+      "./plugins/withLocalizedAppName.js",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.danielpark.** { *; }\n-keep class expo.modules.** { *; }"
+          }
+        }
+      ]
     ],
     "locales": {
       "ko": "./locales/ko.json",
