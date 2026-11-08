@@ -41,7 +41,7 @@ test('하루짜리 일정은 날짜별로, 시간순', () => {
 });
 
 // ── 확대·축소(두 손가락·달 제목 두 번 탭): 작게(점) / 보통 / 크게 ──
-import { densityAfterPinch, densityAfterDoubleTap, cellMetrics } from '../calendarKit/monthLayout';
+import { densityAfterPinch, densityAfterDoubleTap, cellMetrics, monthIndexAt } from '../calendarKit/monthLayout';
 describe('달력 확대·축소', () => {
   test('벌리면 한 단계 크게, 오므리면 한 단계 작게, 조금 움직인 건 무시', () => {
     expect(densityAfterPinch(1, 100, 160)).toBe(2);
@@ -77,5 +77,19 @@ describe('cellMetrics 음력 줄', () => {
         expect(Math.floor((on.cellH - on.numH - on.lunarH - 4) / on.laneH)).toBe(Math.floor((off.cellH - off.numH - 4) / off.laneH));
       }
     }
+  });
+});
+
+describe('monthIndexAt 고정 머리의 달', () => {
+  const offsets = [0, 500, 1100, 1600];
+  test('경계와 달 안쪽', () => {
+    expect(monthIndexAt(offsets, 0)).toBe(0);
+    expect(monthIndexAt(offsets, 499)).toBe(0);
+    expect(monthIndexAt(offsets, 500)).toBe(1);
+    expect(monthIndexAt(offsets, 1099)).toBe(1);
+  });
+  test('범위 밖은 양 끝 달(바운스)', () => {
+    expect(monthIndexAt(offsets, -50)).toBe(0);
+    expect(monthIndexAt(offsets, 99999)).toBe(3);
   });
 });

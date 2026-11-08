@@ -520,10 +520,10 @@ export const FR: Record<string, string> = {
     "Faites glisser vers le haut ou le bas et le mois suivant s’enchaîne. Chaque jour affiche le nom des événements, les événements sur plusieurs jours comme les vacances apparaissent en barres continues et les jours fériés avec une date et un nom en rouge.",
   "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
     "Touchez une date et les événements de ce jour s’affichent en bas. Ouvrez-les ou touchez « ＋ Ajouter un événement ce jour-là » pour en créer un aussitôt.",
-  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 달 이름이나 요일 줄을 두 번 눌러도 커집니다.":
-    "Si le texte est petit, écartez deux doigts pour agrandir l’écran (jusqu’à 3×). Une fois agrandi, faites glisser sur les côtés pour vous déplacer et touchez « Taille d’origine » pour revenir. Toucher deux fois le nom du mois ou la ligne des jours agrandit aussi.",
-  "왼쪽 위 \"‹ 2026\"을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
-    "Touchez « ‹ 2026 » en haut à gauche pour la vue annuelle, puis un mois pour y aller. « Aujourd’hui » revient au mois en cours et « Lunaire » affiche aussi les dates lunaires et les termes solaires.",
+  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 요일 줄을 두 번 눌러도 커집니다.":
+    "Si le texte est petit, écartez deux doigts pour agrandir l’écran (jusqu’à 3×). Une fois agrandi, faites glisser sur les côtés pour vous déplacer et touchez « Taille d’origine » pour revenir. Toucher deux fois la ligne des jours agrandit aussi.",
+  "왼쪽 위 달 이름을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
+    "Touchez le nom du mois en haut à gauche pour la vue annuelle, puis un mois pour y aller. « Aujourd’hui » revient au mois en cours et « Lunaire » affiche aussi les dates lunaires et les termes solaires.",
   "같은 폰에 교대알람이 있으면 설정 › 달력 › \"교대알람과 일정 공유\"를 켜세요. 교대알람 근무(초번·말번·비번 등)가 날짜 옆에 작게 보입니다. 두 앱 중 한쪽에서만 켜도 됩니다.":
     "Si RotaWake est sur le même téléphone, activez Réglages › Calendrier › « Partager avec RotaWake ». Vos postes RotaWake s’affichent en petit à côté de la date. Il suffit de l’activer dans l’une des deux apps.",
   "5. 일정 화면과 찾기":

@@ -86,8 +86,21 @@ export function cellMetrics(d: CalDensity, scale: number, lunar = false): CellMe
   const numH = Math.round(22 * scale);
   const lunarH = lunar ? Math.round(12 * scale) : 0;
   const laneH = Math.round(15 * scale);
-  const titleH = Math.round(44 * scale);
+  // 지금 보는 달은 고정 머리에 크게 나오니, 달 사이에는 경계를 알리는 작은 표시만 둔다
+  const titleH = Math.round(18 * scale);
   if (d === 0) return { titleH, numH, lunarH, laneH: Math.round(5 * scale), cellH: numH + lunarH + Math.round(12 * scale), showNames: false };
   const lines = d === 1 ? 4 : 8;
   return { titleH, numH, lunarH, laneH, cellH: numH + lunarH + laneH * lines + 6, showNames: true };
+}
+
+/** 누적 위치표(offsets, 오름차순)에서 y 위치가 속한 달의 번호 */
+export function monthIndexAt(offsets: number[], y: number): number {
+  let lo = 0;
+  let hi = offsets.length - 1;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (offsets[mid] <= y) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
 }

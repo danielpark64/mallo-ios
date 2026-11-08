@@ -520,10 +520,10 @@ export const PT: Record<string, string> = {
     "Deslize para cima ou para baixo e o mês seguinte continua. Cada dia mostra os nomes dos compromissos, os de vários dias como férias aparecem como barras contínuas e os feriados com data e nome em vermelho.",
   "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
     "Toque numa data e os compromissos do dia aparecem por baixo. Abra-os ou toque em \"＋ Adicionar compromisso neste dia\" para criar um ali mesmo.",
-  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 달 이름이나 요일 줄을 두 번 눌러도 커집니다.":
-    "Se o texto estiver pequeno, afaste dois dedos para ampliar a tela (até 3×). Com a tela ampliada, deslize para os lados para percorrer e toque em \"Tamanho original\" para voltar. Tocar duas vezes no nome do mês ou na linha dos dias da semana também amplia.",
-  "왼쪽 위 \"‹ 2026\"을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
-    "Toque em \"‹ 2026\" no canto superior esquerdo para a vista anual e toque num mês para ir até ele. \"Hoje\" volta ao mês atual e \"Lunar\" mostra também as datas lunares e os termos solares.",
+  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 요일 줄을 두 번 눌러도 커집니다.":
+    "Se o texto estiver pequeno, afaste dois dedos para ampliar a tela (até 3×). Com a tela ampliada, deslize para os lados para percorrer e toque em \"Tamanho original\" para voltar. Tocar duas vezes na linha dos dias da semana também amplia.",
+  "왼쪽 위 달 이름을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
+    "Toque no nome do mês no canto superior esquerdo para a vista anual e toque num mês para ir até ele. \"Hoje\" volta ao mês atual e \"Lunar\" mostra também as datas lunares e os termos solares.",
   "같은 폰에 교대알람이 있으면 설정 › 달력 › \"교대알람과 일정 공유\"를 켜세요. 교대알람 근무(초번·말번·비번 등)가 날짜 옆에 작게 보입니다. 두 앱 중 한쪽에서만 켜도 됩니다.":
     "Se o RotaWake estiver no mesmo celular, ative Ajustes › Calendário › \"Compartilhar com o RotaWake\". Seus turnos do RotaWake aparecem em letra pequena ao lado da data. Basta ativar em um dos dois apps.",
   "5. 일정 화면과 찾기":

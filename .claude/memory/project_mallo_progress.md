@@ -109,3 +109,5 @@
   → 가독화 경고 원인: R8(minify) 꺼짐. 11/4 vc3 예약 작업에서 R8 켜기(AAB에 매핑 자동 포함), 기기 확인 실패 시 다시 끔.
 - 2026-10-31 결정: vc3는 가볍게(작은 수정+R8). 프로덕션 신청 '테스트 후 변경' 답은 1.0.1 알림 탭→일정 상세 개선을 '테스트 중 사용해 보니'로 쓴다(테스터 의견이라 하지 않음). 테스터 의견이 오면 보너스로 반영.
 - 2026-11-03: **Play 1.0.1(vc3) 검토 제출**(예약 11/4 작업을 당겨서 함, 예약 작업 sayram-play-update-2는 꺼 둠). 내용: 근무표 있는 날 음력 표시, 큰 글자 음력 잘림 해결, **R8 켬**(expo-build-properties enableMinifyInReleaseBuilds + extraProguardRules keep com.danielpark.**·expo.modules.**) → AAB에 proguard.map 포함, 가독화 경고 사라짐, 설치 크기 18.5→12.1MB. 노트에서 R8 빌드 확인(실행·달력·마이크·TTS·진동 시험 알람 19:35 정각 울림·끄기·삭제 후 알람 잔여 없음, logcat 오류 없음). 32는 Play vc2 자동 업데이트 확인. 첨부 기능(1.1.0) 작업물은 scratchpad로 빼 둔 상태(modules/sayram-attach). 프로덕션 신청 답변 초안: ~/Desktop/세이람-플레이-등록/프로덕션-신청-답변.txt
+- 2026-11-08: **달력 위 줄 합치기** — 지금 보는 달(‹ 2026년 11월)을 음력·오늘과 같은 줄로, 달 사이에는 작은 달 표시만(titleH 44→18). 스크롤 위치로 달 계산(monthIndexAt, onScroll+onMomentumScrollEnd). 노트·아이폰 확인. 32는 Play 설치본이라 서명이 달라 설치 불가 → 다음 Play 업데이트로 받기로.
+- 2026-11-08: **홈 화면 위젯 계획 확정**(1.1.0, docs/WIDGET_PLAN.md) — 작게 다음 일정 / 중간 목록+마이크 / 크게 근무 표시 달력+목록(Android 스크롤, iOS ▲▼). 남은 결정: iOS 1.0.1(Android vc3와 같은 내용)을 지금 낼지.

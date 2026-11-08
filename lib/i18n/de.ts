@@ -520,10 +520,10 @@ export const DE: Record<string, string> = {
     "Wische nach oben oder unten und der nächste Monat schließt sich an. Jeder Tag zeigt die Terminnamen, mehrtägige Termine wie Urlaub erscheinen als durchgehende Balken und Feiertage mit rotem Datum und Namen.",
   "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
     "Tippe auf ein Datum und die Termine des Tages erscheinen unten. Öffne sie dort oder tippe auf „＋ Termin an diesem Tag hinzufügen“, um direkt einen anzulegen.",
-  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 달 이름이나 요일 줄을 두 번 눌러도 커집니다.":
-    "Wenn die Schrift klein ist, ziehe zwei Finger auseinander, um den Bildschirm zu vergrößern (bis 3×). Im vergrößerten Zustand kannst du seitwärts wischen und mit „Originalgröße“ zurückkehren. Doppeltippen auf den Monatsnamen oder die Wochentagszeile vergrößert ebenfalls.",
-  "왼쪽 위 \"‹ 2026\"을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
-    "Tippe oben links auf „‹ 2026“ für die Jahresansicht und dann auf einen Monat, um dorthin zu springen. „Heute“ kehrt zum aktuellen Monat zurück, „Mondkalender“ zeigt zusätzlich Mondkalenderdaten und Sonnenperioden.",
+  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 요일 줄을 두 번 눌러도 커집니다.":
+    "Wenn die Schrift klein ist, ziehe zwei Finger auseinander, um den Bildschirm zu vergrößern (bis 3×). Im vergrößerten Zustand kannst du seitwärts wischen und mit „Originalgröße“ zurückkehren. Doppeltippen auf die Wochentagszeile vergrößert ebenfalls.",
+  "왼쪽 위 달 이름을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
+    "Tippe oben links auf den Monatsnamen für die Jahresansicht und dann auf einen Monat, um dorthin zu springen. „Heute“ kehrt zum aktuellen Monat zurück, „Mondkalender“ zeigt zusätzlich Mondkalenderdaten und Sonnenperioden.",
   "같은 폰에 교대알람이 있으면 설정 › 달력 › \"교대알람과 일정 공유\"를 켜세요. 교대알람 근무(초번·말번·비번 등)가 날짜 옆에 작게 보입니다. 두 앱 중 한쪽에서만 켜도 됩니다.":
     "Wenn RotaWake auf demselben Handy ist, schalte Einstellungen › Kalender › „Mit RotaWake teilen“ ein. Deine RotaWake-Schichten erscheinen klein neben dem Datum. Es reicht, es in einer der beiden Apps einzuschalten.",
   "5. 일정 화면과 찾기":

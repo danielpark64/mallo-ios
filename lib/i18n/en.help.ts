@@ -171,10 +171,10 @@ export const EN_HELP: Record<string, string> = {
     "Swipe up or down and the next month follows. Each day shows schedule names, multi-day schedules such as vacations appear as connected bars, and holidays show a red date and name.",
   "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
     "Tap a date and that day's schedules slide up from the bottom. Open one, or tap \"＋ Add event on this day\" to create one right there.",
-  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 달 이름이나 요일 줄을 두 번 눌러도 커집니다.":
-    "If the text is small, spread two fingers to zoom the screen (up to 3×). While zoomed, swipe sideways to look around and tap \"Actual size\" to go back. Double-tapping a month name or the weekday row also zooms in.",
-  "왼쪽 위 \"‹ 2026\"을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
-    "Tap \"‹ 2026\" at the top left for the year view and tap a month to jump to it. \"Today\" returns to this month, and \"Lunar\" also shows lunar dates and seasonal terms.",
+  "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 요일 줄을 두 번 눌러도 커집니다.":
+    "If the text is small, spread two fingers to zoom the screen (up to 3×). While zoomed, swipe sideways to look around and tap \"Actual size\" to go back. Double-tapping the weekday row also zooms in.",
+  "왼쪽 위 달 이름을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
+    "Tap the month name at the top left for the year view and tap a month to jump to it. \"Today\" returns to this month, and \"Lunar\" also shows lunar dates and seasonal terms.",
   "같은 폰에 교대알람이 있으면 설정 › 달력 › \"교대알람과 일정 공유\"를 켜세요. 교대알람 근무(초번·말번·비번 등)가 날짜 옆에 작게 보입니다. 두 앱 중 한쪽에서만 켜도 됩니다.":
     "If RotaWake is on the same phone, turn on Settings › Calendar › \"Share with RotaWake\". Your RotaWake shifts appear in small text next to the date. Turning it on in either app is enough.",
   "5. 일정 화면과 찾기":

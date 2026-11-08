@@ -1,15 +1,15 @@
 // ─── 달력 탭: 위아래로 이어지는 한 달 보기 (iOS 캘린더 방식) ──────────────────────────
 // 2026-10-18 사용자 결정: 달력은 달력만 크게, 칸에 일정 이름(점 대신), 기간 일정은 이어진 막대,
-// 공휴일·음력, 위아래 연속 스크롤(아이폰처럼). 날짜를 누르면 그날 일정(onPickDay), "‹ 2026"은 1년 보기(onYearPress).
+// 공휴일·음력, 위아래 연속 스크롤(아이폰처럼). 날짜를 누르면 그날 일정(onPickDay), 왼쪽 위 달 이름은 1년 보기(onYearPress).
 // 배치 계산은 lib/calendarKit/monthLayout.ts(순수 함수, 테스트 있음).
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, PanResponder, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type ViewToken } from 'react-native';
+import { Animated, FlatList, PanResponder, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from './AppText';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
 import { formatDayHeader, formatMonthLabel, formatMonthShort, weekdayLabels } from '../lib/dateUtils';
 import { clampZoom, panZoom, pinchZoom, type Zoom } from '../lib/calendarKit/zoom';
-import { cellMetrics, monthWeeks, singleDayIndex, weekBars, type CalDensity, type CalEvent, type CellMetrics } from '../lib/calendarKit/monthLayout';
+import { cellMetrics, monthIndexAt, monthWeeks, singleDayIndex, weekBars, type CalDensity, type CalEvent, type CellMetrics } from '../lib/calendarKit/monthLayout';
 import { getHolidayShort, ymdKey } from '../lib/calendarKit/holidays';
 import { getSolarTerm } from '../lib/calendarKit/solarTerms';
 import { lunarCellText } from '../lib/calendarKit/lunar';
@@ -96,14 +96,16 @@ export const MonthScroll = memo(function MonthScroll({
   const [visible, setVisible] = useState(() => monthOf(initialIndex, base));
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
-  // 같은 달이면 상태를 바꾸지 않는다 — 스크롤 중 불필요한 다시 그리기 방지(저사양 32)
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems.find((v) => v.isViewable);
-    if (first && typeof first.item === 'number') {
-      const next = monthOf(first.item, base);
-      setVisible((cur) => (cur.y === next.y && cur.m === next.m ? cur : next));
-    }
-  }).current;
+  // 고정 머리의 달: 화면 위에서 1/4 지점에 걸린 달. 같은 달이면 상태를 바꾸지 않는다 — 스크롤 중 불필요한 다시 그리기 방지(저사양 32)
+  // (화면에 보이는 비율로 정하면 화면보다 긴 달이 "안 보임"이 되어 머리의 달이 안 바뀐다)
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    // 맨 끝까지 내리면 1/4 지점이 마지막 달에 못 닿을 수 있어 마지막 달로 본다
+    const atEnd = contentOffset.y + layoutMeasurement.height >= contentSize.height - 1;
+    const y = atEnd ? contentSize.height : contentOffset.y + layoutMeasurement.height / 4;
+    const next = monthOf(monthIndexAt(layout.offsets, y), base);
+    setVisible((cur) => (cur.y === next.y && cur.m === next.m ? cur : next));
+  };
 
   const scrollToMonth = useCallback((y: number, m: number, animated = true) => {
     const idx = indexOf(y, m);
@@ -248,10 +250,10 @@ export const MonthScroll = memo(function MonthScroll({
     <View style={{ flex: 1 }}>
       {/* 고정 머리: 지금 보고 있는 달 + 1년 보기 + 오늘, 요일 */}
       <View style={s.head}>
-        <TouchableOpacity onPress={() => onYearPress(visible.y)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={`${t('1년 보기')}, ${formatMonthLabel(visible.y, visible.m)}`}>
-          <Text style={s.yearBtn}>‹ {visible.y}</Text>
+        <TouchableOpacity style={{ flexShrink: 1 }} onPress={() => onYearPress(visible.y)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={`${t('1년 보기')}, ${formatMonthLabel(visible.y, visible.m)}`}>
+          <Text style={s.yearBtn} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1}>‹ {formatMonthLabel(visible.y, visible.m)}</Text>
         </TouchableOpacity>
-        <View style={{ flex: 1 }} />
+        <View style={{ flex: 1, minWidth: 8 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           {onToggleLunar && (
             <TouchableOpacity onPress={onToggleLunar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityState={{ selected: showLunar }}>
@@ -289,8 +291,8 @@ export const MonthScroll = memo(function MonthScroll({
         keyExtractor={(i) => String(i)}
         initialScrollIndex={initialIndex}
         getItemLayout={(_, index) => ({ length: layout.heights[index], offset: layout.offsets[index], index })}
-        onViewableItemsChanged={onViewable}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 40 }}
+        onScroll={onScroll}
+        onMomentumScrollEnd={onScroll}
         windowSize={5}
         initialNumToRender={2}
         maxToRenderPerBatch={2}
@@ -327,7 +329,7 @@ const MonthBlock = memo(function MonthBlock({
   const { cellH, numH, lunarH, laneH, showNames } = metrics;
   return (
     <View>
-      <TouchableOpacity activeOpacity={1} onPress={onTitleTap} style={{ height: metrics.titleH, justifyContent: 'flex-end', paddingBottom: 6, paddingHorizontal: 6 }}>
+      <TouchableOpacity activeOpacity={1} onPress={onTitleTap} style={{ height: metrics.titleH, justifyContent: 'flex-end', paddingBottom: 2, paddingHorizontal: 6 }}>
         <Text style={s.monthTitle} maxFontSizeMultiplier={1}>{title}</Text>
       </TouchableOpacity>
       {weeks.map((week, wi) => {
@@ -429,13 +431,13 @@ const MonthBlock = memo(function MonthBlock({
 
 const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 2, paddingBottom: 6 },
-  yearBtn: { color: C.red, fontSize: 15, fontWeight: '600' },
+  yearBtn: { color: C.red, fontSize: 16, fontWeight: '700' },
   headTitle: { color: C.text, fontSize: 17, fontWeight: '700', flexShrink: 1, marginHorizontal: 8 },
   todayBtn: { color: C.accent, fontSize: 15, fontWeight: '600' },
   wdWrap: { overflow: 'hidden', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   wdCell: { position: 'absolute', top: 0, left: 0 },
   wd: { flex: 1, textAlign: 'center', color: C.textSub, fontSize: 11, fontWeight: '600' },
-  monthTitle: { color: C.red, fontSize: 20, fontWeight: '800' },
+  monthTitle: { color: C.red, fontSize: 11, fontWeight: '800' },
   week: { flexDirection: 'row', overflow: 'hidden', borderTopWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   cell: { flex: 1, paddingHorizontal: 1, overflow: 'hidden' },
   cellSel: { backgroundColor: C.surfaceHigh, borderRadius: 6 },
