@@ -562,4 +562,8 @@ export const FR: Record<string, string> = {
     "Si un événement passé est fait, laissez-le tel quel. S’il n’a pas été fait, pas fini ou s’il a changé, ouvrez-le et choisissez sous « Comment ça s’est passé ? ». Une étiquette apparaît sur la carte, et avec « Changé » ou « Pas fini » vous pouvez choisir une nouvelle date et programmer une alerte.",
   "앞으로의 일정도 일정을 눌러 \"미루기\"로 다른 날로 옮길 수 있습니다(기간 일정은 날짜를 고쳐서 옮깁니다). 새 날짜로 일정과 알림이 다시 잡히고, 원래 일정은 알람이 꺼진 채 \"바뀜 → 새 날짜\" 꼬리표로 남습니다. 원래 날짜가 오기 전에 새로 잡은 일정을 지우면 원래 일정이 되살아납니다.":
     "Les rendez-vous à venir peuvent aussi être déplacés : ouvrez-le et touchez « Reporter » (pour une période, modifiez ses dates). Un nouveau rendez-vous avec alerte est créé à la nouvelle date, et l’original reste, alarme coupée, avec l’étiquette « Changé → nouvelle date ». Si vous supprimez le nouveau avant la date d’origine, l’original revient.",
+  // 홈 화면 위젯
+  '다음 일정': 'Suivant',
+  '다가오는 일정': 'À venir',
+  '외 {n}건': '+{n} autres',
 };

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 이름·설명(위젯 고르는 화면). 위젯 안 문구는 앱이 요약에 담아 보낸다 -->
+<resources>
+  <string name="sw_small_name">下一個行程</string>
+  <string name="sw_small_desc">醒目顯示下一個行程</string>
+  <string name="sw_medium_name">即將到來</string>
+  <string name="sw_medium_desc">即將到來的行程和語音按鈕</string>
+  <string name="sw_large_name">本月與行程</string>
+  <string name="sw_large_desc">顯示班次的本月月曆和即將到來的行程</string>
+  <string name="sw_open_app">請開啟 SayRam</string>
+  <string name="sw_mic">用語音建立行程</string>
+</resources>

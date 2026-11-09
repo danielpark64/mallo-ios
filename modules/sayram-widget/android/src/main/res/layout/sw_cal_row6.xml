@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 6주짜리 달: 줄을 낮춰 아래 목록 자리를 남긴다 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/sw_row" android:layout_width="match_parent" android:layout_height="33dp" android:orientation="horizontal"/>

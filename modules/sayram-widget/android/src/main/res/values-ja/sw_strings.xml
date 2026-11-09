@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 이름·설명(위젯 고르는 화면). 위젯 안 문구는 앱이 요약에 담아 보낸다 -->
+<resources>
+  <string name="sw_small_name">次の予定</string>
+  <string name="sw_small_desc">すぐ次の予定を大きく表示</string>
+  <string name="sw_medium_name">これからの予定</string>
+  <string name="sw_medium_desc">これからの予定と話すボタン</string>
+  <string name="sw_large_name">今月と予定</string>
+  <string name="sw_large_desc">勤務が見える今月のカレンダーとこれからの予定</string>
+  <string name="sw_open_app">SayRamを開いてください</string>
+  <string name="sw_mic">声で予定を作る</string>
+</resources>

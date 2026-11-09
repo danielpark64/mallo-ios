@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 이름·설명(위젯 고르는 화면). 위젯 안 문구는 앱이 요약에 담아 보낸다 -->
+<resources>
+  <string name="sw_small_name">Siguiente</string>
+  <string name="sw_small_desc">Tu próxima cita de un vistazo</string>
+  <string name="sw_medium_name">Próximos</string>
+  <string name="sw_medium_desc">Próximas citas y botón de micrófono</string>
+  <string name="sw_large_name">Mes y citas</string>
+  <string name="sw_large_desc">Este mes con turnos y las próximas citas</string>
+  <string name="sw_open_app">Abre SayRam</string>
+  <string name="sw_mic">Dicta una cita</string>
+</resources>

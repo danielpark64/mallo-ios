@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 색(밝은 화면). 어두운 화면은 values-night -->
+<resources>
+  <color name="sw_bg">#FFFFFF</color>
+  <color name="sw_text">#1C1D24</color>
+  <color name="sw_sub">#6B6E7A</color>
+  <color name="sw_accent">#E25555</color>
+  <color name="sw_blue">#2F6FE0</color>
+  <color name="sw_divider">#E3E4EA</color>
+  <color name="sw_mic">#EF6464</color>
+</resources>

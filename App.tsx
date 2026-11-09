@@ -89,6 +89,7 @@ import { DaySheet } from './components/DaySheet';
 import type { CalEvent } from './lib/calendarKit/monthLayout';
 import { ymdKey } from './lib/calendarKit/holidays';
 import { publishOwnShare, pushOwnShare, readSiblingShifts, siblingShareAvailable } from './lib/siblingShare';
+import { launchedFromHistory, parseWidgetUrl, publishWidget, type WidgetLink } from './lib/widget';
 import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, parseShiftImportUrl, saveShifts, SHIFT_REQUEST_URL, type ShiftData } from './lib/shiftImport';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorPrefill, type EditorResult } from './components/ScheduleEditor';
@@ -458,6 +459,7 @@ function AppInner() {
 
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false); // 시작할 때 권한 묻기가 끝났는지(위젯 마이크가 기다린다)
   const [selectedDate, setSelectedDate] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
@@ -514,8 +516,13 @@ function AppInner() {
       await registerAndroidChannels(); // Android 전용(모드별 소리/진동 채널), iOS는 no-op
       await registerNotificationCategories();
       // 삭제된 일정의 잔여 알림 정리 + iOS 64개 제한 대응 재등록
-      await resyncAlarms(recs);
-      setPermissionGranted(audio.granted && speech.granted);
+      try {
+        await resyncAlarms(recs);
+      } finally {
+        // 알람 재등록이 실패해도 권한 결과는 반영한다(위젯 마이크가 영영 기다리지 않게)
+        setPermissionGranted(audio.granted && speech.granted);
+        setPermissionChecked(true);
+      }
       if (!audio.granted || !speech.granted) {
         Alert.alert(t('권한 필요'), t('마이크 및 음성 인식 권한이 모두 필요합니다.'));
       }
@@ -674,6 +681,23 @@ function AppInner() {
     if (!recordsLoadedRef.current) { recordsLoadedRef.current = records.length > 0 || loadRecords().length === 0; if (!recordsLoadedRef.current) return; }
     publishOwnShare(records, shareOn);
   }, [records, shareOn]);
+  // 홈 화면 위젯: 일정·근무표·언어가 바뀌면 바로 다시 쓴다(위 공유와 같은 불러온 뒤 조건). 설계: docs/WIDGET_PLAN.md
+  // 주의: recordsLoadedRef는 바로 위 공유 effect가 정한다 — 이 effect는 반드시 그 뒤에 둘 것(옮기거나 지우면 빈 목록이 위젯에 써질 수 있다)
+  // 앱이 앞으로 올 때도 한 번 — 날짜가 넘어가 석 달 창(이번 달부터)을 옮겨야 할 수 있다. 폴링은 없다(규칙 10)
+  const widgetSrcRef = useRef({ records, shifts, lang });
+  widgetSrcRef.current = { records, shifts, lang };
+  useEffect(() => {
+    if (!recordsLoadedRef.current) return;
+    publishWidget(records, shifts, lang);
+  }, [records, shifts, lang]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active' || !recordsLoadedRef.current) return;
+      const w = widgetSrcRef.current;
+      publishWidget(w.records, w.shifts, w.lang);
+    });
+    return () => sub.remove();
+  }, []);
   // 교대알람 근무표 읽기 — 시작할 때와 앱이 앞으로 올 때만(폴링 없음, 세이람 규칙 10). 교대알람이 넣어 준 파일만 읽는다
   const refreshSibling = useCallback(async () => {
     if (!siblingShareAvailable) return;
@@ -707,8 +731,14 @@ function AppInner() {
   const shiftsRef = useRef(shifts);
   shiftsRef.current = shifts;
   useEffect(() => {
-    const handle = (url: string | null) => {
+    const handle = (url: string | null, initial = false) => {
       if (!url) return;
+      const w = parseWidgetUrl(url);
+      if (w) {
+        // Android 최근 앱에서 다시 열면 예전에 누른 위젯 링크가 다시 온다 → 무시(녹음이 저절로 시작되지 않게)
+        if (!(initial && launchedFromHistory())) widgetLinkRef.current(w);
+        return;
+      }
       const d = parseShiftImportUrl(url);
       if (!d) return;
       // 같은 링크로 앱이 다시 열려도(Android 최근 앱) 옛 근무표가 새것을 덮지 않게
@@ -730,7 +760,7 @@ function AppInner() {
         { text: tt('바꾸기'), onPress: apply },
       ]);
     };
-    Linking.getInitialURL().then(handle).catch(() => {});
+    Linking.getInitialURL().then((u) => handle(u, true)).catch(() => {});
     const sub = Linking.addEventListener('url', (e) => handle(e.url));
     return () => sub.remove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -792,6 +822,49 @@ function AppInner() {
     setShowRecorder(true);
     await voice.start();
   };
+
+  // 홈 화면 위젯을 눌러 열림: 그 일정 / 그날 / 바로 말하기. 쓰거나 녹음하던 중이면 그 화면을 지킨다
+  const [micPending, setMicPending] = useState(false);
+  const handleWidgetLink = (w: WidgetLink) => {
+    const win = openWindowsRef.current;
+    if (win.editor || win.recorder) return;
+    if (w.kind !== 'mic') setMicPending(false); // 다른 위젯을 누르면 기다리던 녹음은 취소(창이 겹치지 않게)
+    if (w.kind === 'record') { openRecordFromAlarm(w.id); return; }
+    const hadWindow = win.settings || win.day || !!win.detail;
+    setSettingsOpen(false);
+    setDaySheet(null);
+    setDetailId(null);
+    setActiveTab('calendar');
+    if (w.kind === 'mic') {
+      if (permissionChecked && !permissionGranted) {
+        Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'));
+        return;
+      }
+      // 시작 직후에는 마이크 권한 확인이 끝나지 않았을 수 있다 → 확인이 끝나면 아래 effect가 시작한다
+      setMicPending(true);
+      return;
+    }
+    setCalMode('month');
+    setSelectedDate(w.date);
+    // iOS는 창을 두 개 동시에 못 띄운다 → 열린 창이 있었으면 닫힌 뒤에 그날 창을 연다
+    setTimeout(() => setDaySheet(w.date), hadWindow ? 450 : 0);
+  };
+  const widgetLinkRef = useRef(handleWidgetLink);
+  widgetLinkRef.current = handleWidgetLink;
+  useEffect(() => {
+    if (!micPending || !permissionChecked) return;
+    // 권한을 거절했으면 그만둔다(시작할 때 '권한 필요' 안내가 이미 떴다)
+    if (!permissionGranted) { setMicPending(false); return; }
+    // 열려 있던 창이 닫힌 뒤에 녹음 창을 연다(대기 표시는 그때 끈다 — 먼저 끄면 이 effect가 다시 돌며 예약을 지운다)
+    const id = setTimeout(() => {
+      setMicPending(false);
+      const win = openWindowsRef.current;
+      if (win.editor || win.recorder) return; // 기다리는 사이 쓰기·녹음을 시작했으면 그 화면을 지킨다
+      startRecording();
+    }, 450);
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micPending, permissionChecked, permissionGranted]);
 
   const cancelRecording = async () => {
     await voice.cancel();

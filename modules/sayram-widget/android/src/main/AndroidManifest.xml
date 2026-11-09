@@ -1,0 +1,27 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- 재부팅 뒤 자정·일정 시각 갱신 예약을 다시 건다(위젯이 있을 때만 예약) -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <application>
+    <receiver android:name=".SmallWidget" android:exported="false" android:label="@string/sw_small_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/sw_small_info"/>
+    </receiver>
+    <receiver android:name=".MediumWidget" android:exported="false" android:label="@string/sw_medium_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/sw_medium_info"/>
+    </receiver>
+    <receiver android:name=".LargeWidget" android:exported="false" android:label="@string/sw_large_name">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/sw_large_info"/>
+    </receiver>
+    <!-- 자정·다음 일정 시각에 한 번 다시 그리기, 재부팅·시간대 변경 때 다시 그리기 -->
+    <receiver android:name=".WidgetRefreshReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.TIME_SET"/>
+        <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

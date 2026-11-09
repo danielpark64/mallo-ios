@@ -562,4 +562,8 @@ export const DE: Record<string, string> = {
     "Erledigte vergangene Termine einfach so lassen. Wenn etwas nicht oder nur halb erledigt wurde oder sich geändert hat, den Termin öffnen und unter „Wie lief es?“ wählen. Auf der Karte erscheint eine Markierung, und mit „Geändert“ oder „Halb erledigt“ lässt sich ein neues Datum mit Erinnerung festlegen.",
   "앞으로의 일정도 일정을 눌러 \"미루기\"로 다른 날로 옮길 수 있습니다(기간 일정은 날짜를 고쳐서 옮깁니다). 새 날짜로 일정과 알림이 다시 잡히고, 원래 일정은 알람이 꺼진 채 \"바뀜 → 새 날짜\" 꼬리표로 남습니다. 원래 날짜가 오기 전에 새로 잡은 일정을 지우면 원래 일정이 되살아납니다.":
     "Auch künftige Termine lassen sich verlegen: Termin öffnen und auf „Verschieben“ tippen (bei einem Zeitraum stattdessen die Daten ändern). Für das neue Datum werden Termin und Hinweis neu angelegt, der ursprüngliche bleibt mit ausgeschaltetem Alarm und dem Etikett „Geändert → neues Datum“. Löschst du den neuen Termin vor dem ursprünglichen Datum, kommt der ursprüngliche zurück.",
+  // 홈 화면 위젯
+  '다음 일정': 'Als Nächstes',
+  '다가오는 일정': 'Demnächst',
+  '외 {n}건': '+{n} weitere',
 };

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="sw_bg">#1C1D24</color>
+  <color name="sw_text">#F2F2F5</color>
+  <color name="sw_sub">#9A9AA5</color>
+  <color name="sw_accent">#EF6464</color>
+  <color name="sw_blue">#7AA7FF</color>
+  <color name="sw_divider">#3A3B46</color>
+  <color name="sw_mic">#EF6464</color>
+</resources>

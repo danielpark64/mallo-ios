@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 중간: 다가오는 일정 4개 + 마이크(누르면 앱이 열리며 바로 말하기) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/sw_root" android:layout_width="match_parent" android:layout_height="match_parent"
+  android:orientation="horizontal" android:padding="14dp" android:background="@drawable/sw_bg">
+  <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical">
+    <TextView android:id="@+id/sw_label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+      android:layout_marginBottom="4dp" android:text="@string/sw_medium_name" android:textSize="12sp" android:textColor="@color/sw_accent"/>
+    <LinearLayout android:id="@+id/sw_row1" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="horizontal" android:paddingTop="3dp" android:paddingBottom="3dp" android:visibility="gone">
+      <TextView android:id="@+id/sw_when1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:minWidth="92dp" android:paddingEnd="8dp" android:textSize="13sp" android:textColor="@color/sw_sub" android:maxLines="1"/>
+      <TextView android:id="@+id/sw_title1" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:textSize="14sp" android:textColor="@color/sw_text" android:maxLines="1" android:ellipsize="end"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/sw_row2" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="horizontal" android:paddingTop="3dp" android:paddingBottom="3dp" android:visibility="gone">
+      <TextView android:id="@+id/sw_when2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:minWidth="92dp" android:paddingEnd="8dp" android:textSize="13sp" android:textColor="@color/sw_sub" android:maxLines="1"/>
+      <TextView android:id="@+id/sw_title2" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:textSize="14sp" android:textColor="@color/sw_text" android:maxLines="1" android:ellipsize="end"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/sw_row3" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="horizontal" android:paddingTop="3dp" android:paddingBottom="3dp" android:visibility="gone">
+      <TextView android:id="@+id/sw_when3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:minWidth="92dp" android:paddingEnd="8dp" android:textSize="13sp" android:textColor="@color/sw_sub" android:maxLines="1"/>
+      <TextView android:id="@+id/sw_title3" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:textSize="14sp" android:textColor="@color/sw_text" android:maxLines="1" android:ellipsize="end"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/sw_row4" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="horizontal" android:paddingTop="3dp" android:paddingBottom="3dp" android:visibility="gone">
+      <TextView android:id="@+id/sw_when4" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:minWidth="92dp" android:paddingEnd="8dp" android:textSize="13sp" android:textColor="@color/sw_sub" android:maxLines="1"/>
+      <TextView android:id="@+id/sw_title4" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:textSize="14sp" android:textColor="@color/sw_text" android:maxLines="1" android:ellipsize="end"/>
+    </LinearLayout>
+    <TextView android:id="@+id/sw_empty" android:layout_width="wrap_content" android:layout_height="wrap_content"
+      android:layout_marginTop="6dp" android:textSize="14sp" android:textColor="@color/sw_sub" android:text="@string/sw_open_app"/>
+  </LinearLayout>
+  <ImageView android:id="@+id/sw_mic" android:layout_width="56dp" android:layout_height="56dp"
+    android:layout_gravity="center_vertical" android:layout_marginStart="10dp" android:padding="14dp"
+    android:background="@drawable/sw_mic_bg" android:src="@drawable/sw_ic_mic" android:contentDescription="@string/sw_mic"/>
+</LinearLayout>

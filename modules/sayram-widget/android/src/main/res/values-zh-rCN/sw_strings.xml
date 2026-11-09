@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 이름·설명(위젯 고르는 화면). 위젯 안 문구는 앱이 요약에 담아 보낸다 -->
+<resources>
+  <string name="sw_small_name">下一个日程</string>
+  <string name="sw_small_desc">醒目显示下一个日程</string>
+  <string name="sw_medium_name">即将到来</string>
+  <string name="sw_medium_desc">即将到来的日程和语音按钮</string>
+  <string name="sw_large_name">本月与日程</string>
+  <string name="sw_large_desc">显示班次的本月日历和即将到来的日程</string>
+  <string name="sw_open_app">请打开 SayRam</string>
+  <string name="sw_mic">用语音创建日程</string>
+</resources>

@@ -52,7 +52,10 @@ const isCjk = (l: Lang) => l === 'ja' || l === 'zh-Hans' || l === 'zh-Hant';
 
 /** 달력 요일 머리글 — 현재 언어 기준 (ko: 일·월…, en: Sun·Mon…, ja: 日·月…, es: D·L·M·X…) */
 export function weekdayLabels(): string[] {
-  const l = getLang();
+  return weekdayLabelsFor(getLang());
+}
+/** 언어를 지정해 달력 요일 머리글 (위젯 요약처럼 화면 밖에서 쓸 때) */
+export function weekdayLabelsFor(l: Lang): string[] {
   if (l === 'en') return WEEKDAYS_EN;
   if (l === 'ko') return WEEKDAYS;
   return INTL_WD_SHORT[l];
@@ -191,7 +194,10 @@ export function schedulesBetween(records: ScheduleRecord[], start: Date, end: Da
 
 /** "2026년 10월" / en "October 2026" / ja·zh "2026年10月" / es "octubre de 2026" / fr "octobre 2026" / de "Oktober 2026" / pt "outubro de 2026" */
 export function formatMonthLabel(year: number, month: number): string {
-  const l = getLang();
+  return formatMonthLabelFor(year, month, getLang());
+}
+/** 언어를 지정해 달 이름 */
+export function formatMonthLabelFor(year: number, month: number, l: Lang): string {
   switch (l) {
     case 'en': return `${MONTHS_EN_LONG[month]} ${year}`;
     case 'ko': return `${year}년 ${month + 1}월`;

@@ -1,0 +1,22 @@
+// 세이람 홈 화면 위젯 (Expo 로컬 모듈, Android). 앱이 넘긴 요약(lib/widgetData.ts)을 저장하고 위젯 세 종류를 그린다.
+// 설계: docs/WIDGET_PLAN.md — 위젯은 요약 파일만 읽는다(records.json·녹음 안 읽음), 주기적 갱신 없음.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.danielpark.sayram'
+version = '1.0.0'
+
+android {
+  namespace "com.danielpark.sayram.widget"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // 큰 위젯의 스크롤 목록(RemoteCollectionItems)을 Android 12 미만에서도 쓰게 해 주는 공식 호환 라이브러리
+  implementation 'androidx.core:core-remoteviews:1.1.0'
+}

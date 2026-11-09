@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 이름·설명(위젯 고르는 화면). 위젯 안 문구는 앱이 요약에 담아 보낸다 -->
+<resources>
+  <string name="sw_small_name">다음 일정</string>
+  <string name="sw_small_desc">바로 다음 일정을 크게 보여 줘요</string>
+  <string name="sw_medium_name">다가오는 일정</string>
+  <string name="sw_medium_desc">다가오는 일정과 말하기 버튼</string>
+  <string name="sw_large_name">이번 달과 일정</string>
+  <string name="sw_large_desc">근무가 보이는 이번 달 달력과 다가오는 일정</string>
+  <string name="sw_open_app">세이람을 열어 주세요</string>
+  <string name="sw_mic">말로 일정 만들기</string>
+</resources>

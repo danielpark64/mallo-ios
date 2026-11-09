@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈 화면 위젯 이름·설명(위젯 고르는 화면). 위젯 안 문구는 앱이 요약에 담아 보낸다 -->
+<resources>
+  <string name="sw_small_name">Next schedule</string>
+  <string name="sw_small_desc">Your next schedule at a glance</string>
+  <string name="sw_medium_name">Upcoming</string>
+  <string name="sw_medium_desc">Upcoming schedules and a mic button</string>
+  <string name="sw_large_name">Month and schedules</string>
+  <string name="sw_large_desc">This month with shifts, plus upcoming schedules</string>
+  <string name="sw_open_app">Open SayRam</string>
+  <string name="sw_mic">Speak a schedule</string>
+</resources>

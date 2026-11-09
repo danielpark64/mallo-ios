@@ -190,4 +190,8 @@ export const EN_MAIN: Record<string, string> = {
   '그대로 저장': 'Save anyway',
   '이 시각에 내일 일정을 미리 알려 드려요': 'I\'ll remind you of tomorrow\'s schedule at this time',
   '정각 알림 꺼짐': 'On-time alarm off',
+  // 홈 화면 위젯
+  '다음 일정': 'Next',
+  '다가오는 일정': 'Upcoming',
+  '외 {n}건': '+{n} more',
 };
