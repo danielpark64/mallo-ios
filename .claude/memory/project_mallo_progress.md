@@ -117,6 +117,11 @@
 - 2026-11-12: **[LONGREC 시험판] 긴 녹음(회의·강의)** 작성, 미커밋. 설정 › 데이터 › 긴 녹음(시험판). 파일: lib/longTranscript.ts(문단 쌓기)·lib/longRec.ts(저장 longrecs.json·내보내기)·lib/useLongRecorder.ts·components/LongRecSheet.tsx, expo-keep-awake 추가. 화면 글은 한국어만(정식 때 9개 언어). iOS Release 빌드 성공, 폰이 밖에 있어 미설치. 사용자가 실제 강의·회의 소리로 시험해 쓸 만한지 보고 넣을지 결정(1.2.0 후보). 순서 합의: 1.0.1 프로덕션 공개 → 1.1.0 → 1.2.0.
 - 2026-11-12 오후: **Play 프로덕션 첫 제출 완료** — 3 (1.0.1) 전체 출시 + 국가 대한민국 1개, 게시 개요 "검토 중인 변경사항". 관리형 게시 꺼짐 → 통과 시 자동 공개. **심사 중 재제출·「변경사항 삭제」 금지.** 공개되면 카톡 안내문(아이폰+안드로이드 링크) 전달, 그다음 1.1.0(vc4).
 - 2026-11-14: **Play 프로덕션 공개 확인** — 비로그인 curl로 ko·en 페이지 200·설치 버튼 확인(제출 11/12 → 이틀 만에 통과, 게시 메일보다 공개가 먼저 보였다). 1.0.1(vc3)·대한민국·3세 이상·Susu Development. 이제 카톡 안내문의 안드로이드 링크가 열린다. 다음: 1.1.0(vc4) 첨부·위젯 커밋 후 양쪽 스토어.
+- 2026-11-14 저녁: **1.1.0 커밋·푸시·양쪽 빌드 완료** — `3d5527d`(첨부 + [LONGREC] 보류) + `a673588`(iOS 권한 되돌림). 원격에 Albummory 문서 커밋(efa2b87)이 있어 rebase 후 푸시. **푸시는 `git -c credential.helper='!gh auth git-credential' push`** — origin이 https인데 자격 증명이 없어 그냥 push 하면 "could not read Username"으로 실패한다(gh는 ssh 프로토콜로 로그인돼 있음).
+  ⚠️ **내가 낸 실수**: iOS 사진 권한을 `.readOnly` 로 바꿨다가 아카이브가 깨졌다 — `PHAccessLevel` 에는 `.addOnly` 와 `.readWrite` 뿐이고 **읽기만 해도 `.readWrite`** 다(이름이 헷갈릴 뿐). 코드에 이유를 적어 뒀으니 다시 바꾸지 말 것.
+  iOS: **TestFlight 1.1.0 빌드 6 업로드 완료**(`npm run testflight`, 아카이브→업로드 한 번에 성공). 아이폰이 연결 안 돼 직접 설치는 못 함 → 사용자가 TestFlight로 확인.
+  Android: AAB 완성 → `~/Desktop/세이람-1.1.0-vc4.aab`(47.5MB, R8 매핑 포함). 업로드 안내 `~/Desktop/세이람-플레이-등록/vc4-업로드-안내.txt`, 출시 노트 9개 언어 `출시노트-1.1.0-vc4.txt`. **이번엔 프로덕션 트랙**(지난번 공개 테스트 화면으로 잘못 들어갔던 적 있음).
+  남은 것: 아이폰 확인 → App Store 1.1.0 제출(사용자 승인 후) · Play vc4 업로드·전송(사용자 승인 후) · 노트10+ 시험 일정 5개(Widget test) 정리.
 - 2026-11-14: **1.1.0 커밋 준비 완료(첨부 + 위젯)** — 긴 녹음은 `LONGREC_ENABLED=false`(lib/longRecFlag.ts)로 빼고 코드만 남김(사용자 지시). verify-fix 지적 반영:
   ① **Android 13+ 사진 첨부가 전부 실패하던 치명 버그** — `MediaStore.ACTION_PICK_IMAGES`(시스템 사진 선택기)가 주는 URI는 `takePersistableUriPermission`이 SecurityException이라 고른 사진이 모두 버려졌다 → 사진도 `ACTION_OPEN_DOCUMENT`로 통일(SDK 분기 삭제).
   ② 백업 안내가 사실과 달랐다(첨부는 실제로 백업 JSON에 들어간다) → "원본을 복사하지 않고 위치만 기억해요. 새 폰이나 앱을 다시 깐 뒤에는 열리지 않으니 다시 붙여 주세요."로 9개 언어 교체.
