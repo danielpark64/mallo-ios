@@ -148,6 +148,11 @@ export function BackupSheet({
                 </View>
               </View>
             )}
+            {/* 첨부는 위치만 저장한다(원본 복사 없음). 백업 파일에는 그 위치가 들어가지만
+                  다른 폰·앱 재설치 뒤에는 권한이 없어 열리지 않는다 → 문구를 사실대로 */}
+            {records.some((r) => (r.attachments?.length ?? 0) > 0) ? (
+              <Text style={[s.hintText, { marginTop: 12 }]}>{t('사진·파일 첨부는 원본을 복사하지 않고 위치만 기억해요. 새 폰이나 앱을 다시 깐 뒤에는 열리지 않으니 다시 붙여 주세요.')}</Text>
+            ) : null}
 
             <Text style={s.sectionLabel}>{t('이 폰에 있는 백업')}</Text>
             {backups.length === 0 ? (

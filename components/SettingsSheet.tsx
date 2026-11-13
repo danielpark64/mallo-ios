@@ -15,6 +15,8 @@ import type { CalendarMode } from '../lib/prefs';
 import type { ScheduleRecord } from '../lib/storage';
 import { voiceAlarmSupported } from '../lib/voiceAlarm';
 import { BackupSheet } from './BackupSheet';
+import { LongRecSheet } from './LongRecSheet';
+import { LONGREC_ENABLED } from '../lib/longRecFlag';
 import { HelpSheet } from './HelpSheet';
 
 export function SettingsSheet({
@@ -70,6 +72,7 @@ export function SettingsSheet({
     return () => sub.remove();
   }, [visible]);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [longRecOpen, setLongRecOpen] = useState(false); // [LONGREC 시험판]
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const withAudio = records.filter((r) => r.uri).length;
 
@@ -249,6 +252,19 @@ export function SettingsSheet({
                 </View>
                 <Text style={s.chevron}>›</Text>
               </TouchableOpacity>
+              {/* [LONGREC] 긴 녹음 — 보류된 기능(lib/longRec.ts 스위치로 꺼짐). 글이 한국어뿐이라 켤 때 번역부터 */}
+              {LONGREC_ENABLED && (
+                <>
+                  <View style={s.divider} />
+                  <TouchableOpacity style={s.rowBetween} onPress={() => setLongRecOpen(true)} activeOpacity={0.7} accessibilityLabel="긴 녹음 (시험판)">
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle}>긴 녹음 (시험판)</Text>
+                      <Text style={s.rowSub}>회의·강의를 녹음하고 글로 받아 적기, 텍스트·PDF 내보내기</Text>
+                    </View>
+                    <Text style={s.chevron}>›</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
 
             <Text style={s.sectionLabel}>{t('도움말')}</Text>
@@ -282,6 +298,8 @@ export function SettingsSheet({
             onRestored={onRestored}
           />
           <HelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
+          {/* 열 때만 올린다 — 닫혀 있을 때 녹음기·인식 이벤트를 붙잡아 두지 않게 */}
+          {LONGREC_ENABLED && longRecOpen && <LongRecSheet visible onClose={() => setLongRecOpen(false)} />}
         </SafeAreaView>
       </SafeAreaProvider>
     </Modal>

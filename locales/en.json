@@ -4,6 +4,6 @@
     "CFBundleName": "SayRam",
     "NSMicrophoneUsageDescription": "SayRam needs microphone access to record your voice notes.",
     "NSSpeechRecognitionUsageDescription": "SayRam needs speech recognition to turn what you say into text.",
-    "NSPhotoLibraryUsageDescription": "SayRam does not use your photo library. This entry is required by a system component used for saving files."
+    "NSPhotoLibraryUsageDescription": "SayRam reads your photo library to show previews of photos you attach to a schedule. Photos are never copied or sent anywhere."
   }
 }

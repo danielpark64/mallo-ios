@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["SayramAttachModule"]
+  },
+  "android": {
+    "modules": ["com.danielpark.sayram.attach.SayramAttachModule"]
+  }
+}

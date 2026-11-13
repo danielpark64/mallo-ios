@@ -1,0 +1,17 @@
+// 일정에 사진·파일 첨부 (Expo 로컬 모듈, Android).
+// 원본을 앱 안으로 복사하지 않고 위치(content URI)와 영구 열람 권한만 받아 둔다 — 저장 공간을 쓰지 않는다.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.danielpark.sayram'
+version = '1.0.0'
+
+android {
+  namespace "com.danielpark.sayram.attach"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}

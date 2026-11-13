@@ -17,7 +17,8 @@ import { formatDayHeader, formatTime, isPastItem } from '../lib/dateUtils';
 import { OUTCOME_BUTTON, OUTCOME_KINDS, isMovedAway, nextWhen } from '../lib/outcome';
 import { copyRecords } from '../lib/exportUtils';
 import { ExportPreview, type ExportKind } from './ExportPreview';
-import type { OutcomeKind, ScheduleRecord, TranscriptSegment } from '../lib/storage';
+import { AttachmentSection } from './AttachmentSection';
+import type { Attachment, OutcomeKind, ScheduleRecord, TranscriptSegment } from '../lib/storage';
 import {
   activeSegmentIndex,
   chipsForEntry,
@@ -460,6 +461,7 @@ export function ScheduleDetail({
   onOutcome,
   origin,
   onOpenRecord,
+  onAttachmentsChange,
 }: {
   visible: boolean;
   record: ScheduleRecord | null;
@@ -476,6 +478,8 @@ export function ScheduleDetail({
   origin?: ScheduleRecord | null;
   /** 연결된 일정(원래 일정·다시 잡은 일정)으로 넘어가기 */
   onOpenRecord?: (id: string) => void;
+  /** 사진·파일 첨부를 붙이거나 뺄 때(저장·권한 반납은 부모가) */
+  onAttachmentsChange?: (r: ScheduleRecord, next: Attachment[], removed: Attachment[]) => void;
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -709,6 +713,16 @@ export function ScheduleDetail({
               ))}
             </>
           )}
+
+          {/* 사진·파일 — 원본은 복사하지 않고 위치만 */}
+          {onAttachmentsChange ? (
+            <AttachmentSection
+              key={record.id} // 연결된 일정으로 넘어가면 미리보기를 새로 만든다
+              recordId={record.id}
+              attachments={record.attachments ?? []}
+              onChange={(next, removed) => onAttachmentsChange(record, next, removed)}
+            />
+          ) : null}
 
           {/* 내보내기 — 메인 + 모든 추가 엔트리 텍스트를 함께 포함 */}
           <Text style={s.sectionLabel}>{t('내보내기')}</Text>

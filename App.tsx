@@ -50,6 +50,7 @@ import {
   persistAudio,
   saveRecords,
   type AppendEntry,
+  type Attachment,
   type OutcomeKind,
   type ScheduleRecord,
 } from './lib/storage';
@@ -90,6 +91,7 @@ import type { CalEvent } from './lib/calendarKit/monthLayout';
 import { ymdKey } from './lib/calendarKit/holidays';
 import { publishOwnShare, pushOwnShare, readSiblingShifts, siblingShareAvailable } from './lib/siblingShare';
 import { launchedFromHistory, parseWidgetUrl, publishWidget, type WidgetLink } from './lib/widget';
+import { releaseUnused } from './lib/attachments';
 import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, parseShiftImportUrl, saveShifts, SHIFT_REQUEST_URL, type ShiftData } from './lib/shiftImport';
 import { ScheduleDetail } from './components/ScheduleDetail';
 import { ScheduleEditor, type AppendResult, type EditorPrefill, type EditorResult } from './components/ScheduleEditor';
@@ -985,6 +987,7 @@ function AppInner() {
             for (const a of target.appends ?? []) if (a.uri) deleteAudio(a.uri);
             await cancelAlarmGroup(target.id, target.notifIds);
             await commitDeleted(target.id);
+            releaseUnused(target.attachments ?? [], recordsRef.current.filter((r) => r.id !== target.id));
             setSelectedDate(recordedDate);
           }},
         ]
@@ -1103,6 +1106,7 @@ function AppInner() {
     for (const a of linked.appends ?? []) if (a.uri) deleteAudio(a.uri);
     await cancelAlarmGroup(linked.id, linked.notifIds);
     await unmarkOutcome(fromId, (list) => setOutcome(unlinkDeleted(list.filter((r) => r.id !== linked.id), linked.id), fromId, null));
+    releaseUnused(linked.attachments ?? [], recordsRef.current.filter((r) => r.id !== linked.id));
   };
   const handleOutcome = (rec: ScheduleRecord, kind: OutcomeKind) => {
     const all = recordsRef.current;
@@ -1285,6 +1289,13 @@ function AppInner() {
     ]);
   };
 
+  // 사진·파일 첨부를 붙이거나 뺌 — 알람과 상관없다. 뺀 것은 다른 일정이 쓰지 않으면 열람 권한을 반납한다
+  const handleAttachmentsChange = (r: ScheduleRecord, next: Attachment[], removed: Attachment[]) => {
+    const list = recordsRef.current.map((x) => (x.id === r.id ? { ...x, attachments: next.length ? next : undefined } : x));
+    commit(list);
+    if (removed.length) releaseUnused(removed, list);
+  };
+
   const handleEditorDelete = async (id: string) => {
     sharedPlayer.stop(); // 지우는 일정이 재생 중일 수 있다
     removeVoiceAlarm(id);
@@ -1293,6 +1304,7 @@ function AppInner() {
     for (const a of target?.appends ?? []) if (a.uri) deleteAudio(a.uri);
     if (target) await cancelAlarmGroup(target.id, target.notifIds);
     await commitDeleted(id); // 이 일정과 이어진 "→ 날짜"·"← 원래 일정" 연결도 끊는다
+    releaseUnused(target?.attachments ?? [], recordsRef.current.filter((r) => r.id !== id)); // 사진·파일 원본은 그대로, 열람 권한만
     setEditorOpen(false);
   };
 
@@ -1513,6 +1525,7 @@ function AppInner() {
         onOutcome={handleOutcome}
         origin={detailRecord?.carriedFrom ? records.find((r) => r.id === detailRecord.carriedFrom) ?? null : null}
         onOpenRecord={(id) => { if (records.some((r) => r.id === id)) setDetailId(id); }}
+        onAttachmentsChange={handleAttachmentsChange}
       />
 
      </View>

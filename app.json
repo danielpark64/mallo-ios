@@ -44,7 +44,7 @@
           "alarmapp"
         ],
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "세이람은 사진 보관함을 사용하지 않습니다. 파일 저장에 쓰는 시스템 구성 요소 때문에 필요한 항목입니다."
+        "NSPhotoLibraryUsageDescription": "일정에 붙인 사진을 미리보기와 크게 보기로 보여 주려고 사진 보관함을 읽습니다. 사진은 복사하거나 밖으로 보내지 않습니다."
       },
       "entitlements": {
         "com.apple.security.application-groups": [

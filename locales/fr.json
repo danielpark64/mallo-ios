@@ -4,6 +4,6 @@
     "CFBundleName": "SayRam",
     "NSMicrophoneUsageDescription": "SayRam a besoin du micro pour enregistrer vos notes vocales.",
     "NSSpeechRecognitionUsageDescription": "SayRam a besoin de la reconnaissance vocale pour transformer vos paroles en texte.",
-    "NSPhotoLibraryUsageDescription": "SayRam n'utilise pas votre photothèque. Cette entrée est requise par un composant système utilisé pour enregistrer les fichiers."
+    "NSPhotoLibraryUsageDescription": "SayRam lit votre photothèque pour afficher les photos que vous joignez à un événement. Les photos ne sont jamais copiées ni envoyées."
   }
 }

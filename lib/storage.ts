@@ -44,7 +44,19 @@ export type ScheduleRecord = {
   needsDate?: boolean;    // 날짜·시간 없이 녹음돼 오늘(시간 미정)로 임시 저장됨 → 사용자가 정하면 해제
   outcome?: ScheduleOutcome; // 지난 일정의 결과. 없으면 한 것으로 본다 (lib/outcome.ts)
   carriedFrom?: string;   // 바뀌었어요·덜 했어요로 다시 잡은 일정이면 원래 일정 id
+  attachments?: Attachment[]; // 붙인 사진·파일 — 원본은 복사하지 않고 위치만 (lib/attachments.ts)
   createdAt: number;      // 생성 시각(epoch ms)
+};
+
+/** 일정에 붙인 사진·파일 하나. 원본은 사진 앱·파일 앱에 그대로 있고 여기에는 위치만 둔다(저장 공간을 쓰지 않는다) */
+export type Attachment = {
+  /** Android content:// · iOS "ph:<사진 id>" / "bm:<북마크>" */
+  ref: string;
+  kind: 'photo' | 'file';
+  name: string;
+  size?: number | null;
+  mime?: string | null;
+  addedAt: number;
 };
 
 /** 지난 일정의 결과: 못 했어요 / 덜 했어요 / 바뀌었어요 */

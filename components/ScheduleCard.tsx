@@ -127,6 +127,9 @@ export function ScheduleCard({
           <Text style={styles.cardAppendedNote}>{t('추가 {n}건', { n: item.appends.length })}</Text>
         </View>
       )}
+      {item.attachments && item.attachments.length > 0 && (
+        <Text style={styles.cardAppendedNote} testID="card-attach">📎 {t('사진·파일 {n}개', { n: item.attachments.length })}</Text>
+      )}
     </>
   );
 
@@ -154,6 +157,7 @@ export function ScheduleCard({
         {item.needsDate && <Text style={styles.compactNeeds}>{t('정하기')}</Text>}
         {tag ? <Text style={styles.compactOutcome} numberOfLines={1}>{tag}</Text> : null}
         {appendCount > 0 && <Text style={styles.compactAppend}>+{appendCount}</Text>}
+        {(item.attachments?.length ?? 0) > 0 && <Text style={styles.compactAppend}>📎</Text>}
         {canPlay ? (
           <TouchableOpacity
             style={styles.compactPlay}

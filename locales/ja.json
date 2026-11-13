@@ -4,6 +4,6 @@
     "CFBundleName": "SayRam",
     "NSMicrophoneUsageDescription": "音声メモを録音するためにマイクへのアクセスが必要です。",
     "NSSpeechRecognitionUsageDescription": "話した内容をテキストに変換するために音声認識の許可が必要です。",
-    "NSPhotoLibraryUsageDescription": "SayRamは写真ライブラリを使用しません。ファイル保存に使うシステムの部品のために必要な項目です。"
+    "NSPhotoLibraryUsageDescription": "予定に添付した写真のプレビューと拡大表示のために写真ライブラリを読み取ります。写真をコピーしたり外部に送ったりしません。"
   }
 }

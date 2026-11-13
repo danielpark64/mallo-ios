@@ -7,6 +7,9 @@ jest.mock('../../lib/backup', () => ({
   exportBackupToFolderAndroid: jest.fn(), importBackupFromFolderAndroid: jest.fn(),
 }));
 
+// [LONGREC 시험판] 긴 녹음 화면은 녹음기(네이티브)를 쓰므로 여기서는 빈 화면으로 바꾼다
+jest.mock('../LongRecSheet', () => ({ LongRecSheet: () => null }));
+
 jest.mock('expo-file-system', () => {
   const store = new Map<string, string>();
   const join = (parts: any[]) => parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');

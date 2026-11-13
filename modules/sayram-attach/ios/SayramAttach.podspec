@@ -1,0 +1,17 @@
+Pod::Spec.new do |s|
+  s.name           = 'SayramAttach'
+  s.version        = '1.0.0'
+  s.summary        = '세이람 일정 첨부(사진·파일) — 원본 복사 없이 위치만 저장'
+  s.description    = '세이람 일정 첨부(사진·파일) — 원본 복사 없이 위치만 저장'
+  s.license        = 'UNLICENSED'
+  s.author         = 'danielpark'
+  s.homepage       = 'https://github.com/danielpark64/mallo-ios'
+  s.platforms      = { :ios => '16.4' }
+  s.swift_version  = '5.9'
+  s.source         = { git: '' }
+  s.static_framework = true
+  s.dependency 'ExpoModulesCore'
+  s.frameworks = 'Photos', 'PhotosUI', 'QuickLook', 'QuickLookThumbnailing', 'UniformTypeIdentifiers'
+  s.source_files = "**/*.{h,m,swift}"
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'SWIFT_COMPILATION_MODE' => 'wholemodule' }
+end
