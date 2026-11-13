@@ -21,13 +21,17 @@ public class SayramAttachModule: Module {
     Name("SayramAttach")
 
     // 사진 접근 권한 상태: "authorized" / "limited" / "denied" / "notDetermined"
+    // .readWrite 는 "읽기+쓰기"가 아니라 **사진 보관함 접근 수준**의 이름이다.
+    // PHAccessLevel 에는 .addOnly(추가만)와 .readWrite 둘뿐이라 사진을 읽으려면 .readWrite 를 쓴다
+    // (.readOnly 는 없다 — 2026-11-14 그렇게 고쳤다가 빌드가 깨졌다).
+    // 실제로 사진을 바꾸거나 지우는 코드는 없고, Info.plist 도 NSPhotoLibraryUsageDescription 하나만 쓴다.
     Function("photoAccess") { () -> String in
-      Self.accessName(PHPhotoLibrary.authorizationStatus(for: .readOnly))
+      Self.accessName(PHPhotoLibrary.authorizationStatus(for: .readWrite))
     }
 
     AsyncFunction("pick") { (kind: String, limit: Int, promise: Promise) in
       if kind == "photo" {
-        PHPhotoLibrary.requestAuthorization(for: .readOnly) { status in
+        PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
           DispatchQueue.main.async {
             guard status == .authorized || status == .limited else {
               promise.resolve(["denied": true, "items": []])
