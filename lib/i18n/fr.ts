@@ -462,6 +462,8 @@ export const FR: Record<string, string> = {
   '채널 바로가기': 'Voir la chaîne',
   '교대근무라면 교대알람': 'En horaires décalés ? Shift Alarm',
   '근무표대로 울리는 알람 앱 보러 가기': 'Voir l’appli d’alarmes qui suit votre planning',
+  '말하는 사진첩': 'Albummory',
+  '폰 사진이 저절로 사진첩으로': 'Vos photos deviennent des albums toutes seules',
   '개발자 응원하기': 'Soutenir le développeur',
   '작은 후원으로 응원해주세요': 'Encouragez-nous avec un petit don',
   '세이람이 마음에 드셨다면\n아래 계좌로 작은 후원을 보내주세요\n큰 힘이 됩니다 🙏': 'Si vous aimez SayRam,\nun petit don sur le compte ci-dessous\nnous aide beaucoup 🙏',

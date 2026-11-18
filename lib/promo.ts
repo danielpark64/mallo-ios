@@ -25,7 +25,15 @@ export const SUSU_TRAVEL_URL = 'https://www.youtube.com/@susu_travel';
 
 export const ALARMAPP_STORE_URL = 'https://play.google.com/store/apps/details?id=com.danielpark.alarmapp';
 
-/** 언어·플랫폼에 맞는 슬라이드. 계좌 후원과 교대알람·수수여행 안내는 한국어 화면에서만 보인다.
+/** 말하는 사진첩(Albummory) — 같은 개발자의 사진첩 앱. **App Store 주소뿐이다.**
+ *  Play는 2026-11-16부터 비공개 테스트라 일반 사용자가 못 받는다(14일을 채워야 정식 출시 신청 가능,
+ *  빨라야 2026-11-30, 구글 검토까지 12월 초). 그래서 지금은 iOS 화면에만 넣는다.
+ *  정식 출시되면 Android 슬라이드를 더한다 — 주소는
+ *  https://play.google.com/store/apps/details?id=com.danielpark.albummory (패키지명 확정, 출시 전에는 열리지 않는다).
+ *  **사진첩 쪽에서 출시됐다고 알려 준 뒤에 켤 것**(2026-11-17 사진첩 쪽과 의논해 정함). */
+export const ALBUMMORY_STORE_URL = 'https://apps.apple.com/kr/app/id6829163878';
+
+/** 언어·플랫폼에 맞는 슬라이드. 계좌 후원과 교대알람·말하는 사진첩·수수여행 안내는 한국어 화면에서만 보인다.
  *  iOS는 앱 안에서 계좌 후원을 안내하면 App Store 심사 지침(3.1.1) 위반이라 후원 대신 수수여행 채널을 넣는다.
  *  (iOS 후원은 나중에 인앱결제 "커피 한잔"으로 붙일 예정) */
 export function promoSlides(lang: Lang, os: string = Platform.OS, opts: { hasAlarmApp?: boolean } = {}): PromoSlide[] {
@@ -38,6 +46,9 @@ export function promoSlides(lang: Lang, os: string = Platform.OS, opts: { hasAla
       if (!opts.hasAlarmApp) slides.push({ key: 'alarmapp', icon: '⏰', title: '교대근무라면 교대알람', sub: '근무표대로 울리는 알람 앱 보러 가기', tone: 'blue', url: ALARMAPP_STORE_URL });
       slides.push({ key: 'coffee', icon: '☕', title: '개발자 응원하기', sub: '작은 후원으로 응원해주세요', tone: 'amber' });
     } else {
+      // 말하는 사진첩은 App Store에만 있어서 iOS에만 넣는다(위 ALBUMMORY_STORE_URL 설명 참고).
+      // 이 가지는 "android가 아닌 것"이라 os를 따로 본다 — 주소가 App Store뿐이므로 iOS가 아니면 넣지 않는다.
+      if (os === 'ios') slides.push({ key: 'albummory', icon: '🖼️', title: '말하는 사진첩', sub: '폰 사진이 저절로 사진첩으로', tone: 'amber', url: ALBUMMORY_STORE_URL });
       slides.push({ key: 'travel', icon: '✈️', title: '수수여행, 그냥 떠나면 돼요', sub: '채널 바로가기', tone: 'blue', url: SUSU_TRAVEL_URL });
     }
   }

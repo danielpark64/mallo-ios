@@ -174,6 +174,8 @@ export const EN_MAIN: Record<string, string> = {
   '채널 바로가기': 'Visit the channel',
   '교대근무라면 교대알람': 'On shifts? Try Shift Alarm',
   '근무표대로 울리는 알람 앱 보러 가기': 'See the alarm app that follows your roster',
+  '말하는 사진첩': 'Albummory',
+  '폰 사진이 저절로 사진첩으로': 'Phone photos become albums on their own',
   '개발자 응원하기': 'Support the developer',
   '작은 후원으로 응원해주세요': 'Cheer us on with a small tip',
   '세이람이 마음에 드셨다면\n아래 계좌로 작은 후원을 보내주세요\n큰 힘이 됩니다 🙏': 'If you like SayRam,\na small tip to the account below\nmeans a lot 🙏',

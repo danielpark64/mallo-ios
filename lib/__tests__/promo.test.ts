@@ -1,6 +1,7 @@
-// 홍보 배너(광고 칸) 슬라이드: 계좌 후원·교대알람 안내는 한국어 화면에서만.
+// 홍보 배너(광고 칸) 슬라이드: 계좌 후원·교대알람·말하는 사진첩 안내는 한국어 화면에서만.
 // iOS는 앱 안 계좌 후원이 App Store 심사 지침(3.1.1) 위반이라 후원 대신 수수여행 채널을 보여 준다.
-import { promoSlides, SUPPORT_ACCOUNT } from '../promo';
+// 말하는 사진첩은 App Store에만 있어서(Play는 비공개 테스트) iOS 화면에만 넣는다.
+import { ALBUMMORY_STORE_URL, promoSlides, SUPPORT_ACCOUNT } from '../promo';
 import { EN } from '../i18n/en';
 
 test('한국어 Android: 수수뮤직·교대알람·개발자 응원 3장', () => {
@@ -9,8 +10,16 @@ test('한국어 Android: 수수뮤직·교대알람·개발자 응원 3장', () 
 test('한국어 Android: 교대알람이 이미 깔려 있으면 교대알람 광고는 빼고 2장', () => {
   expect(promoSlides('ko', 'android', { hasAlarmApp: true }).map((s) => s.key)).toEqual(['susu', 'coffee']);
 });
-test('한국어 iOS: 교대알람(Play 스토어 주소)·계좌 후원은 빼고 수수뮤직·수수여행 2장', () => {
-  expect(promoSlides('ko', 'ios').map((s) => s.key)).toEqual(['susu', 'travel']);
+test('한국어 iOS: 교대알람(Play 스토어 주소)·계좌 후원은 빼고 수수뮤직·말하는 사진첩·수수여행 3장', () => {
+  expect(promoSlides('ko', 'ios').map((s) => s.key)).toEqual(['susu', 'albummory', 'travel']);
+});
+test('말하는 사진첩은 Android 화면에 넣지 않는다 — Play 정식 출시 전이라 받을 수 없다', () => {
+  expect(promoSlides('ko', 'android').map((s) => s.key)).not.toContain('albummory');
+});
+test('말하는 사진첩 슬라이드는 App Store 주소를 연다', () => {
+  const slide = promoSlides('ko', 'ios').find((s) => s.key === 'albummory');
+  expect(slide?.url).toBe(ALBUMMORY_STORE_URL);
+  expect(ALBUMMORY_STORE_URL).toMatch(/^https:\/\/apps\.apple\.com\//);
 });
 test('iOS는 어느 언어에서도 후원 화면(주소 없는 슬라이드)을 열지 않는다', () => {
   for (const lang of ['ko', 'en', 'ja', 'zh-Hans', 'zh-Hant', 'es', 'fr', 'de', 'pt'] as const) {
