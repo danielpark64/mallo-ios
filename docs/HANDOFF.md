@@ -85,7 +85,8 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 스토어 이미지: **파란 바탕 큰 글씨(`tools/store-shot.py --style bold`)로 확정**, 한국어 Play 7장·App Store 7장 완성(App Store 1번은 사용자가 찍은 실제 아이폰 말하기 화면). 시안 페이지 https://claude.ai/artifact/8EnaTh6zQmfAw76nozabvu . 원본 캡처는 `store-assets/screenshots/`, `store-assets/appstore-copy/_src-ios/`. 결과 폴더 `store-assets/*-copy*/`는 커밋하지 않는다.
 
 **진행 중 (이 세션을 비울 때 돌고 있던 일)**
-- **다른 8개 언어(en·ja·zh-Hans·zh-Hant·es·fr·de·pt) Play판** — Opus 에이전트가 문구를 `tools/store-shot-copy.json`에 넣고, 에뮬레이터로 언어별 캡처(`store-assets/screenshots/<lang>/`), 결과 `store-assets/play-copy-bold/<lang>/`. 1번 장(말하기)은 노트10+ 실기기로 실제 인식 화면을 찍도록 함(앱 언어는 앱 안 설정으로만, 끝나면 한국어로). **다음 세션은 먼저 이 결과물(폴더·`git status`·JSON)이 끝까지 만들어졌는지 확인**하고, 56장을 직접 열어 깨짐·넘침·한글 섞임을 본 뒤 시안 페이지에 올린다. 에뮬레이터·노트10+ 앱 언어가 한국어로 돌아왔는지도 확인.
+- **Play 스크린샷 9개 언어 최종본 완성(2026-11-22, 커밋함)** — 사용자가 B안(손글씨 제목 -3° 기울임, 1·2번은 두 장이 한 장처럼 이어짐 "말한 그대로 [일정]이 돼요")을 골랐다. 결과 `store-assets/play-copy-final/<lang>/` 7장×9개 언어, 원본 캡처 `store-assets/screenshots/<lang>/`. 다시 만들기: `python3 tools/store-shot.py --style bold --font-variant H --pano-merged --lang <lang> --out store-assets/play-copy-final/<lang>`. 글꼴: ko 나눔손글씨 붓(“돼”만 가로 0.76배), 라틴 Noteworthy Bold, ja Klee, zh Hannotate SC/TC; 작은 줄은 고딕. 시안 페이지 https://claude.ai/artifact/F6GEsxJzkfYJJu7wtvs52b . 8개 언어 문구 원어민 검토 안 함. 1번 장은 소리 없이 임시 코드(되돌림)로 에뮬레이터에서 찍음. 에뮬레이터 일정은 포르투갈어 시연 16건으로 남음(한국어 시연 원본 없음). 옛 결과(play-copy, play-copy-bold, play-copy-draft, appstore-copy-bold, appstore-copy/ko)는 커밋 안 하고 로컬에만 둠.
+- **다음: App Store 아이폰(1206×2622)·아이패드 13인치(2064×2752) 9개 언어를 같은 B안으로** (iOS 원본 캡처 `store-assets/appstore-copy/_src-ios/`는 한국어뿐 — 다른 언어는 시뮬레이터 캡처 필요). 그 뒤 1.1.1 양쪽 같은 날 제출.
 - 그다음: App Store 아이폰(1206×2622) 8개 언어 + **아이패드 13인치(2064×2752) 9개 언어**(세이람은 iPad 지원).
 
 **다음 판(1.1.1)에 함께 넣을 것**

@@ -582,15 +582,141 @@ def make_styled(style, src_path, out_path, W, H, c):
 INK_BROWN = (0x3A, 0x2E, 0x24)
 YELLOW = (0xFF, 0xE2, 0x7A)
 BOLD_FONT = [FONT, FONT_HEAVY_INDEX]  # --bold-font 로 바꿀 수 있다(상업 사용 가능한 글꼴만)
+SUB_FONT = [FONT, FONT_BOLD_INDEX]    # 말풍선·작은 설명 글
+
+
+def _pingfang():
+    """PingFang 은 해시 폴더 아래라 경로를 찾아서 쓴다."""
+    import glob
+    g = glob.glob("/System/Library/AssetsV2/com_apple_MobileAsset_Font*/*/AssetData/PingFang.ttc")
+    return g[0] if g else FONT
+
+
+_HIRA = "/System/Library/Fonts/ヒラギノ角ゴシック W%d.ttc"
+_HN = "/System/Library/Fonts/HelveticaNeue.ttc"
+# 언어별 (큰 글, 작은 글) 글꼴. 산돌고딕 Neo 는 한자·가나 일부와 é ü ß 같은 악센트 글자가 □로 나온다
+BOLD_LANG_FONTS = {
+    "ja": ((_HIRA % 8, 0), (_HIRA % 6, 0)),
+    "zh-Hans": ((_pingfang(), 11), (_pingfang(), 11)),   # PingFang SC Semibold
+    "zh-Hant": ((_pingfang(), 10), (_pingfang(), 10)),   # PingFang TC Semibold
+    "es": ((_HN, 1), (_HN, 10)), "fr": ((_HN, 1), (_HN, 10)),
+    "de": ((_HN, 1), (_HN, 10)), "pt": ((_HN, 1), (_HN, 10)),  # Helvetica Neue Bold / Medium
+}
+
+
+def set_bold_lang(lang):
+    """bold 스타일 글꼴을 언어에 맞춘다(ko·en 은 산돌고딕 Neo 그대로)."""
+    if lang in BOLD_LANG_FONTS:
+        (hp, hi), (sp, si) = BOLD_LANG_FONTS[lang]
+        BOLD_FONT[0], BOLD_FONT[1] = hp, hi
+        SUB_FONT[0], SUB_FONT[1] = sp, si
+
+
+# 제목 모양(--font-variant 로 바꾼다). 기본값은 예전 bold 와 똑같다(기울기 0, 줄 간격 배율 1, 덧칠 0)
+# tilt: 도 단위, 음수 = 오른쪽이 올라가게(반시계, CSS rotate 와 같은 방향)
+# size_k / sub_k: 글자가 작게 보이는 글꼴(손글씨)을 같은 자리 크기로 키우는 배율
+# stroke / sub_stroke: 획이 가는 글꼴을 1080 기준 px 만큼 덧칠해 굵게
+# squeeze: {글자: 가로 배율} — 손글씨 글꼴에서 풀어져 보이는 글자만 가로로 좁혀 모은다(기본 없음)
+TITLE_STYLE = {"tilt": 0.0, "lh": 1.0, "size_k": 1.0, "sub_k": 1.0, "stroke": 0, "sub_stroke": 0, "squeeze": {}}
+_DEFAULT_TITLE_STYLE = dict(TITLE_STYLE)
+
+# 글꼴 안(시안 비교용). 언어마다 따로 둘 수 있다 — 그 언어가 없으면 글꼴은 언어 기본값을 두고 기울기·줄 간격만 따른다.
+# 상업 이용 가능한 글꼴만: 배달의민족 글꼴(우아한형제들 무료 배포, 상업 이용 가능)·나눔(OFL)·애플 시스템 글꼴.
+_BMJUA = os.path.expanduser("~/Library/Fonts/BMJUA_otf.otf")
+FONT_VARIANTS = {
+    # A 둥근 고딕: 배달의민족 주아(둥글고 편안한 굵은 글씨)
+    "A": {"_style": {"tilt": -2.5, "lh": 1.1},
+          "ko": {"title": (_BMJUA, 0), "sub": (_BMJUA, 0)}},
+    # B 손글씨: 나눔손글씨 펜(친근). 글자가 작고 획이 가늘어 키우고 덧칠한다
+    "B": {"_style": {"tilt": -3.0, "lh": 1.08, "size_k": 1.32, "sub_k": 1.3, "stroke": 2.4, "sub_stroke": 0.9},
+          "ko": {"title": (HAND_FONT, 1), "sub": (HAND_FONT, 1)}},
+    # C 기존 산돌고딕 Neo 그대로, 굵기만 Heavy → Bold 로 낮추고 살짝 기울이기(가장 덜 변함)
+    "C": {"_style": {"tilt": -2.0, "lh": 1.1},
+          "ko": {"title": (FONT, FONT_BOLD_INDEX), "sub": (FONT, 2)}},  # 2 = Medium
+}
+
+
+def _asset(name):
+    """해시 폴더 아래 애플 내려받기 글꼴 경로(없으면 빈 문자열)."""
+    import glob
+    g = glob.glob("/System/Library/AssetsV2/com_apple_MobileAsset_Font*/*/AssetData/" + name)
+    return g[0] if g else ""
+
+
+_SUPP = "/System/Library/Fonts/Supplemental/"
+_HAND_LATIN = {"title": (_SUPP + "Noteworthy.ttc", 1), "sub": (_HN, 10),   # Noteworthy Bold / Helvetica Neue Medium
+               "style": {"size_k": 1.0, "stroke": 1.6}}
+# H 손글씨 최종(2026-11-22, B안 보완): 큰 제목만 그 언어 손글씨 글꼴, 말풍선·작은 설명은 잘 읽히는 기본 글꼴(bold 판 크기)
+# 한국어는 나눔손글씨 붓 — 펜은 "돼"가 "도ㅐ"처럼 풀려 보였다. 붓도 ㅙ 가 넓어 "돼"만 가로로 좁혀 모은다(squeeze)
+FONT_VARIANTS["H"] = {
+    "_style": {"tilt": -3.0, "lh": 1.08, "sub_k": 1.0, "sub_stroke": 0, "dilate": True},
+    "ko": {"title": (HAND_FONT, 0), "sub": (FONT, 4),   # 나눔손글씨 붓 / 산돌고딕 Neo SemiBold
+           "style": {"size_k": 1.28, "stroke": 3.2, "squeeze": {"돼": 0.76, "됐": 0.8}}},
+    "en": _HAND_LATIN, "es": _HAND_LATIN, "fr": _HAND_LATIN, "de": _HAND_LATIN, "pt": _HAND_LATIN,
+    "ja": {"title": (_asset("Klee.ttc"), 0), "sub": (_HIRA % 6, 0),           # Klee Demibold / 히라기노 W6
+           "style": {"size_k": 1.0, "stroke": 2.2}},
+    "zh-Hans": {"title": (_asset("Hannotate.ttc"), 2), "sub": (_pingfang(), 11),  # Hannotate SC Bold / PingFang SC Semibold
+                "style": {"size_k": 1.0, "stroke": 0.8}},
+    "zh-Hant": {"title": (_asset("Hannotate.ttc"), 3), "sub": (_pingfang(), 10),  # Hannotate TC Bold / PingFang TC Semibold
+                "style": {"size_k": 1.0, "stroke": 0.8}},
+}
+
+
+def missing_glyphs(path, idx, text):
+    """글꼴에 없는 글자(□ 로 나올 글자)를 돌려준다. .notdef 와 모양·상자가 같으면 없는 것으로 본다."""
+    f = ImageFont.truetype(path, 60, index=idx)
+    nd_box, nd = f.getbbox("\U000F0000"), bytes(f.getmask("\U000F0000"))
+    out = []
+    for ch in sorted(set(text)):
+        if ch.strip() and ch not in out and f.getbbox(ch) == nd_box and bytes(f.getmask(ch)) == nd:
+            out.append(ch)
+    return "".join(out)
+
+
+def set_font_variant(variant, lang):
+    """글꼴 안을 적용한다. variant 가 비면 아무것도 바꾸지 않는다(기존 동작)."""
+    TITLE_STYLE.clear()
+    TITLE_STYLE.update(_DEFAULT_TITLE_STYLE)
+    if not variant:
+        return
+    v = FONT_VARIANTS[variant]
+    TITLE_STYLE.update(v.get("_style", {}))
+    fonts = v.get(lang)
+    if fonts:
+        BOLD_FONT[0], BOLD_FONT[1] = fonts["title"]
+        SUB_FONT[0], SUB_FONT[1] = fonts["sub"]
+        TITLE_STYLE.update(fonts.get("style", {}))  # 글꼴마다 다른 크기 배율·덧칠(H 안)
+    else:  # 그 언어 글꼴이 없으면 크기 배율·덧칠은 글꼴 전용이라 되돌린다
+        for k in ("size_k", "sub_k", "stroke", "sub_stroke"):
+            TITLE_STYLE[k] = _DEFAULT_TITLE_STYLE[k]
 
 
 def bold_font(size):
-    return ImageFont.truetype(BOLD_FONT[0], round(size), index=BOLD_FONT[1])
+    return ImageFont.truetype(BOLD_FONT[0], round(size * TITLE_STYLE["size_k"]), index=BOLD_FONT[1])
+
+
+def sub_font(size):
+    return ImageFont.truetype(SUB_FONT[0], round(size * TITLE_STYLE["sub_k"]), index=SUB_FONT[1])
+
+
+def tilt_layer(lay, cx, cy):
+    """글 레이어를 TITLE_STYLE['tilt'] 만큼 (cx, cy) 를 중심으로 돌린다(0 이면 그대로)."""
+    t = TITLE_STYLE["tilt"]
+    if not t:
+        return lay
+    return lay.rotate(-t, center=(cx, cy), resample=Image.BICUBIC)
 
 
 def crop_src(c, strip):
     """원본을 열고, strip 이면 crop=[위, 아래] 로 안드로이드 상태 표시줄·내비게이션 바를 잘라 낸다."""
     im = open_src(c["src"])
+    if strip and im.size == (1080, 2424):
+        # 에뮬레이터 원본(1080×2424)은 한국어 원본처럼 scripts/dev/pad.py 와 같은 방식으로 1350×2400 에 맞춘 뒤 자른다
+        r = 2400 / im.height
+        im2 = im.resize((round(im.width * r), 2400), Image.LANCZOS)
+        bg = Image.new("RGB", (1350, 2400), im2.getpixel((6, 400)))
+        bg.paste(im2, ((1350 - im2.width) // 2, 0))
+        im = bg
     if strip and c.get("crop"):
         im = im.crop((0, c["crop"][0], im.width, c["crop"][1]))
     return im
@@ -619,15 +745,71 @@ def phone_img(shot, inner_w, s, shadow_alpha=0.28, frame=BODY):
     return lay, pw, ph
 
 
+def _pieces(t):
+    """squeeze 글자를 따로 떼어 [(조각, 가로 배율 또는 None)] 로 나눈다(squeeze 가 없으면 통째로 한 조각)."""
+    sq = TITLE_STYLE["squeeze"]
+    if not sq or not any(ch in t for ch in sq):
+        return [(t, None)]
+    out, buf = [], ""
+    for ch in t:
+        if ch in sq:
+            if buf:
+                out.append((buf, None))
+                buf = ""
+            out.append((ch, sq[ch]))
+        else:
+            buf += ch
+    if buf:
+        out.append((buf, None))
+    return out
+
+
+def text_len(font, t):
+    return sum(font.getlength(p) * (k or 1) for p, k in _pieces(t))
+
+
+def put_text(img, x, y, t, font, fill, sw):
+    """anchor 'ls' 로 글을 그리되 squeeze 글자는 가로로 좁혀 붙인다. 다음 x 를 돌려준다.
+    TITLE_STYLE['dilate'] 면 stroke 대신 글자 모양을 sw 만큼 바깥으로 넓혀 굵게 한다
+    (나눔손글씨 붓처럼 획 윤곽이 겹친 글꼴은 stroke 로 덧칠하면 겹친 곳이 비어 보인다 — 예: "날"의 ㄴ)."""
+    d = ImageDraw.Draw(img)
+    dil = TITLE_STYLE.get("dilate") and sw > 0
+    for p, k in _pieces(t):
+        adv = font.getlength(p)
+        if not k and not dil:
+            d.text((x, y), p, font=font, fill=fill, anchor="ls", stroke_width=sw, stroke_fill=fill)
+            x += adv
+            continue
+        asc, desc = font.getmetrics()
+        pad = sw + round(font.size * 0.3)
+        m = Image.new("L", (round(adv) + 2 * pad, asc + desc + 2 * pad), 0)
+        if dil:
+            ImageDraw.Draw(m).text((pad, pad + asc), p, font=font, fill=255, anchor="ls")
+            m = m.filter(ImageFilter.MaxFilter(2 * sw + 1))
+        else:
+            ImageDraw.Draw(m).text((pad, pad + asc), p, font=font, fill=255, anchor="ls", stroke_width=sw, stroke_fill=255)
+        kk = k or 1
+        if k:
+            m = m.resize((max(1, round(m.width * k)), m.height), Image.LANCZOS)
+        g = Image.new("RGBA", m.size, fill if len(fill) == 4 else tuple(fill) + (255,))
+        from PIL import ImageChops
+        g.putalpha(  # 색의 알파(그림자 등)를 모양에 곱한다
+            ImageChops.multiply(m, g.getchannel("A")))
+        img.alpha_composite(g, (round(x - pad * kk), round(y - pad - asc)))
+        x += adv * kk
+    return x
+
+
 def runs_width(runs, font):
-    return sum(font.getlength(t) for t, _ in runs)
+    return sum(text_len(font, t) for t, _ in runs)
 
 
 def fit_lines(lines, max_w, size, minimum):
     """가장 긴 줄이 max_w 안에 들어오는 가장 큰 bold 글꼴."""
     while True:
         f = bold_font(size)
-        if max(runs_width(parse_runs(l), f) for l in lines) <= max_w or size <= minimum:
+        # 최소 크기에서도 넘치면(긴 언어) 넘치지 않을 때까지 더 줄인다
+        if max(runs_width(parse_runs(l), f) for l in lines) <= max_w or size <= minimum * 0.6:
             return f, size
         size -= 2
 
@@ -636,19 +818,17 @@ def draw_line(canvas, runs, font, x, y, base, key, align="left", shadow=None, s=
     """조각을 이어 그린다. align=left 면 x 가 왼쪽 끝, center 면 가운데. y 는 글자 윗선(ascender 기준 'ls')."""
     w = runs_width(runs, font)
     x0 = x if align == "left" else x - w / 2
+    sw = round(TITLE_STYLE["stroke"] * s)  # 기본 0(덧칠 없음)
     if shadow:
         lay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-        ld = ImageDraw.Draw(lay)
         xx = x0
         for t, _ in runs:
-            ld.text((xx, y + 6 * s), t, font=font, fill=shadow, anchor="ls")
-            xx += font.getlength(t)
+            xx = put_text(lay, xx, y + 6 * s, t, font, shadow, sw)
         canvas.alpha_composite(lay.filter(ImageFilter.GaussianBlur(round(10 * s))))
-    d = ImageDraw.Draw(canvas)
     xx = x0
     for t, k in runs:
-        d.text((xx, y), t, font=font, fill=key if k else base, anchor="ls")
-        xx += font.getlength(t)
+        col = key if k else base
+        xx = put_text(canvas, xx, y, t, font, col, sw)
     return x0, x0 + w
 
 
@@ -673,7 +853,7 @@ def bubble(canvas, x, y, text, s, max_w, fill, fg, tail="left"):
     canvas=None 이면 그리지 않고 (너비, 꼬리까지 높이) 만 돌려준다."""
     k = 48
     while True:
-        f = ImageFont.truetype(FONT, round(k * s), index=FONT_BOLD_INDEX)
+        f = sub_font(k * s)
         tw = f.getlength(text)
         if tw + round(2 * 40 * s) <= max_w or k <= 30:
             break
@@ -691,7 +871,8 @@ def bubble(canvas, x, y, text, s, max_w, fill, fg, tail="left"):
     ImageDraw.Draw(sh).rounded_rectangle((x, y + 10 * s, x + w, y + h + 10 * s), round(h * 0.42), fill=(0, 0, 0, 40))
     canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(round(14 * s))))
     canvas.alpha_composite(lay)
-    ImageDraw.Draw(canvas).text((x + w / 2, y + h / 2), text, font=f, fill=fg, anchor="mm")
+    ssw = round(TITLE_STYLE["sub_stroke"] * s)
+    ImageDraw.Draw(canvas).text((x + w / 2, y + h / 2), text, font=f, fill=fg, anchor="mm", stroke_width=ssw, stroke_fill=fg)
     return round(w), round(h + 34 * s)
 
 
@@ -760,20 +941,24 @@ def make_pano(c, src_l, src_r, out_l, out_r, W, H, variant="blue"):
     wave_bars(bars, round(40 * s), CW - round(40 * s), H * 0.915, s, bar_col, 150 * s)
     canvas.alpha_composite(bars)
 
+    if c.get("_merged"):
+        top = pano_merged_text(canvas, c, W, H, s, base, key, tshadow, sub_fill, sub_fg, sub_col)
+        return pano_phones(canvas, c, src_l, src_r, out_l, out_r, W, H, s, top)
+
     # ---- 위쪽 글: 두 장의 제목을 같은 크기·같은 높이로 ----
     mx = round(70 * s)
     lines_l = c["title"].split("\n")
     lines_r = c["title_r"].split("\n")
     f, size = fit_lines(lines_l + lines_r, W - 2 * mx, 210 * s, 120 * s)
-    lh = round(size * 1.12)
+    lh = round(size * 1.12 * TITLE_STYLE["lh"])
     asc, desc = f.getmetrics()
     y0 = round(H * 0.045)
     bub_w, bub_h = bubble(None, 0, 0, c["sub"], s, W - 2 * mx, None, None)
     bubble(canvas, mx, y0, c["sub"], s, W - 2 * mx, sub_fill, sub_fg)
     # 2번 보조 문구: 1번 말풍선과 같은 높이(꼬리 뺀 몸통의 가운데)
-    f_sub = ImageFont.truetype(FONT, round(52 * s), index=FONT_BOLD_INDEX)
+    f_sub = sub_font(52 * s)
     while f_sub.getlength(c["sub_r"]) > W - 2 * mx and f_sub.size > 30:
-        f_sub = ImageFont.truetype(FONT, f_sub.size - 2, index=FONT_BOLD_INDEX)
+        f_sub = sub_font(f_sub.size - 2)
     ImageDraw.Draw(canvas).text((W + mx, y0 + (bub_h - round(34 * s)) / 2), c["sub_r"], font=f_sub, fill=sub_col, anchor="lm")
     y_t = y0 + bub_h + round(30 * s)
     for i in range(max(len(lines_l), len(lines_r))):
@@ -784,6 +969,55 @@ def make_pano(c, src_l, src_r, out_l, out_r, W, H, variant="blue"):
             draw_line(canvas, parse_runs(lines_r[i]), f, W + mx, y, base, key, shadow=tshadow, s=s)
     text_bottom = y_t + asc + lh * (max(len(lines_l), len(lines_r)) - 1) + round(desc * 0.4)
     top = text_bottom + round(50 * s)  # 폰이 시작할 수 있는 가장 높은 줄
+    return pano_phones(canvas, c, src_l, src_r, out_l, out_r, W, H, s, top)
+
+
+def pano_merged_text(canvas, c, W, H, s, base, key, tshadow, sub_fill, sub_fg, sub_col):
+    """--pano-merged: 큰 제목 하나가 두 장(2W) 폭에 걸쳐 이어진다.
+    제목 첫 줄은 1번 장, 둘째 줄은 2번 장 가운데에 두고, 두 줄이 한 기준선 위에 놓여 이음매를 사이에 둔 한 문장처럼 읽힌다.
+    기울기(TITLE_STYLE tilt)는 이음매(W) 를 중심으로 통째로 돌려 한 줄이 이어지게 한다.
+    글자가 이음매에서 잘리지 않게 줄은 장 안에만 두고, 다 그린 뒤 이음매 둘레에 글자가 없는지 확인한다.
+    폰이 시작할 수 있는 가장 높은 y 를 돌려준다."""
+    import math
+    import numpy as np
+    CW = 2 * W
+    mx = round(70 * s)
+    lines = c["title"].split("\n")
+    if len(lines) != 2:
+        raise SystemExit("--pano-merged 제목은 두 줄(1번 장 줄\\n2번 장 줄)이어야 해요: " + repr(c["title"]))
+    f, size = fit_lines(lines, W - 2 * mx, 220 * s, 120 * s)
+    asc, desc = f.getmetrics()
+    y0 = round(H * 0.045)
+    # 1번 장 위: 말풍선(그대로), 2번 장 위: 짧은 설명 한 줄(말풍선과 같은 높이)
+    bub_w, bub_h = bubble(None, 0, 0, c["sub"], s, W - 2 * mx, None, None)
+    bubble(canvas, mx, y0, c["sub"], s, W - 2 * mx, sub_fill, sub_fg)
+    f_sub = sub_font(50 * s)
+    while f_sub.getlength(c["sub_r"]) > W - 2 * mx and f_sub.size > 30:
+        f_sub = ImageFont.truetype(SUB_FONT[0], f_sub.size - 2, index=SUB_FONT[1])
+    ssw = round(TITLE_STYLE["sub_stroke"] * s)
+    ImageDraw.Draw(canvas).text((W + W / 2, y0 + (bub_h - round(34 * s)) / 2), c["sub_r"], font=f_sub, fill=sub_col,
+                                anchor="mm", stroke_width=ssw, stroke_fill=sub_col)
+    # 기울이면 양 끝이 위아래로 벌어지므로 그만큼 아래로 내려 말풍선과 겹치지 않게
+    rise = math.sin(math.radians(abs(TITLE_STYLE["tilt"]))) * W * 0.9
+    y_base = y0 + bub_h + round(36 * s) + asc + round(rise)
+    lay = Image.new("RGBA", (CW, H), (0, 0, 0, 0))
+    draw_line(lay, parse_runs(lines[0]), f, W / 2, y_base, base, key, align="center", shadow=tshadow, s=s)
+    draw_line(lay, parse_runs(lines[1]), f, W + W / 2, y_base, base, key, align="center", shadow=tshadow, s=s)
+    lay = tilt_layer(lay, W, y_base - asc / 2)
+    # 이음매 둘레(±12px)에 글자 획이 있으면 멈춘다(그림자 번짐은 옅어서 넘어가도 된다)
+    a = np.array(lay.getchannel("A"))
+    seam = a[:, W - round(12 * s):W + round(12 * s)]
+    if (seam > 128).any():
+        raise SystemExit("제목 글자가 이음매에 걸려요. 줄을 짧게 하거나 글자를 줄여 주세요.")
+    canvas.alpha_composite(lay)
+    ink = np.nonzero((a > 128).any(axis=1))[0]
+    return int(ink[-1]) + round(46 * s)
+
+
+def pano_phones(canvas, c, src_l, src_r, out_l, out_r, W, H, s, top):
+    """파노라마 아래 폰 두 대(1번 말하기 폰은 이음매를 넘고, 2번 녹음 폰은 그 끝자락을 피한다) + 반으로 잘라 저장."""
+    import numpy as np
+    CW = 2 * W
 
     # ---- 1번 폰: 시계 방향으로 기울여, 위쪽 오른 모서리 끝자락(over)만 이음매를 넘게 ----
     angle = c.get("_pano_angle", -9.0)  # PIL rotate: 음수 = 시계 방향
@@ -866,12 +1100,18 @@ def make_band(c, src_img, out, W, H, idx):
     canvas = paper_bg(W, H, s)
     lines = c["title"].split("\n")
     f, size = fit_lines(lines, W - round(2 * 70 * s), 150 * s, 104 * s)
-    f_sub = ImageFont.truetype(FONT, round(48 * s), index=FONT_BOLD_INDEX)
-    lh = round(size * 1.2)
+    f_sub = sub_font(48 * s)
+    while f_sub.getlength(c["sub"]) > W - round(2 * 60 * s) and f_sub.size > 30:
+        f_sub = sub_font(f_sub.size - 2)  # 긴 언어는 띠 폭 안에 들어오게 줄인다
+    lh = round(size * 1.2 * TITLE_STYLE["lh"])
     asc = f.getmetrics()[0]
+    # 제목을 기울이면 가장 긴 줄의 양 끝이 위아래로 벌어진다(기본 0 → 예전과 같다)
+    import math
+    widest = max(runs_width(parse_runs(l), f) for l in lines)
+    rise = round(math.sin(math.radians(abs(TITLE_STYLE["tilt"]))) * widest / 2)
     y_sub = round(H * 0.052) + round(10 * s)
-    y_title = y_sub + round(48 * s) + round(40 * s)
-    text_bottom = y_title + lh * (len(lines) - 1) + asc + round(f.getmetrics()[1] * 0.4)
+    y_title = y_sub + round(48 * s) + round(40 * s) + rise
+    text_bottom = y_title + lh * (len(lines) - 1) + asc + round(f.getmetrics()[1] * 0.4) + rise
     bh = max(round(H * 0.25), text_bottom + round(60 * s))
     amp = round(26 * s)
     band = wave_band(W, H, bh, amp, idx * 1.7, s, BLUE + (255,))
@@ -880,11 +1120,16 @@ def make_band(c, src_img, out, W, H, idx):
     canvas.alpha_composite(sh)
     canvas.alpha_composite(band)
     d = ImageDraw.Draw(canvas)
-    d.text((W / 2, y_sub), c["sub"], font=f_sub, fill=(255, 255, 255, 225), anchor="mt")
+    ssw = round(TITLE_STYLE["sub_stroke"] * s)
+    d.text((W / 2, y_sub), c["sub"], font=f_sub, fill=(255, 255, 255, 225), anchor="mt", stroke_width=ssw,
+           stroke_fill=(255, 255, 255, 225))
     y = y_title + asc
+    tl = Image.new("RGBA", (W, H), (0, 0, 0, 0)) if TITLE_STYLE["tilt"] else canvas
     for ln in lines:
-        draw_line(canvas, parse_runs(ln), f, W / 2, y, (255, 255, 255), YELLOW, align="center")
+        draw_line(tl, parse_runs(ln), f, W / 2, y, (255, 255, 255), YELLOW, align="center")
         y += lh
+    if tl is not canvas:  # 제목 묶음 가운데를 중심으로 살짝 돌린다
+        canvas.alpha_composite(tilt_layer(tl, W / 2, (y_title + y - lh + asc * 0.3) / 2))
     # 폰: 띠 아래에 크게. 아래는 화면 밖으로 조금(폰 높이의 cut 만큼) 잘려도 된다
     top = bh + amp + round(H * 0.03)
     cut = c.get("_cut", 0.012)  # 아래 마이크 버튼이 잘리지 않을 만큼만
@@ -909,9 +1154,25 @@ def make_bold_set(copy, a, W, H, root):
     import glob
     ios = a.platform == "ios"
     cfg = copy["bold"]
+    set_bold_lang(a.lang)
+    set_font_variant(a.font_variant, a.lang)
     if a.bold_font:
         path, _, idx = a.bold_font.partition("#")
         BOLD_FONT[0], BOLD_FONT[1] = path, int(idx or 0)
+    if a.font_variant == "H":
+        # 쓰는 글자가 글꼴에 다 있는지(□ 없음) 먼저 확인하고, 하나라도 없으면 멈춘다
+        titles, subs = "", ""
+        pm = cfg.get("pano_merged", {}) if a.pano_merged else {}
+        for name in [cfg["pano"]["shot"], cfg["pano"]["shot_r"]] + cfg["ios" if ios else "play"]:
+            titles += copy["shots"][name]["title"]
+            subs += copy["shots"][name]["sub"]
+        titles += cfg["pano"]["title"] + pm.get("title", "")
+        subs += cfg["pano"]["sub"] + pm.get("sub", "") + pm.get("sub_r", "")
+        titles = titles.replace("[", "").replace("]", "")
+        for kind, (fp, fi), txt in (("제목", BOLD_FONT, titles), ("작은 글", SUB_FONT, subs)):
+            miss = missing_glyphs(fp, fi, txt)
+            if miss:
+                raise SystemExit("%s 글꼴(%s#%d)에 없는 글자: %s" % (kind, fp, fi, miss))
     pj = lambda p: p if os.path.isabs(p) else os.path.join(root, p)
     for old in glob.glob(os.path.join(a.out, "%s[0-9][0-9]-*.png" % a.prefix)):
         os.remove(old)
@@ -933,6 +1194,12 @@ def make_bold_set(copy, a, W, H, root):
          "_pano_over": a.pano_over,
          # 아이폰 녹음 상세 캡처는 아래가 비어 있어 더 잘려도 된다
          "_cut_r": 0.06 if ios else 0.03}
+    if a.pano_merged:
+        # 큰 제목 하나가 두 장에 걸치는 구성(JSON bold.pano_merged). 없으면 멈춘다
+        pm = cfg.get("pano_merged")
+        if not pm:
+            raise SystemExit("--pano-merged: 이 언어의 JSON bold.pano_merged 가 없어요")
+        c.update(title=pm["title"], sub=pm.get("sub", c["sub"]), sub_r=pm["sub_r"], _merged=True)
     l = os.path.join(a.out, "%s01-%s.png" % (a.prefix, base_l["slug"]))
     r = os.path.join(a.out, "%s02-%s.png" % (a.prefix, base_r["slug"]))
     make_pano(c, src_l, src_r, l, r, W, H, a.pano_bg)
@@ -985,6 +1252,12 @@ def main():
     ap.add_argument("--pano-over", type=float, default=0.15, help="bold 1번 폰이 2번으로 넘어가는 몫(회전한 폰 폭 기준, 0.10~0.20)")
     ap.add_argument("--pano-angle", type=float, default=None, help="bold 1번 폰 기울기(음수=시계 방향, 기본 -9)")
     ap.add_argument("--bold-font", default="", help="bold 큰 글 글꼴 '경로#인덱스'(기본 산돌고딕 Neo Heavy)")
+    ap.add_argument("--font-variant", default="", choices=["", "A", "B", "C", "H"],
+                    help="bold 글꼴 안(시안): A=둥근 고딕(배민 주아), B=손글씨(나눔손글씨 펜), C=산돌고딕 Bold+기울기, "
+                         "H=손글씨 최종(제목만 언어별 손글씨, 작은 글은 기본 글꼴, 글자 빠짐 검사). "
+                         "비우면 예전 그대로. 언어별 글꼴은 FONT_VARIANTS 에서")
+    ap.add_argument("--pano-merged", action="store_true",
+                    help="bold 1·2번: 큰 제목 하나가 두 장 폭에 걸쳐 이어지는 구성(JSON bold.pano_merged 문구)")
     a = ap.parse_args()
     W, H = map(int, a.size.lower().split("x"))
     copy = json.load(open(a.copy, encoding="utf-8"))[a.lang]

@@ -114,6 +114,12 @@
         "shot_r": "02_record",
         "_shot_r_note": "2번 장의 제목·보조 문구·원본은 shots.02_record 를 쓴다(title_r / sub_r 로 따로 줄 수도 있다)"
       },
+      "pano_merged": {
+        "_설명": "--pano-merged 전용: 큰 제목 하나가 1·2번 두 장 폭에 걸친다. title 첫 줄=1번 장, 둘째 줄=2번 장. sub=1번 위 말풍선, sub_r=2번 위 짧은 한 줄",
+        "title": "말한 그대로\n[일정]이 돼요",
+        "sub": "\"내일 3시 미용실, 30분 전에 알려 줘\"",
+        "sub_r": "내 목소리도 남아 다시 들을 수 있어요"
+      },
       "play": [
         "03_calendar",
         "04_widget",
@@ -130,5 +136,894 @@
       ],
       "_ios_note": "파노라마 1번이 임시로 07_large 를 쓰므로 iOS 는 1번과 7번 화면이 겹친다(임시). iOS 말하기 캡처가 생기면 pano.src_ios 만 바꾸면 된다."
     }
-  }
+  },
+  "en": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/en/01_speak.png",
+        "tag": "Speak to schedule",
+        "title": "One sentence,\n[alarm] all set",
+        "sub": "\"Hair salon tomorrow at 3, remind me 30 min before\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/en/02_record.png",
+        "tag": "Misheard? No worries",
+        "title": "Every word\nis [recorded]",
+        "sub": "Tap any word to hear it again",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/en/03_calendar.png",
+        "tag": "Calendar view",
+        "title": "Your whole month\nat a [glance]",
+        "sub": "Every plan, laid out day by day",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/en/04_widget.png",
+        "tag": "Home screen widget",
+        "title": "Right on your\n[home screen]",
+        "sub": "Next plans and this month, no app needed",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/en/05_attach.png",
+        "tag": "Photos & files",
+        "title": "Add [photos]\nto any plan",
+        "sub": "Originals aren't copied, so no extra storage",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/en/06_day.png",
+        "tag": "Day view",
+        "title": "Tap a date,\nsee the [whole day]",
+        "sub": "Add a new plan right there",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/en/07_large.png",
+        "tag": "Easy for everyone",
+        "title": "[Big] text,\nsimple to use",
+        "sub": "No sign-up. No internet needed.",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "One sentence,\n[alarm] all set",
+        "sub": "\"Hair salon tomorrow at 3, remind me 30 min before\"",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "Just say it,\nit's [scheduled]",
+        "sub_r": "Your voice is saved, so you can replay it"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "ja": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/ja/01_speak.png",
+        "tag": "話して予定登録",
+        "title": "ひと言で\n[アラーム]まで",
+        "sub": "「明日3時に美容院、30分前に教えて」",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/ja/02_record.png",
+        "tag": "聞き間違えても安心",
+        "title": "話したとおり\n[録音]が残る",
+        "sub": "単語をタップしてもう一度聞けます",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/ja/03_calendar.png",
+        "tag": "カレンダー表示",
+        "title": "1か月の予定が\n[ひと目]でわかる",
+        "sub": "毎日の予定がすっきり並びます",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/ja/04_widget.png",
+        "tag": "ホーム画面ウィジェット",
+        "title": "アプリを開かず\n[ホーム画面]で",
+        "sub": "次の予定と今月のカレンダーをひと目で",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/ja/05_attach.png",
+        "tag": "写真・ファイル",
+        "title": "予定に[写真]も\n添えられる",
+        "sub": "元データはコピーしないので容量も安心",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/ja/06_day.png",
+        "tag": "1日の予定",
+        "title": "日付をタップで\nその日が[ひと目]で",
+        "sub": "その場ですぐ予定を追加できます",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/ja/07_large.png",
+        "tag": "だれでもかんたん",
+        "title": "文字は[大きく]\n使い方はかんたん",
+        "sub": "会員登録なし、ネット接続なし",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "ひと言で\n[アラーム]まで",
+        "sub": "「明日3時に美容院、30分前に教えて」",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "話したとおり\n[予定]になる",
+        "sub_r": "自分の声も残るので、もう一度聞けます"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "zh-Hans": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/zh-Hans/01_speak.png",
+        "tag": "说话记日程",
+        "title": "说一句话\n[闹钟]就设好",
+        "sub": "\"明天下午3点理发，提前30分钟提醒我\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/zh-Hans/02_record.png",
+        "tag": "听错了也不怕",
+        "title": "说过的话\n都有[录音]",
+        "sub": "点任意词语即可重听",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/zh-Hans/03_calendar.png",
+        "tag": "日历视图",
+        "title": "整月安排\n[日历]上一目了然",
+        "sub": "每天的安排清清楚楚",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/zh-Hans/04_widget.png",
+        "tag": "桌面小组件",
+        "title": "不用打开应用\n[桌面]直接看",
+        "sub": "下一个日程和本月日历一目了然",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/zh-Hans/05_attach.png",
+        "tag": "照片和文件",
+        "title": "日程里还能\n附上[照片]",
+        "sub": "不复制原文件，不占空间",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/zh-Hans/06_day.png",
+        "tag": "当天日程",
+        "title": "点一下日期\n当天[一目了然]",
+        "sub": "还能当场直接添加",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/zh-Hans/07_large.png",
+        "tag": "人人都好用",
+        "title": "字体[更大]\n操作更简单",
+        "sub": "无需注册，无需联网",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "说一句话\n[闹钟]就设好",
+        "sub": "\"明天下午3点理发，提前30分钟提醒我\"",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "说出来\n就变成[日程]",
+        "sub_r": "你的声音也会保存，可以再听一遍"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "zh-Hant": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/zh-Hant/01_speak.png",
+        "tag": "說話記行程",
+        "title": "說一句話\n[鬧鐘]就設好",
+        "sub": "「明天下午3點剪頭髮，30分鐘前提醒我」",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/zh-Hant/02_record.png",
+        "tag": "聽錯也不怕",
+        "title": "說過的話\n都有[錄音]",
+        "sub": "點任一字詞就能重聽",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/zh-Hant/03_calendar.png",
+        "tag": "月曆檢視",
+        "title": "整月行程\n[月曆]上一目了然",
+        "sub": "每天的行程清清楚楚",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/zh-Hant/04_widget.png",
+        "tag": "主畫面小工具",
+        "title": "不用打開App\n[主畫面]直接看",
+        "sub": "下一個行程和本月月曆一目了然",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/zh-Hant/05_attach.png",
+        "tag": "照片和檔案",
+        "title": "行程裡也能\n附上[照片]",
+        "sub": "不複製原始檔案，不佔空間",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/zh-Hant/06_day.png",
+        "tag": "當天行程",
+        "title": "點一下日期\n當天[一目了然]",
+        "sub": "還能當場直接新增",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/zh-Hant/07_large.png",
+        "tag": "人人都好用",
+        "title": "字體[更大]\n操作更簡單",
+        "sub": "免註冊，免連網",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "說一句話\n[鬧鐘]就設好",
+        "sub": "「明天下午3點剪頭髮，30分鐘前提醒我」",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "說出來\n就變成[行程]",
+        "sub_r": "你的聲音也會保存，可以再聽一次"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "es": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/es/01_speak.png",
+        "tag": "Agenda con tu voz",
+        "title": "Dilo una vez,\n[alarma] lista",
+        "sub": "\"Peluquería mañana a las 3, avísame 30 min antes\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/es/02_record.png",
+        "tag": "¿Te entendió mal?",
+        "title": "Tu voz queda\n[grabada]",
+        "sub": "Toca una palabra para volver a oírla",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/es/03_calendar.png",
+        "tag": "Vista de calendario",
+        "title": "Todo tu mes\nde un [vistazo]",
+        "sub": "Cada plan, ordenado día a día",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/es/04_widget.png",
+        "tag": "Widget de inicio",
+        "title": "Sin abrir la app,\ndesde el [inicio]",
+        "sub": "Próximos planes y el mes de un vistazo",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/es/05_attach.png",
+        "tag": "Fotos y archivos",
+        "title": "Añade [fotos]\na tus planes",
+        "sub": "Sin copiar originales, sin gastar espacio",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/es/06_day.png",
+        "tag": "Vista del día",
+        "title": "Toca una fecha\ny ve tu [día]",
+        "sub": "Y añade planes ahí mismo",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/es/07_large.png",
+        "tag": "Fácil para todos",
+        "title": "Letra [grande],\nuso sencillo",
+        "sub": "Sin registro y sin conexión a internet",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "Dilo una vez,\n[alarma] lista",
+        "sub": "\"Peluquería mañana a las 3, avísame 30 min antes\"",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "Solo dilo,\ny queda [agendado]",
+        "sub_r": "Tu voz también se guarda para volver a oírla"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "fr": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/fr/01_speak.png",
+        "tag": "Planifiez à la voix",
+        "title": "Une phrase,\nune [alarme]",
+        "sub": "\"Coiffeur demain à 15 h, préviens-moi 30 min avant\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/fr/02_record.png",
+        "tag": "Mal compris ? Pas grave",
+        "title": "Vos paroles,\n[enregistrées]",
+        "sub": "Touchez un mot pour le réécouter",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/fr/03_calendar.png",
+        "tag": "Vue calendrier",
+        "title": "Tout le mois\nd'un [coup d'œil]",
+        "sub": "Chaque rendez-vous, jour par jour",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/fr/04_widget.png",
+        "tag": "Widget d'accueil",
+        "title": "Tout depuis\nl'[accueil]",
+        "sub": "Vos prochains rendez-vous d'un coup d'œil",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/fr/05_attach.png",
+        "tag": "Photos et fichiers",
+        "title": "Joignez des\n[photos]",
+        "sub": "Originaux non copiés, aucun espace perdu",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/fr/06_day.png",
+        "tag": "Vue du jour",
+        "title": "Une date,\ntoute la [journée]",
+        "sub": "Et ajoutez un rendez-vous sur place",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/fr/07_large.png",
+        "tag": "Simple pour tous",
+        "title": "Texte [en grand],\nusage facile",
+        "sub": "Sans inscription, sans connexion internet",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "Une phrase,\nune [alarme]",
+        "sub": "\"Coiffeur demain à 15 h, préviens-moi 30 min avant\"",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "Dites-le,\nc'est [planifié]",
+        "sub_r": "Votre voix est gardée pour la réécouter"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "de": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/de/01_speak.png",
+        "tag": "Termine per Sprache",
+        "title": "Einfach sagen,\n[Alarm] steht",
+        "sub": "\"Morgen um 15 Uhr Friseur, erinnere mich 30 Min. vorher\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/de/02_record.png",
+        "tag": "Falsch verstanden? Egal",
+        "title": "Alles Gesagte\nals [Aufnahme]",
+        "sub": "Wort antippen und erneut anhören",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/de/03_calendar.png",
+        "tag": "Kalenderansicht",
+        "title": "Der ganze Monat\n[auf einen Blick]",
+        "sub": "Jeder Termin, Tag für Tag",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/de/04_widget.png",
+        "tag": "Startbildschirm-Widget",
+        "title": "Alles auf dem\n[Homescreen]",
+        "sub": "Nächste Termine und der Monat im Überblick",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/de/05_attach.png",
+        "tag": "Fotos & Dateien",
+        "title": "[Fotos] direkt\nzum Termin",
+        "sub": "Keine Kopien, kein Extra-Speicher",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/de/06_day.png",
+        "tag": "Tagesansicht",
+        "title": "Datum antippen,\nden [Tag] sehen",
+        "sub": "Und gleich dort Termine hinzufügen",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/de/07_large.png",
+        "tag": "Leicht für alle",
+        "title": "[Große] Schrift,\nleichte Bedienung",
+        "sub": "Ohne Anmeldung, ohne Internet",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "Einfach sagen,\n[Alarm] steht",
+        "sub": "\"Morgen um 15 Uhr Friseur, erinnere mich 30 Min. vorher\"",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "Einfach sagen,\nschon [geplant]",
+        "sub_r": "Auch die Stimme bleibt zum Nachhören"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "pt": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/pt/01_speak.png",
+        "tag": "Agende falando",
+        "title": "Fale uma vez,\n[alarme] pronto",
+        "sub": "\"Cabeleireiro amanhã às 3, me avise 30 min antes\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/pt/02_record.png",
+        "tag": "Entendeu errado? Tudo bem",
+        "title": "Sua voz fica\n[gravada]",
+        "sub": "Toque numa palavra para ouvir de novo",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/pt/03_calendar.png",
+        "tag": "Calendário",
+        "title": "Seu mês inteiro\nnum [relance]",
+        "sub": "Cada compromisso, dia a dia",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/pt/04_widget.png",
+        "tag": "Widget na tela inicial",
+        "title": "Sem abrir o app,\nna [tela inicial]",
+        "sub": "Próximos compromissos e o mês à vista",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ]
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/pt/05_attach.png",
+        "tag": "Fotos e arquivos",
+        "title": "Anexe [fotos]\naos compromissos",
+        "sub": "Sem copiar originais, sem ocupar espaço",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/pt/06_day.png",
+        "tag": "Visão do dia",
+        "title": "Toque na data\ne veja o [dia]",
+        "sub": "E adicione compromissos ali mesmo",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/pt/07_large.png",
+        "tag": "Fácil para todos",
+        "title": "Letra [grande],\nuso simples",
+        "sub": "Sem cadastro, sem internet",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "pano": {
+        "shot": "01_speak",
+        "title": "Fale uma vez,\n[alarme] pronto",
+        "sub": "\"Cabeleireiro amanhã às 3, me avise 30 min antes\"",
+        "shot_r": "02_record"
+      },
+      "pano_merged": {
+        "title": "Você fala,\nfica [agendado]",
+        "sub_r": "Sua voz também fica salva para ouvir de novo"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ]
+    }
+  },
+  "_note_langs": "ko 밖 8개 언어: 원본은 store-assets/screenshots/<lang>/ 의 에뮬레이터 캡처(1080×2424, store-shot.py 가 1350×2400 으로 맞춘 뒤 crop). 03 보조 문구는 음력(한국 전용) 대신 일반 문구. iOS(src_ios)는 아직 없음."
 }
