@@ -117,6 +117,9 @@ const HOLIDAY_SHORT: Record<string, string> = {
   '국회의원선거일': '선거일',
   '추석·개천절': '추석',
   '크리스마스': '성탄절',
+  // 근무가 없는 날 날짜 옆에 붙으면 "설날 연휴"가 칸을 넘어 화면 끝에 붙었다(2027-02-06 토) — 옆 칸이 설날·추석이라 "연휴"로 충분
+  '설날 연휴': '연휴',
+  '추석 연휴': '연휴',
 };
 
 export function getHolidayShort(d: Date): string | undefined {

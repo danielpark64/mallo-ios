@@ -478,7 +478,8 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   lunarRow: { alignItems: 'center', justifyContent: 'center' },
   // Android 글자 위아래 여백을 빼서 '아주 크게'에서도 음력 줄(12×배율) 안에 들어가게
   lunarText: { includeFontPadding: false },
-  holBelow: { color: C.red, fontWeight: '600' },
+  // 근무 있는 날 아랫줄 공휴일이 9라 작아 보였다(노트10+) — 10으로, 넘치면 adjustsFontSizeToFit가 줄인다
+  holBelow: { color: C.red, fontWeight: '600', fontSize: 10 },
   chip: { fontSize: 10, color: C.text, backgroundColor: C.surfaceHigh, borderRadius: 3, paddingHorizontal: 2, marginBottom: 1, overflow: 'hidden' },
   more: { fontSize: 10, color: C.textSub, paddingHorizontal: 2 },
   dots: { flexDirection: 'row', gap: 3, paddingLeft: 4, marginTop: 1 },
