@@ -1,10 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 달력 한 칸: 날짜(오늘은 빨간 원) + 아래 줄(근무 첫 글자·일정 점). 글자는 dp — 시스템 글자 '아주 크게'에서도 칸 안에 들어가게 -->
+<!-- 달력 한 칸: 날짜(오늘은 빨간 원, 공휴일·일요일 빨강) + 아래 줄(근무 첫 글자·공휴일 이름 또는 음력·일정 점).
+     글자는 dp — 시스템 글자 '아주 크게'에서도 칸 안에 들어가게.
+     아래 줄은 날짜 밑에 남은 높이(줄 34dp → 14dp, 6주 33dp → 13dp)를 다 쓰고, 칸 폭보다 길 때만 글자를 7dp까지 줄인다(Android 8+).
+     fallbackLineSpacing=false: 한글은 대체 글꼴(Noto CJK)이라 줄 높이가 글자 크기의 약 1.45배로 잡혀
+     autoSize가 '높이가 모자란다'고 보고 글자를 8dp 이하로 줄이던 문제를 막는다(글자 모양은 그대로, 줄 높이만 기본 글꼴 기준). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
   android:id="@+id/sw_cell" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
   android:orientation="vertical" android:gravity="center_horizontal">
   <TextView android:id="@+id/sw_day" android:layout_width="20dp" android:layout_height="20dp"
     android:gravity="center" android:textSize="12dp" android:includeFontPadding="false"/>
-  <TextView android:id="@+id/sw_sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
-    android:textSize="10dp" android:includeFontPadding="false" android:maxLines="1"/>
+  <TextView android:id="@+id/sw_sub" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+    android:gravity="center" android:textSize="10dp" android:includeFontPadding="false" android:maxLines="1"
+    android:fallbackLineSpacing="false"
+    android:autoSizeTextType="uniform" android:autoSizeMinTextSize="7dp" android:autoSizeMaxTextSize="10dp"
+    android:autoSizeStepGranularity="1dp" tools:targetApi="p"/>
 </LinearLayout>

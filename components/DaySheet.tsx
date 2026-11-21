@@ -2,14 +2,15 @@
 // 그날 일정(기간 일정 포함)·공휴일·음력, "＋ 이 날 일정 추가". 카드를 누르면 시트를 닫은 뒤 상세를 연다
 // (iOS는 모달이 떠 있는 동안 다른 모달을 띄우면 조용히 무시한다 — 닫고 나서 연다: App 쪽에서 지연).
 import { useMemo } from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text as RNText, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from './AppText';
 import { ScheduleCard } from './ScheduleCard';
 import { useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
 import { formatDayHeader, relativeDayLabel, schedulesOn } from '../lib/dateUtils';
-import { getHoliday } from '../lib/calendarKit/holidays';
+import { getHoliday, ymdKey } from '../lib/calendarKit/holidays';
+import { getSolarTerm } from '../lib/calendarKit/solarTerms';
 import { lunarShortText } from '../lib/calendarKit/lunar';
 import { getLang } from '../lib/i18n/lang';
 import type { ScheduleRecord } from '../lib/storage';
@@ -46,6 +47,8 @@ export function DaySheet({
   const rel = relativeDayLabel(day);
   const hol = getHoliday(day);
   const lunar = getLang() === 'ko' ? lunarShortText(day) : '';
+  // 절기·삼복(한국어 화면에서만) — 달력 칸은 음력을 켰을 때만 보이니 날짜 시트에서는 늘 보여 준다
+  const term = getSolarTerm(ymdKey(day));
   const shift = shiftOn(shifts, day);
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -58,11 +61,11 @@ export function DaySheet({
             {shift ? (
               <Text style={[s.sub, { color: shift.color, fontWeight: '700' }]}>{t('교대알람 근무: {name}', { name: shift.label })}</Text>
             ) : null}
-            {(hol || lunar) ? (
+            {(hol || lunar || term) ? (
               <Text style={s.sub}>
-                {hol ? <Text style={{ color: C.red }}>{hol}</Text> : null}
-                {hol && lunar ? '  ' : ''}
-                {lunar ? t('음력 {d}', { d: lunar }) : ''}
+                {/* 안쪽은 react-native Text — 앱 Text를 겹치면 글자 배율이 두 번 곱해진다 */}
+                {hol ? <RNText style={{ color: C.red, fontWeight: '700' }}>{hol}</RNText> : null}
+                {[hol ? '' : null, lunar ? t('음력 {d}', { d: lunar }) : null, term ?? null].filter((x) => x != null).join('  ')}
               </Text>
             ) : null}
           </View>

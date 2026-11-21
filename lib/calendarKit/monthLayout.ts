@@ -78,19 +78,44 @@ export function densityAfterDoubleTap(cur: CalDensity): CalDensity {
   return cur < 2 ? ((cur + 1) as CalDensity) : 1;
 }
 
-export type CellMetrics = { titleH: number; cellH: number; numH: number; lunarH: number; laneH: number; showNames: boolean };
+export type CellMetrics = {
+  titleH: number; cellH: number; numH: number;
+  /** 음력을 켰을 때 모든 주에 들어가는 음력 줄 높이(끄면 0). cellH에 포함된다 */
+  lunarH: number;
+  /** 날짜 줄 아래 보조 줄(음력·공휴일 이름) 한 줄 높이 — 음력을 꺼도 근무와 공휴일이 겹친 주에는 이 줄이 생긴다 */
+  subH: number;
+  laneH: number; showNames: boolean;
+};
 
 /** 단계·글자 배율에 따른 칸 크기.
  *  음력을 켜면 날짜 줄 아래에 음력 한 줄(lunarH)을 더한다 — 글자가 크면 날짜·근무 옆에 음력 자리가 없어 "1…"로 잘렸다 */
 export function cellMetrics(d: CalDensity, scale: number, lunar = false): CellMetrics {
   const numH = Math.round(22 * scale);
-  const lunarH = lunar ? Math.round(12 * scale) : 0;
+  const subH = Math.round(12 * scale);
+  const lunarH = lunar ? subH : 0;
   const laneH = Math.round(15 * scale);
   // 지금 보는 달은 고정 머리에 크게 나오니, 달 사이에는 경계를 알리는 작은 표시만 둔다
   const titleH = Math.round(18 * scale);
-  if (d === 0) return { titleH, numH, lunarH, laneH: Math.round(5 * scale), cellH: numH + lunarH + Math.round(12 * scale), showNames: false };
+  if (d === 0) return { titleH, numH, lunarH, subH, laneH: Math.round(5 * scale), cellH: numH + lunarH + Math.round(12 * scale), showNames: false };
   const lines = d === 1 ? 4 : 8;
-  return { titleH, numH, lunarH, laneH, cellH: numH + lunarH + laneH * lines + 6, showNames: true };
+  return { titleH, numH, lunarH, subH, laneH, cellH: numH + lunarH + laneH * lines + 6, showNames: true };
+}
+
+/** 그 주의 보조 줄 높이. 음력을 켰으면 모든 주에 lunarH.
+ *  끄면 needsSub(그날 근무와 공휴일이 겹쳐 공휴일 이름을 날짜 줄에 둘 자리가 없는 날)가 하나라도 있는 주에만 subH, 아니면 0 */
+export function weekSubH(m: CellMetrics, week: (Date | null)[], needsSub: (d: Date) => boolean): number {
+  if (m.lunarH > 0) return m.lunarH;
+  return week.some((d) => d != null && needsSub(d)) ? m.subH : 0;
+}
+
+/** 주 한 줄의 높이 — 보조 줄이 더해진 만큼만 길어지고 일정 줄 수는 그대로 */
+export function weekHeight(m: CellMetrics, subH: number): number {
+  return m.cellH - m.lunarH + subH;
+}
+
+/** 한 달 블록 높이(달 사이 작은 제목 + 주마다의 높이) */
+export function monthHeight(m: CellMetrics, weeks: (Date | null)[][], needsSub: (d: Date) => boolean): number {
+  return weeks.reduce((h, w) => h + weekHeight(m, weekSubH(m, w, needsSub)), m.titleH);
 }
 
 /** 누적 위치표(offsets, 오름차순)에서 y 위치가 속한 달의 번호 */

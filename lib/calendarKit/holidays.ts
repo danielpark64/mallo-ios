@@ -124,3 +124,10 @@ export function getHolidayShort(d: Date): string | undefined {
   if (!full) return undefined;
   return HOLIDAY_SHORT[full] ?? full;
 }
+
+/** 언어를 직접 받는 칸용 짧은 이름 — 위젯 요약처럼 화면 언어(getLang)가 아닌 언어로 만들 때 */
+export function holidayShortFor(d: Date, lang: string): string | undefined {
+  if (lang !== 'ko') return undefined;
+  const full = HOLIDAYS[ymdKey(d)];
+  return full ? (HOLIDAY_SHORT[full] ?? full) : undefined;
+}

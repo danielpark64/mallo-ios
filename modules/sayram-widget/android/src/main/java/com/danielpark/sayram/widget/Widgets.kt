@@ -21,6 +21,8 @@ class MediumWidget : AppWidgetProvider() {
 /** 크게(4×4): 이번 달 달력 + 스크롤 목록 */
 class LargeWidget : AppWidgetProvider() {
   override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) = WidgetRender.updateAll(ctx)
+  // 크기를 바꾸면 목록에 들어가는 줄 수가 달라진다 — 그 위젯만 한 번 다시 그린다
+  override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, opts: android.os.Bundle) = WidgetRender.updateLarge(ctx, id)
   override fun onDisabled(ctx: Context) = WidgetRender.updateAll(ctx)
 }
 

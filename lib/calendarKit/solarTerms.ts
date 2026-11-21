@@ -77,6 +77,11 @@ function buildYear(year: number) {
 
 export function getSolarTerm(dateStr: string): string | undefined {
   if (getLang() !== 'ko') return undefined; // 24절기는 한국어일 때만 표시
+  return solarTermOf(dateStr);
+}
+
+/** 언어 확인 없이 그날의 절기·삼복 — 위젯 요약처럼 언어를 따로 받는 곳에서 쓴다(한국어 확인은 부르는 쪽이) */
+export function solarTermOf(dateStr: string): string | undefined {
   const year = parseInt(dateStr.slice(0, 4), 10);
   if (!builtYears.has(year)) { buildYear(year); builtYears.add(year); }
   return cache[dateStr];

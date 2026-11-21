@@ -8,6 +8,9 @@ import type { ShiftData } from './shiftImport';
 import type { Lang } from './i18n/lang';
 import { translate } from './i18n';
 import { isMovedAway } from './outcome';
+import { holidayShortFor } from './calendarKit/holidays';
+import { lunarCellText } from './calendarKit/lunar';
+import { solarTermOf } from './calendarKit/solarTerms';
 import { addDays, formatDayHeaderFor, formatMonthLabelFor, formatTimeFor, startOfDay, weekdayLabelsFor } from './dateUtils';
 
 export type WidgetItem = {
@@ -36,6 +39,11 @@ export type WidgetPayload = {
   shift: number[];
   /** 날짜별 일정 있음(1) / 없음(0) */
   ev: number[];
+  /** 날짜별 공휴일 짧은 이름('' = 없음) — 한국어일 때만, 아니면 빈 배열. 위젯은 이 날 숫자를 빨갛게(일요일과 같은 색) */
+  hol: string[];
+  /** 날짜별 음력·절기 짧은 글씨(달력 칸과 같은 규칙: 초하루 "11.1", 절기 "동지", 나머지 일 "17") — 앱에서 음력을 켰을 때만, 아니면 빈 배열.
+   *  위젯에는 음력 계산을 넣지 않고 앱이 석 달치를 계산해 넘긴다(가볍게) */
+  lun: string[];
   /** 근무 종류: 달력 칸에 쓸 짧은 이름과 색 */
   shifts: { s: string; c: string }[];
   /** 이번 달부터 석 달의 이름 */
@@ -73,7 +81,14 @@ export function shortShiftLabels(labels: string[]): string[] {
   return labels.map((l, i) => (clash ? Array.from(l.trim()).slice(0, 2).join('') : first[i]));
 }
 
-export function buildWidgetPayload(records: ScheduleRecord[], shifts: ShiftData | null, lang: Lang, now: Date = new Date()): WidgetPayload {
+/** 위젯 달력 칸의 음력·절기 — 앱 달력 칸(MonthScroll)과 같은 규칙: 음력 초하루가 먼저, 다음 절기, 나머지는 음력 일 */
+export function lunarSubFor(d: Date): string {
+  const lun = lunarCellText(d);
+  if (lun.includes('.')) return lun;
+  return solarTermOf(ymd(d)) ?? lun;
+}
+
+export function buildWidgetPayload(records: ScheduleRecord[], shifts: ShiftData | null, lang: Lang, now: Date = new Date(), opts: { lunar?: boolean } = {}): WidgetPayload {
   const tr = (k: string) => translate(lang, k);
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const stop = new Date(now.getFullYear(), now.getMonth() + MONTHS, 1);
@@ -131,6 +146,11 @@ export function buildWidgetPayload(records: ScheduleRecord[], shifts: ShiftData 
       };
     });
 
+  // 공휴일·음력은 한국어 화면에서만(앱 달력과 같은 규칙)
+  const dayAt = (i: number) => new Date(first.getFullYear(), first.getMonth(), first.getDate() + i);
+  const hol: string[] = lang === 'ko' ? Array.from({ length: nDays }, (_, i) => holidayShortFor(dayAt(i), lang) ?? '') : [];
+  const lun: string[] = lang === 'ko' && opts.lunar ? Array.from({ length: nDays }, (_, i) => lunarSubFor(dayAt(i))) : [];
+
   const short = shifts ? shortShiftLabels(shifts.labels) : [];
   return {
     v: 1,
@@ -138,6 +158,8 @@ export function buildWidgetPayload(records: ScheduleRecord[], shifts: ShiftData 
     from: ymd(first),
     shift,
     ev,
+    hol,
+    lun,
     shifts: short.map((s, i) => ({ s, c: shifts!.colors[i] ?? '#9AA0A6' })),
     months: Array.from({ length: MONTHS }, (_, k) => {
       const d = new Date(first.getFullYear(), first.getMonth() + k, 1);

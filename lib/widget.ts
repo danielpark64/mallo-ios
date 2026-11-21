@@ -11,10 +11,10 @@ type Native = { setData(json: string): Promise<void>; launchedFromHistory?(): bo
 const native = requireOptionalNativeModule<Native>('SayramWidget');
 
 /** 위젯 요약을 새로 쓰고 위젯을 다시 그리게 한다(모듈이 없는 환경에서는 아무것도 안 함) */
-export function publishWidget(records: ScheduleRecord[], shifts: ShiftData | null, lang: Lang, now: Date = new Date()) {
+export function publishWidget(records: ScheduleRecord[], shifts: ShiftData | null, lang: Lang, lunar = false, now: Date = new Date()) {
   if (!native) return;
   try {
-    native.setData(JSON.stringify(buildWidgetPayload(records, shifts, lang, now))).catch((e) => console.warn('위젯 갱신 실패', e));
+    native.setData(JSON.stringify(buildWidgetPayload(records, shifts, lang, now, { lunar }))).catch((e) => console.warn('위젯 갱신 실패', e));
   } catch (e) {
     console.warn('위젯 갱신 실패', e);
   }

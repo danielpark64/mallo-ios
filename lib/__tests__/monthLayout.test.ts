@@ -93,3 +93,34 @@ describe('monthIndexAt 고정 머리의 달', () => {
     expect(monthIndexAt(offsets, 99999)).toBe(3);
   });
 });
+
+// ── 보조 줄(음력·공휴일 이름): 근무가 있는 날의 공휴일 이름이 빠지지 않게(2026-11-21 사용자: "25 말번"만 보이고 성탄절이 안 나옴) ──
+import { weekSubH, weekHeight, monthHeight } from '../calendarKit/monthLayout';
+describe('보조 줄 높이', () => {
+  const dec = monthWeeks(2026, 11); // 2026년 12월 — 25일(금)은 넷째 주
+  const xmas = (x: Date) => x.getMonth() === 11 && x.getDate() === 25;
+  test('음력을 끄면 근무+공휴일이 겹친 날이 있는 주에만 한 줄 더, 다른 주는 그대로', () => {
+    for (const scale of [1, 1.45]) {
+      for (const d of [0, 1, 2] as const) {
+        const m = cellMetrics(d, scale);
+        const subs = dec.map((w) => weekSubH(m, w, xmas));
+        expect(subs).toEqual([0, 0, 0, m.subH, 0]);
+        expect(weekHeight(m, 0)).toBe(m.cellH);
+        expect(weekHeight(m, m.subH)).toBe(m.cellH + m.subH);
+        expect(monthHeight(m, dec, xmas)).toBe(m.titleH + dec.length * m.cellH + m.subH);
+        expect(monthHeight(m, dec, () => false)).toBe(m.titleH + dec.length * m.cellH);
+      }
+    }
+  });
+  test('음력을 켜면 모든 주에 음력 줄(이미 칸 높이에 들어 있다) — 공휴일이 겹쳐도 더 길어지지 않는다', () => {
+    const m = cellMetrics(1, 1.2, true);
+    expect(dec.map((w) => weekSubH(m, w, xmas))).toEqual(dec.map(() => m.lunarH));
+    expect(weekHeight(m, m.lunarH)).toBe(m.cellH);
+    expect(monthHeight(m, dec, xmas)).toBe(m.titleH + dec.length * m.cellH);
+  });
+  test('보조 줄이 생겨도 일정 줄 수는 그대로(더한 높이 = 보조 줄 높이)', () => {
+    const m = cellMetrics(1, 1);
+    const h = weekHeight(m, m.subH);
+    expect(Math.floor((h - m.numH - m.subH - 4) / m.laneH)).toBe(Math.floor((m.cellH - m.numH - 4) / m.laneH));
+  });
+});

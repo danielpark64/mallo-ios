@@ -1,0 +1,134 @@
+{
+  "ko": {
+    "order": [
+      "01_speak",
+      "02_record",
+      "03_calendar",
+      "04_widget",
+      "05_attach",
+      "06_day",
+      "07_large"
+    ],
+    "shots": {
+      "01_speak": {
+        "slug": "speak",
+        "src": "store-assets/screenshots/02_speaking.png",
+        "tag": "말로 일정 만들기",
+        "title": "말 한마디면\n[알람]까지 끝",
+        "sub": "\"내일 3시 미용실, 30분 전에 알려 줘\"",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "02_record": {
+        "slug": "record",
+        "src": "store-assets/screenshots/03_detail.png",
+        "src_ios": "store-assets/appstore-copy/_src-ios/02_record.png",
+        "tag": "잘못 알아들어도",
+        "title": "말한 그대로\n[녹음]이 남아요",
+        "sub": "단어마다 눌러 다시 들을 수 있어요",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "03_calendar": {
+        "slug": "calendar",
+        "src": "store-assets/screenshots/10_calendar.png",
+        "src_ios": "store-assets/appstore-copy/_src-ios/03_calendar.png",
+        "tag": "달력 보기",
+        "title": "한 달 일정이\n[달력]에 한눈에",
+        "sub": "음력 날짜도 함께 볼 수 있어요",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "04_widget": {
+        "slug": "widget",
+        "src": "store-assets/screenshots/11_widget_home.png",
+        "src_ios": "store-assets/appstore-copy/_src-ios/04_widget_home.png",
+        "tag": "홈 화면 위젯",
+        "title": "앱을 안 열어도\n[홈 화면]에서 바로",
+        "sub": "다음 일정과 이번 달 달력이 한눈에",
+        "bold_box": [
+          0,
+          400,
+          1080,
+          1610
+        ],
+        "bold_box_ios": [
+          0,
+          215,
+          1206,
+          1385
+        ],
+        "_bold_box_note": "--style bold 04 장만: [왼,위,오른,아래] 픽셀로 위젯만 잘라 크게 보인다(Play: 에뮬레이터 날짜를 2026-12-21로 맞춰 찍은 크게 위젯 4×4 / iOS: 시뮬레이터 크게 위젯). 원본을 다시 찍으면 상자도 맞출 것"
+      },
+      "05_attach": {
+        "slug": "attach",
+        "src": "store-assets/screenshots/12_attach.png",
+        "src_ios": "store-assets/appstore-copy/_src-ios/05_attach.png",
+        "tag": "사진·파일 붙이기",
+        "title": "일정에 [사진]도\n함께 붙여요",
+        "sub": "원본을 복사하지 않아 용량 걱정 없이",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "06_day": {
+        "slug": "day",
+        "src": "store-assets/screenshots/13_day.png",
+        "src_ios": "store-assets/appstore-copy/_src-ios/06_day.png",
+        "tag": "하루 일정 보기",
+        "title": "날짜만 누르면\n그날 일정이 [한눈에]",
+        "sub": "그 자리에서 바로 추가도 돼요",
+        "crop": [
+          100,
+          2250
+        ]
+      },
+      "07_large": {
+        "slug": "large",
+        "src": "store-assets/screenshots/14_large.png",
+        "src_ios": "store-assets/appstore-copy/_src-ios/07_large.png",
+        "tag": "어르신도 쉽게",
+        "title": "글씨는 [크게]\n쓰기는 쉽게",
+        "sub": "회원가입 없이, 인터넷 연결 없이",
+        "crop": [
+          100,
+          2250
+        ]
+      }
+    },
+    "bold": {
+      "_설명": "--style bold 전용 구성. pano = 1·2번 이어지는 파노라마(1 말하기 + 2 녹음, 두 장 모두 큰 제목 + 폰), play/ios = 3번부터 물결 띠 장(shots 의 이름).",
+      "pano": {
+        "shot": "01_speak",
+        "title": "말 한마디면\n[알람]까지 끝",
+        "sub": "\"내일 3시 미용실, 30분 전에 알려 줘\"",
+        "src_ios": "store-assets/appstore-copy/_src-ios/07_large.png",
+        "_src_ios_note": "임시 — iOS 말하기 화면 캡처가 생기면 이 경로만 바꾼다",
+        "shot_r": "02_record",
+        "_shot_r_note": "2번 장의 제목·보조 문구·원본은 shots.02_record 를 쓴다(title_r / sub_r 로 따로 줄 수도 있다)"
+      },
+      "play": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ],
+      "ios": [
+        "03_calendar",
+        "04_widget",
+        "05_attach",
+        "06_day",
+        "07_large"
+      ],
+      "_ios_note": "파노라마 1번이 임시로 07_large 를 쓰므로 iOS 는 1번과 7번 화면이 겹친다(임시). iOS 말하기 캡처가 생기면 pano.src_ios 만 바꾸면 된다."
+    }
+  }
+}

@@ -44,6 +44,10 @@ class Payload(o: JSONObject) {
   val from: Calendar
   val shift: IntArray
   val ev: IntArray
+  /** 날짜별 공휴일 짧은 이름("" = 없음) — 한국어일 때만 채워 온다. 옛 요약에는 없다 */
+  val hol: List<String>
+  /** 날짜별 음력·절기 짧은 글씨 — 앱에서 음력을 켰을 때만 채워 온다(위젯은 음력을 계산하지 않는다) */
+  val lun: List<String>
   val shiftLabels: List<String>
   val shiftColors: List<String>
   /** (연, 월 1~12, 이름) */
@@ -60,6 +64,8 @@ class Payload(o: JSONObject) {
     from = Calendar.getInstance().apply { clear(); set(p[0], p[1] - 1, p[2]) }
     val sa = o.getJSONArray("shift"); shift = IntArray(sa.length()) { sa.getInt(it) }
     val ea = o.getJSONArray("ev"); ev = IntArray(ea.length()) { ea.getInt(it) }
+    hol = o.optJSONArray("hol")?.let { a -> (0 until a.length()).map { a.optString(it, "") } } ?: emptyList()
+    lun = o.optJSONArray("lun")?.let { a -> (0 until a.length()).map { a.optString(it, "") } } ?: emptyList()
     val sh = o.getJSONArray("shifts")
     shiftLabels = (0 until sh.length()).map { sh.getJSONObject(it).getString("s") }
     shiftColors = (0 until sh.length()).map { sh.getJSONObject(it).getString("c") }
@@ -77,6 +83,12 @@ class Payload(o: JSONObject) {
     val until = today + 30L * 86_400_000L
     return items.filter { (if (it.timed) it.at > now else (it.end ?: it.at) >= today) && it.at < until }
   }
+
+  /** 그날 공휴일 이름(없으면 null) */
+  fun holiday(i: Int): String? = hol.getOrNull(i)?.takeIf { it.isNotEmpty() }
+
+  /** 그날 음력·절기 글씨(음력을 껐거나 없으면 null) */
+  fun lunar(i: Int): String? = lun.getOrNull(i)?.takeIf { it.isNotEmpty() }
 
   /** 그날의 days 번호(범위 밖이면 -1) */
   fun index(day: Calendar): Int {

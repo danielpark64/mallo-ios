@@ -647,8 +647,9 @@ function AppInner() {
   useEffect(() => {
     openWindowsRef.current = { editor: editorOpen, recorder: showRecorder, settings: settingsOpen, day: daySheet != null, detail: detailId };
   }, [editorOpen, showRecorder, settingsOpen, daySheet, detailId]);
-  const [showLunar, setShowLunar] = useState(false);
-  const toggleLunar = useCallback(() => setShowLunar((v) => !v), []);
+  // 음력 표시는 기억해 둔다(위젯도 이 설정을 따른다)
+  const [showLunar, setShowLunar] = useState(() => loadPrefs().showLunar);
+  const toggleLunar = useCallback(() => setShowLunar((v) => { savePrefs({ showLunar: !v }); return !v; }), []);
   // 교대알람에서 가져온 근무표(같은 폰, URL로 주고받음 — lib/shiftImport.ts). 일정·알람은 만들지 않는다
   const [shifts, setShifts] = useState<ShiftData | null>(() => loadShifts());
   const shiftsInfo = useMemo(() => {
@@ -686,17 +687,19 @@ function AppInner() {
   // 홈 화면 위젯: 일정·근무표·언어가 바뀌면 바로 다시 쓴다(위 공유와 같은 불러온 뒤 조건). 설계: docs/WIDGET_PLAN.md
   // 주의: recordsLoadedRef는 바로 위 공유 effect가 정한다 — 이 effect는 반드시 그 뒤에 둘 것(옮기거나 지우면 빈 목록이 위젯에 써질 수 있다)
   // 앱이 앞으로 올 때도 한 번 — 날짜가 넘어가 석 달 창(이번 달부터)을 옮겨야 할 수 있다. 폴링은 없다(규칙 10)
-  const widgetSrcRef = useRef({ records, shifts, lang });
-  widgetSrcRef.current = { records, shifts, lang };
+  // 음력은 한국어 화면에서만 켜진다(달력과 같은 규칙) — 위젯 달력 칸에 음력·절기를 넣을지
+  const widgetLunar = showLunar && lang === 'ko';
+  const widgetSrcRef = useRef({ records, shifts, lang, widgetLunar });
+  widgetSrcRef.current = { records, shifts, lang, widgetLunar };
   useEffect(() => {
     if (!recordsLoadedRef.current) return;
-    publishWidget(records, shifts, lang);
-  }, [records, shifts, lang]);
+    publishWidget(records, shifts, lang, widgetLunar);
+  }, [records, shifts, lang, widgetLunar]);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (st) => {
       if (st !== 'active' || !recordsLoadedRef.current) return;
       const w = widgetSrcRef.current;
-      publishWidget(w.records, w.shifts, w.lang);
+      publishWidget(w.records, w.shifts, w.lang, w.widgetLunar);
     });
     return () => sub.remove();
   }, []);

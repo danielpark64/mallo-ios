@@ -34,6 +34,10 @@ struct Payload: Codable, Hashable {
   let from: String
   let shift: [Int]
   let ev: [Int]
+  /// 날짜별 공휴일 짧은 이름("" = 없음). 한국어일 때만 채워 온다. 옛 요약에는 없을 수 있다
+  let hol: [String]?
+  /// 날짜별 음력·절기 짧은 글씨 — 앱에서 음력을 켰을 때만 채워 온다(위젯은 음력을 계산하지 않는다)
+  let lun: [String]?
   let shifts: [ShiftKind]
   let months: [MonthName]
   let wd: [String]
@@ -72,6 +76,27 @@ struct Payload: Codable, Hashable {
   }
 
   var hasShifts: Bool { shift.contains { $0 >= 0 } }
+
+  /// 그날 공휴일 이름(없으면 nil)
+  func holiday(_ i: Int) -> String? {
+    guard let h = hol, i >= 0, i < h.count, !h[i].isEmpty else { return nil }
+    return h[i]
+  }
+
+  /// 그날 음력·절기 글씨(음력을 껐거나 없으면 nil)
+  func lunar(_ i: Int) -> String? {
+    guard let l = lun, i >= 0, i < l.count, !l[i].isEmpty else { return nil }
+    return l[i]
+  }
+
+  /// 이 달(1일~말일) 칸에 날짜 아래 줄이 하나라도 있나 — 근무·일정 점·공휴일·음력
+  func hasSubLine(first: Date, days: Int) -> Bool {
+    guard let s = index(of: first) else { return false }
+    for i in s..<min(s + days, ev.count) {
+      if shift[i] >= 0 || ev[i] == 1 || holiday(i) != nil || lunar(i) != nil { return true }
+    }
+    return false
+  }
 }
 
 /// 위젯 고르는 화면의 이름·설명(9개 언어). 위젯 안 문구는 앱이 요약에 담아 보낸다

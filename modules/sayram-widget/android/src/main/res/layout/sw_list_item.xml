@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 글자 두 개 모두 fallbackLineSpacing="false": 한글(대체 글꼴)이 있는 줄과 영어만 있는 줄의 높이를 같게 한다.
+     WidgetRender.fitList가 견본 한 줄로 잰 높이로 목록 줄 수를 정하기 때문(줄마다 높이가 다르면 아랫줄이 잘린다) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
   android:id="@+id/sw_item" android:layout_width="match_parent" android:layout_height="wrap_content"
   android:orientation="horizontal" android:paddingTop="4dp" android:paddingBottom="4dp">
   <TextView android:id="@+id/sw_item_when" android:layout_width="wrap_content" android:layout_height="wrap_content"
-    android:minWidth="92dp" android:paddingEnd="8dp" android:textSize="13sp" android:textColor="@color/sw_sub" android:maxLines="1"/>
+    android:minWidth="92dp" android:paddingEnd="8dp" android:textSize="13sp" android:textColor="@color/sw_sub" android:maxLines="1"
+    android:fallbackLineSpacing="false" tools:targetApi="p"/>
   <TextView android:id="@+id/sw_item_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
-    android:textSize="13sp" android:textColor="@color/sw_text" android:maxLines="1" android:ellipsize="end"/>
+    android:textSize="13sp" android:textColor="@color/sw_text" android:maxLines="1" android:ellipsize="end"
+    android:fallbackLineSpacing="false" tools:targetApi="p"/>
 </LinearLayout>

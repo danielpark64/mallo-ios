@@ -3,13 +3,13 @@
 // 공휴일·음력, 위아래 연속 스크롤(아이폰처럼). 날짜를 누르면 그날 일정(onPickDay), 왼쪽 위 달 이름은 1년 보기(onYearPress).
 // 배치 계산은 lib/calendarKit/monthLayout.ts(순수 함수, 테스트 있음).
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, PanResponder, StyleSheet, TouchableOpacity, View, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { Animated, FlatList, PanResponder, StyleSheet, Text as RNText, TouchableOpacity, View, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from './AppText';
 import { useFontScale, useTheme, type Palette } from '../lib/theme';
 import { useT } from '../lib/i18n';
 import { formatDayHeader, formatMonthLabel, formatMonthShort, weekdayLabels } from '../lib/dateUtils';
 import { clampZoom, panZoom, pinchZoom, type Zoom } from '../lib/calendarKit/zoom';
-import { cellMetrics, monthIndexAt, monthWeeks, singleDayIndex, weekBars, type CalDensity, type CalEvent, type CellMetrics } from '../lib/calendarKit/monthLayout';
+import { cellMetrics, monthHeight, monthIndexAt, monthWeeks, singleDayIndex, weekBars, weekHeight, weekSubH, type CalDensity, type CalEvent, type CellMetrics } from '../lib/calendarKit/monthLayout';
 import { getHolidayShort, ymdKey } from '../lib/calendarKit/holidays';
 import { getSolarTerm } from '../lib/calendarKit/solarTerms';
 import { lunarCellText } from '../lib/calendarKit/lunar';
@@ -19,6 +19,9 @@ const BEFORE = 24; // 오늘 기준 앞뒤로 그릴 달 수
 const AFTER = 36;
 
 type Metrics = CellMetrics;
+
+/** 그날 근무와 공휴일이 겹치나 — 날짜 줄(숫자+근무)에 공휴일 이름 자리가 없어 아랫줄(보조 줄)로 보낸다 */
+const holidayWithShift = (shifts: ShiftData | null, d: Date) => !!shifts && !!getHolidayShort(d) && !!shiftOn(shifts, d);
 
 function monthOf(index: number, base: Date) {
   const d = new Date(base.getFullYear(), base.getMonth() + index - BEFORE, 1);
@@ -69,20 +72,28 @@ export const MonthScroll = memo(function MonthScroll({
   const metrics: Metrics = useMemo(() => cellMetrics(density, scale, showLunar), [density, scale, showLunar]);
 
   const months = useMemo(() => Array.from({ length: BEFORE + AFTER + 1 }, (_, i) => i), []);
-  // 달마다 높이가 다르다(5주/6주) → 누적 위치표
+  // 달마다 높이가 다르다(5주/6주, 음력을 끈 때 근무+공휴일이 겹친 주는 보조 줄만큼 더) → 누적 위치표.
+  // 높이가 그대로면 앞의 표를 그대로 쓴다 — 근무표를 다시 받아도 높이가 같으면 보던 달로 되돌리는 스크롤을 하지 않게
+  const layoutRef = useRef<{ offsets: number[]; heights: number[] } | null>(null);
   const layout = useMemo(() => {
     const offsets: number[] = [];
     const heights: number[] = [];
     let acc = 0;
+    const needs = (d: Date) => holidayWithShift(shifts, d);
     for (const i of months) {
       const { y, m } = monthOf(i, base);
-      const h = metrics.titleH + monthWeeks(y, m).length * metrics.cellH;
+      const h = monthHeight(metrics, monthWeeks(y, m), needs);
       offsets.push(acc);
       heights.push(h);
       acc += h;
     }
-    return { offsets, heights };
-  }, [months, base, metrics]);
+    const prev = layoutRef.current;
+    if (prev && prev.heights.length === heights.length && prev.heights.every((h, i) => h === heights[i])) return prev;
+    layoutRef.current = { offsets, heights };
+    return layoutRef.current;
+  // 공휴일은 한국어 화면에서만 보여 언어가 바뀌면 높이가 달라질 수 있다
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [months, base, metrics, shifts, lang]);
 
   const singles = useMemo(() => singleDayIndex(events), [events]);
   const listRef = useRef<FlatList<number>>(null);
@@ -113,12 +124,12 @@ export const MonthScroll = memo(function MonthScroll({
     try { listRef.current?.scrollToIndex({ index: idx, animated }); } catch {}
   }, [base, months.length]);
 
-  // 글자 크기가 바뀌면 칸 높이가 달라져 같은 스크롤 위치가 엉뚱한 달(예: 10월→3월)이 된다 → 보던 달로 되돌린다.
+  // 글자 크기·음력·근무표가 바뀌어 칸 높이가 달라지면 같은 스크롤 위치가 엉뚱한 달(예: 10월→3월)이 된다 → 보던 달로 되돌린다.
   // 보던 달은 높이가 바뀌기 전(그리는 중)에 잡아 둔다 — 그린 뒤에는 보이는 달 값이 이미 바뀌어 있을 수 있다
-  const prevMetricsRef = useRef(metrics);
+  const prevLayoutRef = useRef(layout);
   const keepMonthRef = useRef<{ y: number; m: number } | null>(null);
-  if (prevMetricsRef.current !== metrics) {
-    prevMetricsRef.current = metrics;
+  if (prevLayoutRef.current !== layout) {
+    prevLayoutRef.current = layout;
     keepMonthRef.current = visibleRef.current;
   }
   useEffect(() => {
@@ -127,7 +138,7 @@ export const MonthScroll = memo(function MonthScroll({
     keepMonthRef.current = null;
     const id = setTimeout(() => scrollToMonth(k.y, k.m, false), 0);
     return () => clearTimeout(id);
-  }, [metrics, scrollToMonth]);
+  }, [layout, scrollToMonth]);
 
   // ── 화면 확대(사진처럼): 두 손가락 벌리기·오므리기, 확대 중 한 손가락 옆으로 밀기, 제목 두 번 탭 2배 ──
   // 위아래 한 손가락은 그대로 목록 스크롤. 계산은 lib/calendarKit/zoom.ts(테스트 있음).
@@ -327,6 +338,7 @@ const MonthBlock = memo(function MonthBlock({
     return events.filter((e) => e.start.getTime() <= me && e.end.getTime() >= ms);
   }, [events, y, m]);
   const { cellH, numH, lunarH, laneH, showNames } = metrics;
+  const needs = useCallback((d: Date) => holidayWithShift(shifts, d), [shifts]);
   return (
     <View>
       <TouchableOpacity activeOpacity={1} onPress={onTitleTap} style={{ height: metrics.titleH, justifyContent: 'flex-end', paddingBottom: 2, paddingHorizontal: 6 }}>
@@ -338,8 +350,10 @@ const MonthBlock = memo(function MonthBlock({
         // 기간 막대가 칸 아래로 넘치지 않게 줄 수를 제한한다(넘친 막대는 그날 시트에서 보인다)
         const bars = weekBars(monthEvents, week).filter((b) => b.lane < maxLines);
         const lanes = bars.reduce((n, b) => Math.max(n, b.lane + 1), 0);
+        // 날짜 줄 아래 보조 줄: 음력을 켜면 모든 주, 끄면 근무+공휴일이 겹친 날이 있는 주에만(그 주만 그만큼 길어진다)
+        const subH = weekSubH(metrics, week, needs);
         return (
-          <View key={wi} style={[s.week, { height: cellH }]}>
+          <View key={wi} style={[s.week, { height: weekHeight(metrics, subH) }]}>
             {week.map((d, ci) => {
               if (!d) return <View key={ci} style={s.cell} />;
               const k = ymdKey(d);
@@ -356,6 +370,8 @@ const MonthBlock = memo(function MonthBlock({
               const shown = items.length > free ? items.slice(0, Math.max(0, free - 1)) : items;
               const more = items.length - shown.length;
               const red = !!hol || d.getDay() === 0;
+              // 근무가 있는 날은 날짜 줄이 숫자+근무로 차서 공휴일 이름을 아랫줄로 보낸다(음력과 같은 줄이면 공휴일이 앞)
+              const holBelow = !!hol && !!shift;
               return (
                 <TouchableOpacity
                   key={ci}
@@ -373,15 +389,21 @@ const MonthBlock = memo(function MonthBlock({
                     {shift ? (
                       <Text style={shift.off ? s.shiftOff : [s.shift, { color: shift.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>{shift.label}</Text>
                     ) : null}
-                    {/* 근무가 있으면 칸이 좁아 둘 다 잘리므로(말··· 개···) 공휴일 이름은 빼고 — 빨간 숫자로 알 수 있고 이름은 날짜 시트에 */}
-                    {!shift && hol ? (
+                    {/* 근무가 없을 때만 날짜 옆에 — 근무가 있으면 칸이 좁아 둘 다 잘려서(말··· 개···) 아랫줄로 */}
+                    {!holBelow && hol ? (
                       <Text style={[s.sub, { color: C.red }]} numberOfLines={1} maxFontSizeMultiplier={1}>{hol}</Text>
                     ) : null}
                   </View>
-                  {/* 음력·절기는 날짜 줄 아래 따로 한 줄 — 같은 줄이면 근무가 있거나 글자가 클 때 "1…"로 잘렸다 */}
-                  {lunarH > 0 ? (
-                    <View style={[s.lunarRow, { height: lunarH }]}>
-                      {sub ? <Text style={[s.sub, s.lunarText]} numberOfLines={1} maxFontSizeMultiplier={1}>{sub}</Text> : null}
+                  {/* 보조 줄: 음력·절기, 근무가 있는 날의 공휴일 이름 — 날짜 줄과 같은 줄이면 근무가 있거나 글자가 클 때 "1…"로 잘렸다.
+                      공휴일과 음력이 함께면 "성탄절 17"(공휴일이 앞 — 넘치면 글자를 줄이고 그래도 넘치면 뒤의 음력이 잘린다) */}
+                  {subH > 0 ? (
+                    <View style={[s.lunarRow, { height: subH }]}>
+                      {holBelow ? (
+                        <Text style={[s.sub, s.lunarText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1}>
+                          {/* 안쪽은 react-native Text — 앱 Text를 겹치면 글자 배율이 두 번 곱해진다 */}
+                          <RNText style={s.holBelow}>{hol}</RNText>{sub ? ` ${sub}` : ''}
+                        </Text>
+                      ) : sub ? <Text style={[s.sub, s.lunarText]} numberOfLines={1} maxFontSizeMultiplier={1}>{sub}</Text> : null}
                     </View>
                   ) : null}
                   {/* 기간 막대 자리만큼 비운다 */}
@@ -410,7 +432,7 @@ const MonthBlock = memo(function MonthBlock({
                 style={[
                   s.bar,
                   {
-                    top: numH + lunarH + b.lane * laneH,
+                    top: numH + subH + b.lane * laneH,
                     height: laneH - 2,
                     left: `${(b.startCol / 7) * 100}%`,
                     width: `${((b.endCol - b.startCol + 1) / 7) * 100}%`,
@@ -456,6 +478,7 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   lunarRow: { alignItems: 'center', justifyContent: 'center' },
   // Android 글자 위아래 여백을 빼서 '아주 크게'에서도 음력 줄(12×배율) 안에 들어가게
   lunarText: { includeFontPadding: false },
+  holBelow: { color: C.red, fontWeight: '600' },
   chip: { fontSize: 10, color: C.text, backgroundColor: C.surfaceHigh, borderRadius: 3, paddingHorizontal: 2, marginBottom: 1, overflow: 'hidden' },
   more: { fontSize: 10, color: C.textSub, paddingHorizontal: 2 },
   dots: { flexDirection: 'row', gap: 3, paddingLeft: 4, marginTop: 1 },

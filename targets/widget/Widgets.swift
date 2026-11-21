@@ -140,9 +140,11 @@ struct ItemRow: View {
         Text(item.title).font(.system(size: 13.5)).foregroundColor(item.end != nil ? Pal.blue : Pal.text).lineLimit(1)
         Spacer(minLength: 0)
       }
-      .frame(height: 21)
+      .frame(height: ItemRow.height)
     }
   }
+  /// 한 줄 높이 — 크게 위젯이 남은 높이를 이 값으로 나눠 줄 수를 센다
+  static let height: CGFloat = 21
 }
 
 // ─── 중간: 일정 4개 + 마이크 ─────────────────────────────────────────────────
@@ -182,12 +184,9 @@ struct LargeView: View {
     let lead = cal.component(.weekday, from: first) - 1
     let days = cal.range(of: .day, in: .month, for: first)!.count
     let weeks = (lead + days + 6) / 7
-    let shifts = p?.hasShifts ?? false
-    // 6주짜리 달은 목록 2개, 근무표가 없으면 칸이 낮아져 4개
-    let perPage = weeks == 6 ? (shifts ? 2 : 3) : (shifts ? 3 : 4)
+    // 날짜 아래 줄(근무·공휴일·음력·일정 점)이 이 달에 하나라도 있으면 칸을 높인다
+    let subLine = p?.hasSubLine(first: first, days: days) ?? false
     let list = p?.upcoming(now) ?? []
-    let pages = max(1, (list.count + perPage - 1) / perPage)
-    let page = min(entry.page, pages - 1)
     let title = p?.months.first { $0.y == comps.year && $0.m == comps.month }?.title ?? "\(comps.year!).\(comps.month!)"
     let wd = p?.wd ?? ["S", "M", "T", "W", "T", "F", "S"]
 
@@ -216,7 +215,7 @@ struct LargeView: View {
               if d >= 1 && d <= days {
                 let date = cal.date(from: DateComponents(year: comps.year, month: comps.month, day: d))!
                 Link(destination: Links.day(date)) {
-                  DayCell(day: d, col: c, today: d == comps.day, payload: p, date: date, showSub: shifts || (p?.ev.contains(1) ?? false))
+                  DayCell(day: d, col: c, today: d == comps.day, payload: p, date: date, showSub: subLine)
                 }
                 .frame(maxWidth: .infinity)
               } else {
@@ -224,29 +223,36 @@ struct LargeView: View {
               }
             }
           }
-          .frame(height: shifts ? 31 : 27)
+          .frame(height: subLine ? 31 : 27)
         }
       }
       Rectangle().fill(Pal.divider).frame(height: 0.5).padding(.top, 4).padding(.bottom, 4)
-      HStack(alignment: .top, spacing: 6) {
-        VStack(alignment: .leading, spacing: 0) {
-          if list.isEmpty {
-            Text(p?.str.empty ?? L.openApp).font(.system(size: 13)).foregroundColor(Pal.sub)
+      // 목록: 달력 아래 남은 높이에 들어가는 만큼(한 줄 21pt)만 보여 준다.
+      // 고정 줄 수(예전 2~4개)는 기기·주 수·아래 줄 유무에 따라 빈 곳이 남아서, 실제 남은 높이로 센다.
+      GeometryReader { geo in
+        let perPage = max(1, Int((geo.size.height + 0.5) / ItemRow.height))
+        let pages = max(1, (list.count + perPage - 1) / perPage)
+        let page = min(entry.page, pages - 1)
+        HStack(alignment: .top, spacing: 6) {
+          VStack(alignment: .leading, spacing: 0) {
+            if list.isEmpty {
+              Text(p?.str.empty ?? L.openApp).font(.system(size: 13)).foregroundColor(Pal.sub)
+            }
+            ForEach(Array(list.dropFirst(page * perPage).prefix(perPage)), id: \.self) { ItemRow(item: $0) }
           }
-          ForEach(Array(list.dropFirst(page * perPage).prefix(perPage)), id: \.self) { ItemRow(item: $0) }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        if pages > 1 {
-          if #available(iOS 17.0, *) {
-            VStack(spacing: 2) {
-              Button(intent: PageIntent(page: page - 1)) { PageButton(name: "chevron.up", on: page > 0) }.buttonStyle(.plain).disabled(page == 0)
-              Text("\(page + 1)/\(pages)").font(.system(size: 10)).foregroundColor(Pal.sub)
-              Button(intent: PageIntent(page: page + 1)) { PageButton(name: "chevron.down", on: page < pages - 1) }.buttonStyle(.plain).disabled(page >= pages - 1)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          if pages > 1 {
+            if #available(iOS 17.0, *) {
+              VStack(spacing: 2) {
+                Button(intent: PageIntent(page: page - 1)) { PageButton(name: "chevron.up", on: page > 0) }.buttonStyle(.plain).disabled(page == 0)
+                Text("\(page + 1)/\(pages)").font(.system(size: 10)).foregroundColor(Pal.sub)
+                Button(intent: PageIntent(page: page + 1)) { PageButton(name: "chevron.down", on: page < pages - 1) }.buttonStyle(.plain).disabled(page >= pages - 1)
+              }
             }
           }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }
-      Spacer(minLength: 0)
     }
     .widgetBg()
   }
@@ -270,23 +276,37 @@ struct DayCell: View {
   let date: Date
   let showSub: Bool
 
+  private var index: Int? { payload?.index(of: date) }
+
   var body: some View {
+    // 공휴일은 일요일과 같은 빨간 숫자
+    let holiday = index.flatMap { payload?.holiday($0) } != nil
     VStack(spacing: 1) {
       Text("\(day)").font(.system(size: 12.5, weight: today ? .bold : .regular))
-        .foregroundColor(today ? .white : col == 0 ? Pal.accent : col == 6 ? Pal.blue : Pal.text)
+        .foregroundColor(today ? .white : (col == 0 || holiday) ? Pal.accent : col == 6 ? Pal.blue : Pal.text)
         .frame(width: 20, height: 20)
         .background(Circle().fill(today ? Pal.mic : Color.clear))
-      if showSub { sub.font(.system(size: 10)).lineLimit(1).frame(height: 10) }
+      // 칸이 좁으면 줄 전체 글자를 조금 줄이고, 그래도 넘치면 뒤(음력·점)부터 잘린다
+      if showSub { sub.font(.system(size: 10)).lineLimit(1).minimumScaleFactor(0.7).frame(height: 10) }
     }
   }
 
+  /// 날짜 아래 한 줄: 근무 첫 글자 → 공휴일 이름(빨강) 또는 음력·절기(회색) → 일정 점.
+  /// 근무가 있으면 공휴일·음력은 작은 글씨로(칸 폭에 맞게)
   private var sub: Text {
-    guard let p = payload, let i = p.index(of: date) else { return Text(" ") }
+    guard let p = payload, let i = index else { return Text(" ") }
     var t = Text("")
     let s = p.shift[i]
-    if s >= 0 && s < p.shifts.count {
+    let hasShift = s >= 0 && s < p.shifts.count
+    if hasShift {
       let k = p.shifts[s]
       t = t + Text(k.s).foregroundColor(Color(UIColor(hexString: k.c) ?? .gray))
+    }
+    let size: CGFloat = hasShift ? 8 : 10
+    if let h = p.holiday(i) {
+      t = t + Text(h).font(.system(size: size, weight: .semibold)).foregroundColor(Pal.accent)
+    } else if let l = p.lunar(i) {
+      t = t + Text(l).font(.system(size: size)).foregroundColor(Pal.sub)
     }
     if p.ev[i] == 1 { t = t + Text("•").foregroundColor(Pal.blue) }
     return t

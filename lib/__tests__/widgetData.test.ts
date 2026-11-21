@@ -102,3 +102,25 @@ describe('parseWidgetUrl', () => {
     expect(parseWidgetUrl('mallo://widget?id=%E0%A4%A')).toBeNull();
   });
 });
+
+describe('위젯 공휴일·음력', () => {
+  const DEC = new Date(2026, 11, 1, 9, 0); // 2026-12-01 → from 12/1
+  it('한국어면 날짜별 공휴일 짧은 이름(크리스마스 → 성탄절), 다른 언어면 빈 배열', () => {
+    const p = buildWidgetPayload([], null, 'ko', DEC);
+    expect(p.hol).toHaveLength(p.ev.length);
+    expect(p.hol[24]).toBe('성탄절'); // 12/25
+    expect(p.hol[0]).toBe('');
+    expect(p.hol[31]).toBe('신정'); // 2027-01-01
+    expect(buildWidgetPayload([], null, 'en', DEC).hol).toEqual([]);
+  });
+  it('음력은 앱에서 켰을 때만 — 초하루 "11.1", 절기 "동지", 나머지 일', () => {
+    expect(buildWidgetPayload([], null, 'ko', DEC).lun).toEqual([]);
+    const p = buildWidgetPayload([], null, 'ko', DEC, { lunar: true });
+    expect(p.lun).toHaveLength(p.ev.length);
+    expect(p.lun[8]).toBe('11.1'); // 12/9 음력 초하루
+    expect(p.lun[21]).toBe('동지'); // 12/22
+    expect(p.lun[24]).toBe('17'); // 12/25 = 음력 11.17
+    // 한국어가 아니면 켜도 없음(앱 달력과 같은 규칙)
+    expect(buildWidgetPayload([], null, 'ja', DEC, { lunar: true }).lun).toEqual([]);
+  });
+});
