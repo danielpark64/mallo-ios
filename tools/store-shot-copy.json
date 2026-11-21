@@ -109,8 +109,8 @@
         "shot": "01_speak",
         "title": "말 한마디면\n[알람]까지 끝",
         "sub": "\"내일 3시 미용실, 30분 전에 알려 줘\"",
-        "src_ios": "store-assets/appstore-copy/_src-ios/07_large.png",
-        "_src_ios_note": "임시 — iOS 말하기 화면 캡처가 생기면 이 경로만 바꾼다",
+        "src_ios": "store-assets/appstore-copy/_src-ios/01_speak.png",
+        "_src_ios_note": "사용자가 아이폰에서 찍어 준 말하기 화면(2026-11-21, 밝은 모드)",
         "shot_r": "02_record",
         "_shot_r_note": "2번 장의 제목·보조 문구·원본은 shots.02_record 를 쓴다(title_r / sub_r 로 따로 줄 수도 있다)"
       },
