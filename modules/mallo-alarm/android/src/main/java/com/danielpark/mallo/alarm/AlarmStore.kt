@@ -36,6 +36,7 @@ object AlarmStore {
         val body: String,
         val soundOn: Boolean,
         val vibOn: Boolean,
+        val tone: String = AlarmTones.DEFAULT, // 알람 소리 id(AlarmTones) — 재부팅 복구·스누즈도 같은 소리로
     ) {
         val requestCode: Int get() = key.hashCode()
     }
@@ -130,6 +131,7 @@ object AlarmStore {
         put("key", e.key); put("rid", e.recordId); put("at", e.triggerAtMs)
         put("title", e.title); put("body", e.body)
         put("snd", e.soundOn); put("vib", e.vibOn)
+        put("tone", e.tone)
     }
 
     private fun fromJson(o: JSONObject) = Entry(
@@ -140,5 +142,6 @@ object AlarmStore {
         body = o.optString("body", ""),
         soundOn = o.optBoolean("snd", true),
         vibOn = o.optBoolean("vib", true),
+        tone = o.optString("tone", AlarmTones.DEFAULT), // 1.2.0 이전 원장에는 없다 → 기본 소리
     )
 }

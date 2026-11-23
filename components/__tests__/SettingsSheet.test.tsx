@@ -10,6 +10,15 @@ jest.mock('../../lib/backup', () => ({
 // [LONGREC 시험판] 긴 녹음 화면은 녹음기(네이티브)를 쓰므로 여기서는 빈 화면으로 바꾼다
 jest.mock('../LongRecSheet', () => ({ LongRecSheet: () => null }));
 
+// 기본 알람 소리 팝업(DetailSheets.Popup)이 끌고 오는 녹음·인식 모듈
+jest.mock('expo-speech-recognition', () => ({
+  ExpoSpeechRecognitionModule: { start: jest.fn(), stop: jest.fn(), abort: jest.fn() },
+  useSpeechRecognitionEvent: jest.fn(),
+}));
+jest.mock('../../lib/useVoiceRecorder', () => ({ useVoiceRecorder: () => ({}) }));
+const mockPlayer = { play: jest.fn(), pause: jest.fn(), seekTo: jest.fn(), replace: jest.fn() };
+jest.mock('expo-audio', () => ({ useAudioPlayer: () => mockPlayer, useAudioPlayerStatus: () => ({ playing: false }) }));
+
 jest.mock('expo-file-system', () => {
   const store = new Map<string, string>();
   const join = (parts: any[]) => parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');
@@ -21,7 +30,7 @@ jest.mock('expo-file-system', () => {
     write(s: string) { store.set(this.uri, s); }
     textSync() { return store.get(this.uri) ?? ''; }
   }
-  return { Directory, File, Paths: { document: 'doc', cache: 'cache' } };
+  return { Directory, File, Paths: { document: 'doc', cache: 'cache', bundle: 'bundle' } };
 });
 
 import { SettingsSheet } from '../SettingsSheet';
@@ -97,5 +106,43 @@ describe('SettingsSheet 화면 설정', () => {
     expect(queryByText('설정')).toBeNull();
     // 접근성 라벨도 앱 언어를 따라간다 (스크린리더가 화면 언어로 읽도록)
     expect(getByLabelText('Theme System')).toBeTruthy();
+  });
+});
+
+describe('SettingsSheet 기본 알람 소리', () => {
+  test('줄을 누르면 소리 목록이 열리고, 고르면 3초 미리듣기 → [완료]로 기본 소리가 바뀐다', async () => {
+    jest.useFakeTimers();
+    const onDefaultSound = jest.fn();
+    const { getByTestId, getByText, queryByTestId } = await render(
+      <SettingsSheet {...base} calendarMode="month" onCalendarMode={() => {}} defaultSound="default" onDefaultSound={onDefaultSound} />
+    );
+    expect(getByText('세이람 기본음 ›')).toBeTruthy();
+    await fireEvent.press(getByTestId('settings-sound'));
+    expect(getByTestId('sheet-default-sound')).toBeTruthy();
+    // 기본음 + 6개
+    expect(queryByTestId('sound-default')).toBeTruthy();
+    expect(queryByTestId('sound-music_box')).toBeTruthy();
+    expect(queryByTestId('sound-follow')).toBeNull();
+    mockPlayer.replace.mockClear(); mockPlayer.play.mockClear(); mockPlayer.pause.mockClear();
+    await fireEvent.press(getByTestId('sound-marimba'));
+    expect(mockPlayer.replace).toHaveBeenCalledWith({ uri: expect.stringContaining('snd_marimba') });
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(3000);
+    expect(mockPlayer.pause).toHaveBeenCalled();
+    await fireEvent.press(getByTestId('sheet-default-sound-done'));
+    expect(onDefaultSound).toHaveBeenCalledWith('marimba');
+    expect(queryByTestId('sheet-default-sound')).toBeNull();
+    jest.useRealTimers();
+  });
+
+  test('[취소]하면 바꾸지 않는다', async () => {
+    const onDefaultSound = jest.fn();
+    const { getByTestId } = await render(
+      <SettingsSheet {...base} calendarMode="month" onCalendarMode={() => {}} defaultSound="bell_march" onDefaultSound={onDefaultSound} />
+    );
+    await fireEvent.press(getByTestId('settings-sound'));
+    await fireEvent.press(getByTestId('sound-old_clock'));
+    await fireEvent.press(getByTestId('sheet-default-sound-cancel'));
+    expect(onDefaultSound).not.toHaveBeenCalled();
   });
 });

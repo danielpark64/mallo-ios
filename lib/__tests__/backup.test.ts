@@ -35,7 +35,7 @@ jest.mock('expo-file-system', () => {
 });
 jest.mock('expo-file-system/legacy', () => ({ StorageAccessFramework: {}, EncodingType: { Base64: 'base64' } }));
 
-import { audioNamesOf, backupName, baseName, createBackup, deleteBackup, listBackups, mergeRecords, parseBackupDate, restoreBackup } from '../backup';
+import { attachFileNamesOf, audioNamesOf, backupFileNamesOf, backupName, baseName, createBackup, deleteBackup, listBackups, mergeRecords, parseBackupDate, restoreBackup } from '../backup';
 import type { ScheduleRecord } from '../storage';
 
 const rec = (id: string, uri: string, appendUri?: string): ScheduleRecord => ({
@@ -102,6 +102,56 @@ describe('createBackup / listBackups / restoreBackup / deleteBackup', () => {
     expect(r.records[0].uri).toBe('doc/mallo/rec_11.m4a'); // 경로 재배치
     expect(mockStore.get('doc/mallo/rec_10.m4a')).toBe('already-here');
     expect(mockStore.get('doc/mallo/rec_10_a.m4a')).toBe('ten-a');
+  });
+
+  test('붙여넣은 이미지(app:)는 백업·복원에 함께 옮기고, 메모·링크는 records.json 안에 글로 간다', () => {
+    const withClip: ScheduleRecord = {
+      ...rec('20', 'doc/mallo/rec_20.m4a'),
+      attachments: [
+        { ref: 'app:clip_1.jpg', kind: 'photo', name: 'clip_1.jpg', addedAt: 1 },
+        { ref: 'txt:abc', kind: 'text', name: '메모', text: '12월 3일 14:30 진료', addedAt: 2 },
+        { ref: 'txt:def', kind: 'link', name: 'a.com', text: 'https://a.com', addedAt: 3 },
+        { ref: 'content://x', kind: 'photo', name: 'x.jpg', addedAt: 4 },
+      ],
+    };
+    expect(attachFileNamesOf([withClip])).toEqual(['clip_1.jpg']);
+    // clip 모양이 아닌 app: 이름(records.json 등)은 백업·복원 대상에서 뺀다
+    const bad: ScheduleRecord = { ...rec('21', ''), attachments: [
+      { ref: 'app:records.json', kind: 'photo', name: '', addedAt: 1 },
+      { ref: 'app:rec_20.m4a', kind: 'photo', name: '', addedAt: 2 },
+    ] };
+    expect(attachFileNamesOf([bad])).toEqual([]);
+    expect(backupFileNamesOf([withClip]).sort()).toEqual(['clip_1.jpg', 'rec_20.m4a']);
+    mockStore.set('doc/mallo/rec_20.m4a', 'AUD');
+    mockStore.set('doc/mallo/clip_1.jpg', 'JPG');
+    const b = createBackup([withClip]);
+    expect(b.audioFiles).toBe(1); // 녹음 개수에는 이미지를 세지 않는다
+    expect(mockStore.get(`doc/mallo-backups/${b.name}/clip_1.jpg`)).toBe('JPG');
+    // 새 폰에서 복원
+    mockStore.delete('doc/mallo/clip_1.jpg');
+    mockStore.delete('doc/mallo/rec_20.m4a');
+    const r = restoreBackup(b.uri, []);
+    expect(r.missingAudio).toBe(0);
+    expect(mockStore.get('doc/mallo/clip_1.jpg')).toBe('JPG');
+    const back = r.records[0].attachments!;
+    expect(back.map((a) => a.kind)).toEqual(['photo', 'text', 'link', 'photo']);
+    expect(back[1].text).toBe('12월 3일 14:30 진료');
+    expect(back[2].text).toBe('https://a.com');
+  });
+
+  test('백업에 이미지 파일이 없어도 녹음 누락으로 세지 않는다', () => {
+    const dir = 'doc/mallo-backups/세이람백업_2026-10-02_0900';
+    mockDirs.add('doc/mallo-backups'); mockDirs.add(dir);
+    const recs = [{ ...rec('30', ''), attachments: [{ ref: 'app:clip_9.jpg', kind: 'photo' as const, name: 'c', addedAt: 1 }] }];
+    mockStore.set(`${dir}/records.json`, JSON.stringify(recs));
+    expect(restoreBackup(dir, []).missingAudio).toBe(0);
+  });
+
+  test('일정에 고른 알람 소리는 백업·복원으로 그대로 옮겨진다(없는 일정은 없음 = 설정 기본)', () => {
+    const b = createBackup([{ ...rec('40', ''), alarmSound: 'marimba' }, rec('41', '')]);
+    const r = restoreBackup(b.uri, []);
+    expect(r.records.find((x) => x.id === '40')?.alarmSound).toBe('marimba');
+    expect(r.records.find((x) => x.id === '41')?.alarmSound).toBeUndefined();
   });
 
   test('삭제하면 목록에서 사라진다', () => {

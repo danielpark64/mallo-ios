@@ -5,5 +5,9 @@ import { EN_MAIN } from './en.main';
 import { EN_DETAIL } from './en.detail';
 import { EN_SETTINGS } from './en.settings';
 import { EN_HELP } from './en.help';
+import { SEND_DICTS } from './send';
+import { CLIP_DICTS } from './clip';
+import { MERGE_DICTS } from './merge';
+import { SOUND_DICTS } from './sound';
 
-export const EN: Record<string, string> = { ...EN_COMMON, ...EN_MAIN, ...EN_DETAIL, ...EN_SETTINGS, ...EN_HELP };
+export const EN: Record<string, string> = { ...EN_COMMON, ...EN_MAIN, ...EN_DETAIL, ...EN_SETTINGS, ...EN_HELP, ...SEND_DICTS.en, ...CLIP_DICTS.en, ...MERGE_DICTS.en, ...SOUND_DICTS.en };

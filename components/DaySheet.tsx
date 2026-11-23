@@ -1,5 +1,5 @@
 // ─── 달력에서 날짜를 누르면 아래에서 올라오는 그날 일정 ─────────────────────────────
-// 그날 일정(기간 일정 포함)·공휴일·음력, "＋ 이 날 일정 추가". 카드를 누르면 시트를 닫은 뒤 상세를 연다
+// 그날 일정(기간 일정 포함)·공휴일·음력, 아래 버튼(일정이 있으면 "＋ 다른 일정 추가", 없으면 "＋ 이 날 일정 추가"). 카드를 누르면 시트를 닫은 뒤 상세를 연다
 // (iOS는 모달이 떠 있는 동안 다른 모달을 띄우면 조용히 무시한다 — 닫고 나서 연다: App 쪽에서 지연).
 import { useMemo } from 'react';
 import { Modal, ScrollView, StyleSheet, Text as RNText, TouchableOpacity, View } from 'react-native';
@@ -79,8 +79,8 @@ export function DaySheet({
             <ScheduleCard key={r.id} item={r} compact={compact} onPress={onOpen} onAppend={onAppend} onFixDate={onFixDate} />
           ))}
         </ScrollView>
-        <TouchableOpacity style={s.add} onPress={() => onAdd(day)} activeOpacity={0.75} accessibilityRole="button">
-          <Text style={s.addText}>{t('＋ 이 날 일정 추가')}</Text>
+        <TouchableOpacity style={s.add} onPress={() => onAdd(day)} activeOpacity={0.75} accessibilityRole="button" testID="day-add">
+          <Text style={s.addText}>{t(items.length ? '＋ 다른 일정 추가' : '＋ 이 날 일정 추가')}</Text>
         </TouchableOpacity>
       </View>
     </Modal>

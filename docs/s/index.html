@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 세이람 "일정 보내기" 안내 페이지. 일정은 주소의 '#' 뒤에만 있다 — 브라우저는 '#' 뒤를 서버로 보내지 않는다.
+     이 페이지는 아무것도 저장하지 않고(쿠키·저장소·분석 없음), 바깥 파일도 불러오지 않는다. 형식: lib/sendSchedule.ts -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>📅 세이람이 보낸 일정입니다</title>
+<meta property="og:title" content="📅 세이람이 보낸 일정입니다 · SayRam">
+<meta property="og:description" content="눌러서 세이람에 넣기 · Tap to add to SayRam">
+<meta property="og:site_name" content="SayRam 세이람">
+<meta property="og:image" content="https://sayram-app.github.io/s/icon.png">
+<meta property="og:type" content="website">
+<meta name="description" content="눌러서 세이람에 넣기 · Tap to add to SayRam">
+<style>
+  :root { --bg: #eef4ff; --card: #ffffff; --text: #14213d; --sub: #5a6785; --accent: #2f6fed; --border: #d6e2fb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0e1630; --card: #18224a; --text: #eef2ff; --sub: #a9b4d6; --accent: #5b8cff; --border: #2a3870; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans", sans-serif; line-height: 1.5; }
+  main { max-width: 480px; margin: 0 auto; padding: 32px 20px 40px; }
+  .brand { font-weight: 800; color: var(--accent); font-size: 15px; letter-spacing: .2px; }
+  h1 { font-size: 24px; margin: 10px 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
+  .from { color: var(--accent); font-weight: 800; font-size: 15px; margin-bottom: 8px; }
+  .when { font-size: 20px; font-weight: 800; }
+  .content { font-size: 18px; margin-top: 6px; white-space: pre-wrap; word-break: break-word; }
+  .btn { display: block; width: 100%; text-align: center; text-decoration: none; border-radius: 14px; padding: 16px; font-size: 18px; font-weight: 800; margin-top: 14px; border: 2px solid var(--accent); }
+  .main { background: var(--accent); color: #fff; }
+  .sub { background: transparent; color: var(--accent); }
+  .note { color: var(--sub); font-size: 13px; text-align: center; margin-top: 18px; }
+  .err { color: #d33; font-weight: 700; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">SayRam · 세이람</div>
+  <h1 id="title"></h1>
+  <div class="card" id="card" hidden>
+    <div class="from" id="from" hidden></div>
+    <div class="when" id="when"></div>
+    <div class="content" id="content"></div>
+  </div>
+  <p class="err" id="err" hidden></p>
+  <a class="btn main" id="open" href="#" hidden></a>
+  <a class="btn sub" id="install" href="#"></a>
+  <p class="note" id="note"></p>
+</main>
+<script>
+(function () {
+  'use strict';
+  var APP_STORE = 'https://apps.apple.com/app/id6825225042';
+  var PLAY = 'https://play.google.com/store/apps/details?id=com.danielpark.sayram';
+  var MAX_PAYLOAD = 1600;
+
+  var L = {
+    ko: { title: '일정이 도착했어요', from: '보낸 사람: {n}', open: '세이람에서 열기', install: '앱이 없어요 — 설치하기', note: '이 페이지는 아무것도 저장하지 않아요. 일정은 링크 안에만 있어요.', err: '링크가 올바르지 않아요', allday: '시간 미정' },
+    en: { title: 'You got a schedule', from: 'From: {n}', open: 'Open in SayRam', install: 'No app? Install SayRam', note: 'This page stores nothing. The schedule lives only in the link.', err: 'This link isn’t valid', allday: 'No time set' },
+    ja: { title: '予定が届きました', from: '送った人：{n}', open: 'SayRamで開く', install: 'アプリがない — インストール', note: 'このページは何も保存しません。予定はリンクの中だけにあります。', err: 'リンクが正しくありません', allday: '時刻未定' },
+    'zh-Hans': { title: '收到一个日程', from: '发送人：{n}', open: '在 SayRam 中打开', install: '没有应用？去安装', note: '此页面不保存任何内容。日程只在链接里。', err: '链接无效', allday: '时间未定' },
+    'zh-Hant': { title: '收到一個行程', from: '傳送人：{n}', open: '在 SayRam 中開啟', install: '沒有 App？去安裝', note: '此頁面不儲存任何內容。行程只在連結裡。', err: '連結無效', allday: '時間未定' },
+    es: { title: 'Te llegó un evento', from: 'De: {n}', open: 'Abrir en SayRam', install: '¿No tienes la app? Instálala', note: 'Esta página no guarda nada. El evento solo está en el enlace.', err: 'El enlace no es válido', allday: 'Sin hora' },
+    fr: { title: 'Vous avez reçu un événement', from: 'De : {n}', open: 'Ouvrir dans SayRam', install: 'Pas l’app ? L’installer', note: 'Cette page n’enregistre rien. L’événement est uniquement dans le lien.', err: 'Ce lien n’est pas valide', allday: 'Sans heure' },
+    de: { title: 'Du hast einen Termin erhalten', from: 'Von: {n}', open: 'In SayRam öffnen', install: 'Keine App? Installieren', note: 'Diese Seite speichert nichts. Der Termin steckt nur im Link.', err: 'Dieser Link ist ungültig', allday: 'Ohne Uhrzeit' },
+    pt: { title: 'Chegou um compromisso', from: 'De: {n}', open: 'Abrir no SayRam', install: 'Não tem o app? Instale', note: 'Esta página não salva nada. O compromisso fica só no link.', err: 'Este link não é válido', allday: 'Sem horário' }
+  };
+  function pickLang() {
+    var list = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']);
+    for (var i = 0; i < list.length; i++) {
+      var l = String(list[i] || '').toLowerCase();
+      if (l.indexOf('ko') === 0) return 'ko';
+      if (l.indexOf('en') === 0) return 'en';
+      if (l.indexOf('ja') === 0) return 'ja';
+      if (l.indexOf('zh') === 0) return /hant|tw|hk|mo/.test(l) ? 'zh-Hant' : 'zh-Hans';
+      if (l.indexOf('es') === 0) return 'es';
+      if (l.indexOf('fr') === 0) return 'fr';
+      if (l.indexOf('de') === 0) return 'de';
+      if (l.indexOf('pt') === 0) return 'pt';
+    }
+    return 'en';
+  }
+  var lang = pickLang();
+  var T = L[lang];
+  document.documentElement.lang = lang === 'pt' ? 'pt-BR' : lang;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // base64url → UTF-8 글자 (앱과 같은 형식)
+  function fromB64Url(s) {
+    if (!/^[A-Za-z0-9_-]+$/.test(s) || s.length % 4 === 1) return null;
+    var b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    try {
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) { return null; }
+  }
+  function ymd(s) {
+    if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    var p = s.split('-').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    return d.getFullYear() === p[0] && d.getMonth() === p[1] - 1 && d.getDate() === p[2] ? d : null;
+  }
+  // 보여 주기 위한 가벼운 검사 — 받아서 저장할지는 앱이 다시 엄격하게 검사한다
+  function parse(raw) {
+    if (!raw || raw.length > MAX_PAYLOAD + 3) return null;
+    var m = /^v1\.([A-Za-z0-9_-]+)$/.exec(raw);
+    if (!m) return null;
+    var json = fromB64Url(m[1]);
+    if (json == null) return null;
+    var o;
+    try { o = JSON.parse(json); } catch (e) { return null; }
+    if (!o || typeof o !== 'object' || typeof o.i !== 'string' || typeof o.c !== 'string' || typeof o.t !== 'number') return null;
+    var day = ymd(o.d);
+    if (!day || !o.c.trim()) return null;
+    if (o.h != null && !(o.h === Math.floor(o.h) && o.h >= 0 && o.h <= 1439)) return null;
+    var end = o.e != null ? ymd(o.e) : null;
+    if (o.e != null && !end) return null;
+    return { c: o.c.slice(0, 200), n: typeof o.n === 'string' ? o.n.slice(0, 25) : '', day: day, h: o.h, end: end };
+  }
+  function fmt(d, withTime) {
+    var loc = lang === 'pt' ? 'pt-BR' : lang;
+    var opt = { month: 'long', day: 'numeric', weekday: 'short' };
+    if (withTime) { opt.hour = 'numeric'; opt.minute = '2-digit'; }
+    try { return new Intl.DateTimeFormat(loc, opt).format(d); } catch (e) { return d.toLocaleString(); }
+  }
+
+  var raw = '';
+  try { raw = decodeURIComponent((location.hash || '').replace(/^#/, '')); } catch (e) { raw = ''; }
+  var data = parse(raw);
+  var ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  $('title').textContent = T.title;
+  $('install').textContent = T.install;
+  $('install').href = ios ? APP_STORE : PLAY;
+  $('note').textContent = T.note;
+  if (!data) {
+    $('title').textContent = T.err;
+    return;
+  }
+  if (data.n) { $('from').textContent = '📩 ' + T.from.replace('{n}', data.n); $('from').hidden = false; }
+  var at = data.h != null ? new Date(data.day.getFullYear(), data.day.getMonth(), data.day.getDate(), Math.floor(data.h / 60), data.h % 60) : data.day;
+  var when = fmt(at, data.h != null);
+  if (data.end) when += ' ~ ' + fmt(data.end, false);
+  else if (data.h == null) when += ' · ' + T.allday;
+  $('when').textContent = when;
+  $('content').textContent = data.c;
+  $('card').hidden = false;
+  // 앱 열기: mallo://receive?d=v1.… (앱의 scheme — app.json "scheme": "mallo")
+  $('open').href = 'mallo://receive?d=' + encodeURIComponent(raw);
+  $('open').textContent = T.open;
+  $('open').hidden = false;
+})();
+</script>
+</body>
+</html>

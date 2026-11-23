@@ -24,6 +24,8 @@ object AlarmScheduling {
     const val EXTRA_BODY = "body"
     const val EXTRA_SOUND_ON = "soundOn"
     const val EXTRA_VIB_ON = "vibOn"
+    /** 알람 소리 id(AlarmTones). 없으면 기본 소리 */
+    const val EXTRA_TONE = "tone"
 
     fun buildAlarmIntent(context: Context, e: AlarmStore.Entry): Intent =
         Intent(context, AlarmReceiver::class.java).apply {
@@ -33,6 +35,7 @@ object AlarmScheduling {
             putExtra(EXTRA_BODY, e.body)
             putExtra(EXTRA_SOUND_ON, e.soundOn)
             putExtra(EXTRA_VIB_ON, e.vibOn)
+            putExtra(EXTRA_TONE, e.tone)
         }
 
     fun arm(context: Context, e: AlarmStore.Entry) {

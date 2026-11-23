@@ -338,8 +338,6 @@ export const FR: Record<string, string> = {
     'Si vous dites par exemple « acheter du lait » sans aucune date ni heure, l’enregistrement est quand même conservé. Il est placé provisoirement à aujourd’hui (sans heure) et aucune alarme n’est réglée.',
   '그 일정 카드에는 "언제인지 아직 안 정했어요 · 정하기" 꼬리표가 계속 남습니다. 서두를 필요 없이 아무 때나 "정하기"를 눌러 날짜·시간을 고르면 꼬리표가 사라집니다.':
     'Cette carte garde l’étiquette « Date pas encore définie · Définir ». Rien ne presse : touchez « Définir » quand vous voulez pour choisir une date et une heure, et l’étiquette disparaît.',
-  '편집기 맨 위의 오늘 · 내일 · 모레 버튼으로 날짜를 한 번에 고를 수 있습니다.':
-    'Les boutons Aujourd’hui · Demain · Après-demain en haut de l’éditeur choisissent une date en un geste.',
   '4. 달력 화면': '4. Écran calendrier',
   '달력 오른쪽 아래 "월 | 주"로 월 보기와 주 보기를 바꿉니다. 고른 보기는 다음에 앱을 열어도 유지됩니다.':
     'Utilisez « Mois | Semaine » en bas à droite du calendrier pour passer de la vue mois à la vue semaine. Votre choix est conservé à la prochaine ouverture.',
@@ -377,8 +375,6 @@ export const FR: Record<string, string> = {
   '8. 알람': '8. Alarmes',
   '시간이 있는 일정은 그 시각에 알람이 울리고, 못 들었을 때를 위해 1분 · 2분 뒤에 한 번씩 더 울립니다. 알림의 "알람 끄기"를 누르면 남은 알림이 취소되고, "5분 뒤 다시"로 미룰 수 있습니다.':
     'Un événement avec une heure sonne à cette heure, puis encore une fois après 1 et 2 minutes au cas où. « Arrêter l’alarme » dans la notification annule les sonneries restantes ; « Répéter dans 5 min » la reporte.',
-  '알람 방식은 일정마다 소리+진동 · 소리 · 진동 중에서 고릅니다(편집기 시간 옆 아이콘).':
-    'Chaque événement peut utiliser son + vibration, son seul ou vibration seule (icône à côté de l’heure dans l’éditeur).',
   '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 알림 칩을 눌러 바로 바꿀 수 있습니다(누르는 즉시 저장).':
     'Rappels : choisissez parmi 10 min · 30 min · 1 heure · La veille (20h le jour précédent). Chacun sonne une fois, par ex. « Dans 30 min · Dentiste ». Désactivez la puce « À l’heure » pour ne pas sonner à l’heure prévue. Définissez les rappels par défaut des nouveaux événements dans Réglages › Alarme. Pour un événement existant, touchez les puces d’alerte dans les détails ; les changements sont enregistrés aussitôt.',
   '하루 전 미리 알림은 전날 달력에 빈 점으로, 전날 목록에는 점선 테두리의 "⏰ 오후 8:00 · 미리 알림" 줄로 따로 보입니다(실제 일정 카드와 구분). 눌러 보면 원래 일정이 열립니다.':
@@ -495,8 +491,6 @@ export const FR: Record<string, string> = {
   '그대로 저장': 'Enregistrer quand même',
   '이 시각에 내일 일정을 미리 알려 드려요': 'À cette heure, je vous rappelle l’événement de demain',
   '정각 알림 꺼짐': 'Alarme à l’heure : désactivée',
-  '상세 화면 오른쪽 위 "수정"(또는 아래 "＋ 내용 추가")을 누르면 한 화면에서 날짜 · 시간 · 알림(미리 알림 포함) · 내용을 고치고, "＋ 말로 덧붙이기"로 녹음을 덧붙일 수 있습니다. 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있고, "저장"을 한 번 누르면 모두 저장됩니다.':
-    'Touchez « Modifier » en haut à droite de l’écran de détail (ou « ＋ Ajouter » en bas) pour changer sur un seul écran la date, l’heure, les alarmes (rappels compris) et le contenu, et pour ajouter un enregistrement avec « ＋ Ajouter à la voix ». Vous pouvez écouter l’enregistrement d’origine avec « ▶ Écouter l’enregistrement » à côté du contenu, et un seul appui sur « Enregistrer » enregistre tout.',
   '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "수정"에서 바꿉니다.':
     'Rappels : choisissez un ou plusieurs délais parmi 10 min, 30 min, 1 heure ou la veille (à 20 h) ; chacun vous prévient une fois, par exemple « Dans 30 min · Dentiste ». Si vous désactivez « À l’heure », rien ne sonne à l’heure exacte. Réglez les rappels par défaut dans Réglages › Alarme pour qu’ils s’ajoutent aux nouveaux événements. Pour un événement existant, modifiez-les avec « Modifier » sur l’écran de détail.',
   '＋ 말로 덧붙이기':
@@ -514,14 +508,10 @@ export const FR: Record<string, string> = {
     '🔔 Modifier les alarmes ›',
   '알림 없음 — 울리지 않아요':
     'Aucune alarme — rien ne sonnera',
-  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "🔔 알림 바꾸기"를 눌러 고른 뒤 "저장"하면 됩니다(수정 화면에서도 바꿀 수 있습니다).':
-    'Rappels : choisissez un ou plusieurs délais parmi 10 min, 30 min, 1 heure ou la veille (à 20 h) ; chacun vous prévient une fois, par exemple « Dans 30 min · Dentiste ». Si vous désactivez « À l’heure », rien ne sonne à l’heure exacte. Réglez les rappels par défaut dans Réglages › Alarme pour qu’ils s’ajoutent aux nouveaux événements. Pour un événement existant, touchez « 🔔 Modifier les alarmes » sur l’écran de détail, choisissez puis touchez « Enregistrer » (c’est aussi possible sur l’écran de modification).',
   "기간: \"20일부터 24일까지 휴가\", \"다음 주 월요일부터 금요일까지 교육\", \"11월 3일부터 3박 4일 여행\"처럼 말하면 끝나는 날까지 저장됩니다. 알람은 시작하는 날에만 울리고, 휴가 중인 날에 다른 일정을 넣으면 먼저 알려 줍니다(그래도 넣을 수 있습니다).":
     "Périodes : dites « vacances du 20 au 24 », « formation de lundi à vendredi prochain » ou « voyage de 3 nuits et 4 jours à partir du 3 novembre » et l’événement est enregistré jusqu’au dernier jour. L’alarme ne sonne que le premier jour, et si vous ajoutez un autre événement pendant des vacances, vous êtes prévenu d’abord (vous pouvez quand même l’ajouter).",
   "달력은 위아래로 밀면 다음 달이 이어집니다. 칸마다 일정 이름이 보이고, 휴가 같은 기간 일정은 이어진 막대로, 공휴일은 빨간 날짜와 이름으로 보입니다.":
     "Faites glisser vers le haut ou le bas et le mois suivant s’enchaîne. Chaque jour affiche le nom des événements, les événements sur plusieurs jours comme les vacances apparaissent en barres continues et les jours fériés avec une date et un nom en rouge.",
-  "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
-    "Touchez une date et les événements de ce jour s’affichent en bas. Ouvrez-les ou touchez « ＋ Ajouter un événement ce jour-là » pour en créer un aussitôt.",
   "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 요일 줄을 두 번 눌러도 커집니다.":
     "Si le texte est petit, écartez deux doigts pour agrandir l’écran (jusqu’à 3×). Une fois agrandi, faites glisser sur les côtés pour vous déplacer et touchez « Taille d’origine » pour revenir. Toucher deux fois la ligne des jours agrandit aussi.",
   "왼쪽 위 달 이름을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":
@@ -591,7 +581,6 @@ export const FR: Record<string, string> = {
   "원본은 복사하지 않아요. 길게 누르면 뺄 수 있어요.": "Les originaux ne sont pas copiés. Appui long pour retirer.",
   "사진·파일 {n}개": "{n} photos et fichiers",
   "사진·파일 첨부는 원본을 복사하지 않고 위치만 기억해요. 새 폰이나 앱을 다시 깐 뒤에는 열리지 않으니 다시 붙여 주세요.": "Les photos et fichiers joints ne sont pas copiés : seul leur emplacement est mémorisé. Ils ne s'ouvriront pas sur un nouveau téléphone ni après une réinstallation de l'app, joignez-les à nouveau.",
-  "사진·파일: 상세 화면의 \"＋ 사진\" \"＋ 파일\"로 일정에 붙입니다. 원본은 복사하지 않고 위치만 기억하므로 폰 저장 공간을 거의 쓰지 않습니다. 사진을 누르면 크게, 파일을 누르면 다른 앱으로 열고, 길게 누르면 뺍니다(원본은 그대로).": "Photos et fichiers : sur l'écran de détail, utilisez « + Photo » ou « + Fichier » pour les joindre à un événement. Les originaux ne sont pas copiés, seul leur emplacement est mémorisé : presque aucun espace n'est utilisé. Touchez une photo pour l'agrandir, un fichier pour l'ouvrir dans une autre app, et appuyez longuement pour le retirer (l'original reste).",
   "사진·파일 첨부는 원본을 복사하지 않고 위치만 기억합니다. 새 폰이나 앱을 다시 깐 뒤에는 열리지 않으니 다시 붙여 주세요.": "Les photos et fichiers joints ne sont pas copiés : seul leur emplacement est mémorisé. Ils ne s'ouvriront pas sur un nouveau téléphone ni après une réinstallation de l'app, joignez-les à nouveau.",
   "{n}개는 붙이지 못했어요": "{n} n'ont pas pu être joints",
   "이 항목은 앱을 다시 열면 읽을 수 없어서 뺐어요. 다른 위치에서 골라 주세요.": "Ils ne seraient plus lisibles après la réouverture de l'app, ils ont donc été ignorés. Choisissez-les depuis un autre emplacement.",

@@ -1,7 +1,10 @@
 package com.danielpark.sayram.share
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -11,10 +14,13 @@ import expo.modules.kotlin.modules.ModuleDefinition
 //  pushToSibling(authority, name)  — 내 데이터가 지난번에 넣어 준 것과 다를 때만 상대 창구에 넣는다(그때만 상대가 깬다)
 //  pullToInbox(authority, name)    — 상대 데이터를 직접 가져와 inbox에 저장(처음 한 번·옛 버전 상대일 때만 — 상대가 깬다)
 //  isInstalled(pkg)                — 우리 앱(com.danielpark.*)이 깔려 있는지(세이람 실행 때 한 번만 부른다)
+//  shareTextTo(pkg, text)          — 일정 보내기: 정한 앱(카카오톡)의 보내기 화면을 글을 채워 연다. 없으면 false(JS가 공유 창을 연다)
 class SayramShareModule : Module() {
   private val context get() = requireNotNull(appContext.reactContext)
   private val authorityRe = Regex("^com\\.danielpark\\.[a-z]+\\.share$")
   private val nameRe = Regex("^[a-z]+$")
+  /** 일정 보내기로 바로 열 수 있는 앱(지금은 카카오톡만) */
+  private val SHARE_TARGETS = setOf("com.kakao.talk")
 
   override fun definition() = ModuleDefinition {
     Name("SayramShare")
@@ -25,6 +31,28 @@ class SayramShareModule : Module() {
 
     Function("readInbox") { name: String ->
       ShareFiles.readInbox(context, name)
+    }
+
+    // 일정 보내기(카톡): ACTION_SEND를 그 앱으로만 보낸다. 사용자가 그 앱에서 받는 사람을 골라 직접 보낸다(자동 발송 없음).
+    // 다른 앱 목록을 훑지 않는다 — 열어 보고 없으면(ActivityNotFoundException) false. <queries> 선언이 필요 없다.
+    AsyncFunction("shareTextTo") { pkg: String, text: String, promise: Promise ->
+      if (pkg !in SHARE_TARGETS || text.length > 4000) { promise.resolve(false); return@AsyncFunction }
+      val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+        setPackage(pkg)
+      }
+      val activity = appContext.currentActivity
+      activity?.runOnUiThread {
+        try {
+          activity.startActivity(intent)
+          promise.resolve(true)
+        } catch (_: ActivityNotFoundException) {
+          promise.resolve(false)
+        } catch (_: Exception) {
+          promise.resolve(false)
+        }
+      } ?: promise.resolve(false)
     }
 
     // 매니페스트 <queries>에 적힌 앱만 보인다(지금은 교대알람). 다른 앱 목록을 훑지 않는다

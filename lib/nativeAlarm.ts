@@ -9,7 +9,7 @@ import { Platform } from 'react-native';
 import type { AlarmMode } from './notifications';
 
 type MalloAlarmNative = {
-  schedule(key: string, recordId: string, triggerAtMs: number, title: string, body: string, soundOn: boolean, vibOn: boolean): void;
+  schedule(key: string, recordId: string, triggerAtMs: number, title: string, body: string, soundOn: boolean, vibOn: boolean, tone: string): void;
   cancel(keys: string[]): void;
   cancelByRecordId(recordId: string): void;
   cancelAll(): void;
@@ -54,6 +54,8 @@ export function scheduleNativeAlarm(params: {
   title: string;
   body: string;
   mode: AlarmMode;
+  /** 알람 소리 id(lib/alarmSounds.ts SoundId). 네이티브가 원장에 같이 적어 재부팅 복구·스누즈도 같은 소리로 울린다 */
+  tone?: string;
 }): boolean {
   const native = getNative();
   if (!native) return false;
@@ -65,7 +67,8 @@ export function scheduleNativeAlarm(params: {
       params.title,
       params.body,
       params.mode !== 'vibe',
-      params.mode !== 'sound'
+      params.mode !== 'sound',
+      params.tone ?? 'default'
     );
     return true;
   } catch (e) {

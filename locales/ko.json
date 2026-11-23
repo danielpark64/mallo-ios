@@ -1,6 +1,8 @@
 {
   "ios": {
     "CFBundleDisplayName": "세이람",
-    "CFBundleName": "세이람"
+    "CFBundleName": "세이람",
+    "NSAlarmKitUsageDescription": "무음·집중 모드에서도 일정 알람이 시계 앱처럼 울리게 하려면 알람 권한이 필요해요.",
+    "NSContactsUsageDescription": "말로 '엄마한테 보내줘'라고 하면 연락처에서 그 사람의 번호를 찾아 문자 작성 화면에 넣어요. 연락처는 이 폰 밖으로 보내지 않아요."
   }
 }

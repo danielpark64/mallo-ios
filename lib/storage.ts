@@ -1,5 +1,6 @@
 // ─── 일정 영구 저장 (expo-file-system JSON) ──────────────────────────────────
 import { Directory, File, Paths } from 'expo-file-system';
+import { CLIP_FILE_RE, clipRefsInUse, orphanClipNames } from './attachments';
 
 export type TranscriptSegment = {
   segment: string;          // 세그먼트(단어/구절) 텍스트
@@ -37,6 +38,7 @@ export type ScheduleRecord = {
   alarmMode?: 'both' | 'sound' | 'vibe'; // 알람 방식
   remindBefore?: number[];  // 미리 알림(분): 10·30·60·1440(하루 전). 저장 시점에 확정(기본값은 설정에서)
   exactAlarm?: boolean;     // 정각 알람(+1·+2분 재알림) 여부. undefined = 켬
+  alarmSound?: string;      // 이 일정만 따로 고른 알람 소리(lib/alarmSounds.ts SoundId). 없으면 설정의 기본 소리를 따른다
   segments?: TranscriptSegment[]; // 단어별 타임스탬프 (구간재생용, 미지원 기기는 undefined)
   appends?: AppendEntry[]; // "＋ 추가"로 붙은 독립 엔트리들
   // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
@@ -45,15 +47,35 @@ export type ScheduleRecord = {
   outcome?: ScheduleOutcome; // 지난 일정의 결과. 없으면 한 것으로 본다 (lib/outcome.ts)
   carriedFrom?: string;   // 바뀌었어요·덜 했어요로 다시 잡은 일정이면 원래 일정 id
   attachments?: Attachment[]; // 붙인 사진·파일 — 원본은 복사하지 않고 위치만 (lib/attachments.ts)
+  received?: ReceivedInfo; // 다른 사람이 "일정 보내기"로 보낸 일정이면 보낸 사람 표시 (lib/sendSchedule.ts)
   createdAt: number;      // 생성 시각(epoch ms)
 };
 
-/** 일정에 붙인 사진·파일 하나. 원본은 사진 앱·파일 앱에 그대로 있고 여기에는 위치만 둔다(저장 공간을 쓰지 않는다) */
+/** 받은 일정 표시 — 같은 일정을 다시 받았을 때(같은 id) 더 새 것(t)인지 본다 */
+export type ReceivedInfo = {
+  /** 보낸 쪽 일정 id */
+  id: string;
+  /** 보낸 쪽이 링크를 만든 시각(ms) */
+  t: number;
+  /** 보낸 사람 이름(적었을 때만) */
+  from?: string;
+  /** 받은 시각(ms) */
+  at: number;
+};
+
+/**
+ * 일정에 붙인 사진·파일·메모·링크 하나.
+ * 사진·파일은 원본이 사진 앱·파일 앱에 그대로 있고 여기에는 위치만 둔다(저장 공간을 쓰지 않는다).
+ * 붙여넣은 이미지는 원본이 없어(클립보드는 곧 사라진다) 줄인 JPEG 한 장만 mallo 폴더에 둔다("app:<파일 이름>").
+ * 메모(text)·링크(link)는 글 자체를 text에 담는다. 옛 데이터에는 text가 없고 kind는 photo·file뿐 — 그대로 읽힌다.
+ */
 export type Attachment = {
-  /** Android content:// · iOS "ph:<사진 id>" / "bm:<북마크>" */
+  /** Android content:// · iOS "ph:<사진 id>" / "bm:<북마크>" · 붙여넣은 이미지 "app:clip_….jpg" · 메모·링크 "txt:<id>" */
   ref: string;
-  kind: 'photo' | 'file';
+  kind: 'photo' | 'file' | 'text' | 'link';
   name: string;
+  /** 메모의 글 / 링크 주소 (kind가 text·link일 때만) */
+  text?: string;
   size?: number | null;
   mime?: string | null;
   addedAt: number;
@@ -162,4 +184,23 @@ export function deleteAudio(uri: string) {
     const f = new File(uri);
     if (f.exists) f.delete();
   } catch {}
+}
+
+/**
+ * 남는 붙여넣은 이미지(clip_*.jpg) 정리 — 앱 시작 때 한 번만 부른다(타이머 없음).
+ * 어느 일정에도 없고, 미리보기에 쓰지 않고, 만든 지 10분 지난 것만 지운다. 지운 개수를 돌려준다
+ */
+export function cleanupOrphanClips(records: ScheduleRecord[], now = Date.now()): number {
+  try {
+    if (!DB_DIR.exists) return 0;
+    const files = DB_DIR.list()
+      .filter((x): x is File => x instanceof File && CLIP_FILE_RE.test(x.name))
+      .map((f) => { let mtime: number | null = null; try { mtime = f.info().modificationTime ?? null; } catch {} return { name: f.name, mtime }; });
+    const names = orphanClipNames(files, records, clipRefsInUse(), now);
+    for (const n of names) {
+      if (!CLIP_FILE_RE.test(n)) continue; // 한 번 더 — clip 말고는 절대 지우지 않는다
+      try { new File(DB_DIR, n).delete(); } catch {}
+    }
+    return names.length;
+  } catch { return 0; }
 }

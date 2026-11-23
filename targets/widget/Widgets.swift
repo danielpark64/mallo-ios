@@ -347,5 +347,11 @@ struct SayramWidgets: WidgetBundle {
     SmallWidget()
     MediumWidget()
     LargeWidget()
+    #if canImport(AlarmKit)
+    // iOS 26+ AlarmKit 알람의 잠금 화면·Dynamic Island 표시(AlarmLiveActivity.swift)
+    if #available(iOS 26.0, *) {
+      AlarmLiveActivity()
+    }
+    #endif
   }
 }

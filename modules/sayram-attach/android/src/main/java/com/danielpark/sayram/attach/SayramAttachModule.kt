@@ -1,6 +1,8 @@
 package com.danielpark.sayram.attach
 
 import android.app.Activity
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.ActivityNotFoundException
 import android.content.ContentResolver
 import android.content.Intent
@@ -15,7 +17,17 @@ import android.util.Size
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import com.google.mlkit.common.MlKitException
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 
 // JS 쪽(lib/attachments.ts)이 쓰는 함수:
 //  pick(kind, max)       — "photo": 시스템 사진 선택기 / "file": 문서 선택기. 고른 항목의 위치·이름·크기·종류를 돌려준다
@@ -23,7 +35,10 @@ import java.io.ByteArrayOutputStream
 //  thumbnail(ref, px)    — 작은 미리보기(JPEG data URI). 메모리에서만 만들고 디스크에 남기지 않는다. 원본이 없으면 null
 //  loadImage(ref, px)    — 크게 보기용 사진(긴 변 px). 역시 메모리에서만
 //  open(ref, mime)       — 다른 앱으로 열기(파일). 열 앱이 없으면 false
-//  release(ref)          — 첨부를 뺄 때 영구 권한 반납(앱당 개수 제한이 있다)
+//  release(ref)          — 첨부를 뺄 때 영구 권한 반납(앱당 개수 제한이 있다). 붙여넣은 이미지("app:")는 파일을 지운다
+//  saveClipboardImage(px) — 클립보드 이미지를 긴 변 px로 줄여 files/mallo/clip_….jpg 한 장으로 저장(원본이 없어서)
+//  recognizeText(ref, lang) — 글자 인식. ML Kit **Play 서비스(unbundled) 모델** — 앱 크기가 늘지 않고
+//                          모델은 Play 서비스가 받는다(앱에 INTERNET 권한 없음). 모델이 아직 없으면 status "notReady"
 class SayramAttachModule : Module() {
   private val context get() = requireNotNull(appContext.reactContext)
   private val resolver: ContentResolver get() = context.contentResolver
@@ -86,6 +101,10 @@ class SayramAttachModule : Module() {
     AsyncFunction("thumbnail") { ref: String, px: Int ->
       val uri = parse(ref) ?: return@AsyncFunction null
       val size = px.coerceIn(32, 512)
+      if (ref.startsWith("app:")) {
+        val small = runCatching { decode(uri, size) }.getOrNull() ?: return@AsyncFunction null
+        return@AsyncFunction toDataUri(small, 80)
+      }
       val bmp = try {
         if (Build.VERSION.SDK_INT >= 29) resolver.loadThumbnail(uri, Size(size, size), null)
         else decode(uri, size)
@@ -104,6 +123,7 @@ class SayramAttachModule : Module() {
 
     // 원본이 아직 있고 읽을 수 있는지(지워졌거나 권한이 없어졌으면 false)
     AsyncFunction("exists") { ref: String ->
+      appFile(ref)?.let { return@AsyncFunction it.exists() }
       val uri = parse(ref) ?: return@AsyncFunction false
       try {
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { it.moveToFirst() } ?: false
@@ -125,12 +145,79 @@ class SayramAttachModule : Module() {
     }
 
     Function("release") { ref: String ->
+      appFile(ref)?.let { runCatching { it.delete() }; return@Function }
       val uri = parse(ref) ?: return@Function
       try { resolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
     }
+
+    AsyncFunction("saveClipboardImage") { px: Int ->
+      val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return@AsyncFunction null
+      val clip = cm.primaryClip ?: return@AsyncFunction null
+      var src: Uri? = null
+      for (i in 0 until clip.itemCount) {
+        val u = clip.getItemAt(i).uri ?: continue
+        val type = runCatching { resolver.getType(u) }.getOrNull()
+        if (type?.startsWith("image/") == true || clip.description.hasMimeType("image/*")) { src = u; break }
+      }
+      val from = src ?: return@AsyncFunction null
+      val bmp = runCatching { decode(from, px.coerceIn(256, 2400)) }.getOrNull() ?: return@AsyncFunction null
+      val dir = File(context.filesDir, "mallo").apply { mkdirs() }
+      val name = "clip_${System.currentTimeMillis()}.jpg"
+      val file = File(dir, name)
+      try {
+        FileOutputStream(file).use { bmp.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+      } catch (_: Exception) {
+        file.delete()
+        return@AsyncFunction null
+      } finally {
+        bmp.recycle()
+      }
+      mapOf("ref" to "app:$name", "name" to name, "size" to file.length().toDouble(), "mime" to "image/jpeg")
+    }
+
+    AsyncFunction("recognizeText") { ref: String, lang: String, promise: Promise ->
+      val uri = parse(ref)
+      val bmp = uri?.let { runCatching { decode(it, 2048) }.getOrNull() }
+      if (bmp == null) { promise.resolve(mapOf("status" to "failed", "text" to "")); return@AsyncFunction }
+      val recognizer = recognizerFor(lang)
+      recognizer.process(InputImage.fromBitmap(bmp, 0))
+        .addOnSuccessListener { r ->
+          val text = r.text.trim()
+          promise.resolve(mapOf("status" to (if (text.isEmpty()) "empty" else "ok"), "text" to text))
+        }
+        .addOnFailureListener { e ->
+          // 모델을 Play 서비스가 아직 받는 중 → 잠시 뒤 다시
+          val notReady = e is MlKitException && e.errorCode == MlKitException.UNAVAILABLE
+          promise.resolve(mapOf("status" to (if (notReady) "notReady" else "failed"), "text" to ""))
+        }
+        .addOnCompleteListener {
+          runCatching { recognizer.close() }
+          bmp.recycle()
+        }
+    }
   }
 
-  private fun parse(ref: String): Uri? = if (ref.startsWith("content://")) Uri.parse(ref) else null
+  // 앱 언어의 글자 모양에 맞는 인식기 하나만(한·일·중 인식기는 영문도 읽는다)
+  private fun recognizerFor(lang: String): TextRecognizer = when {
+    lang == "ko" -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+    lang == "ja" -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+    lang.startsWith("zh") -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+    else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+  }
+
+  // "app:clip_<숫자>.jpg" → files/mallo 안의 그 파일. 그 밖의 이름(records.json·녹음 등)은 쓰지 않는다
+  private fun appFile(ref: String): File? {
+    if (!ref.startsWith("app:")) return null
+    val name = ref.removePrefix("app:")
+    if (!CLIP_NAME.matches(name)) return null
+    return File(File(context.filesDir, "mallo"), name)
+  }
+
+  private fun parse(ref: String): Uri? = when {
+    ref.startsWith("content://") -> Uri.parse(ref)
+    ref.startsWith("app:") -> appFile(ref)?.let { Uri.fromFile(it) }
+    else -> null
+  }
 
   private fun describe(uri: Uri): Map<String, Any?> {
     var name: String? = null
@@ -182,5 +269,7 @@ class SayramAttachModule : Module() {
   companion object {
     private const val REQ_PICK = 47031
     private val EMPTY = mapOf("items" to emptyList<Map<String, Any?>>())
+    // 붙여넣은 이미지 파일 이름 — JS lib/attachments.ts CLIP_FILE_RE와 같게
+    private val CLIP_NAME = Regex("^clip_[0-9]+\\.jpg$")
   }
 }

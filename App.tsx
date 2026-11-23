@@ -46,6 +46,7 @@ import {
 } from './lib/filterRecords';
 import {
   deleteAudio,
+  cleanupOrphanClips,
   loadRecords,
   persistAudio,
   saveRecords,
@@ -64,14 +65,18 @@ import {
   cancelAlarmByRecordId,
   registerAndroidChannels,
   registerNotificationCategories,
+  requestAlarmKitPermission,
   requestNotificationPermission,
   resyncAlarms,
+  resyncAlarmsIfAlarmKitChanged,
   scheduleAlarm,
 } from './lib/notifications';
 import { SharedPlayerProvider, useSharedPlayer } from './lib/sharedPlayer';
 import { notifyAudioLost } from './lib/audioLostNotice';
 import { healEmptyRecordingsOnce } from './lib/healRecordings';
+import { rearmAlarms, rearmToRecord } from './lib/rearm';
 import { removeVoiceAlarm, setVoiceAlarmDefault, voiceAlarmOn, voiceAlarmToStore, voiceUriOf } from './lib/voiceAlarm';
+import { setDefaultAlarmSound, type SoundId } from './lib/alarmSounds';
 import { ThemeProvider, useFontScale, useResolvedTheme, useTheme, type Palette } from './lib/theme';
 import { copyRecords } from './lib/exportUtils';
 import { ExportPreview, type ExportKind } from './components/ExportPreview';
@@ -93,8 +98,11 @@ import { publishOwnShare, pushOwnShare, readSiblingShifts, siblingShareAvailable
 import { launchedFromHistory, parseWidgetUrl, publishWidget, type WidgetLink } from './lib/widget';
 import { releaseUnused } from './lib/attachments';
 import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, parseShiftImportUrl, saveShifts, SHIFT_REQUEST_URL, type ShiftData } from './lib/shiftImport';
-import { ScheduleDetail } from './components/ScheduleDetail';
-import { ScheduleEditor, type AppendResult, type EditorPrefill, type EditorResult } from './components/ScheduleEditor';
+import { ScheduleDetail, type DetailOpenSheet } from './components/ScheduleDetail';
+import { SendSheet } from './components/SendSheet';
+import { ReceiveSheet } from './components/ReceiveSheet';
+import { applySharedUpdate, canArmShared, parseReceiveUrl, receiveDecision, recordFromShared, type ReceiveParse, type SharedSchedule } from './lib/sendSchedule';
+import { ScheduleEditor, type AppendResult, type EditorPrefill, type EditorResult, type ImportSeed } from './components/ScheduleEditor';
 
 
 
@@ -510,6 +518,8 @@ function AppInner() {
     }
     recordsRef.current = recs;
     setRecords(recs);
+    // 남는 붙여넣은 이미지 정리 — 시작 때 한 번만(타이머 없음)
+    cleanupOrphanClips(recs);
     (async () => {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
       const audio = await AudioModule.requestRecordingPermissionsAsync();
@@ -517,9 +527,13 @@ function AppInner() {
       await requestNotificationPermission();
       await registerAndroidChannels(); // Android 전용(모드별 소리/진동 채널), iOS는 no-op
       await registerNotificationCategories();
+      // iOS 26+: AlarmKit 권한을 한 번 묻는다(알림 권한 창이 닫힌 뒤 — 두 시스템 창이 겹치지 않게).
+      // 허용하면 바로 아래 재동기화부터 소리 알람이 AlarmKit으로 걸린다. Android·iOS 26 미만은 아무것도 안 한다.
+      await requestAlarmKitPermission();
       // 삭제된 일정의 잔여 알림 정리 + iOS 64개 제한 대응 재등록
+      // 권한 창을 기다리는 사이 받은·새로 만든 일정이 지워지지 않게 시작 때 목록(recs)이 아니라 지금 목록으로
       try {
-        await resyncAlarms(recs);
+        await resyncAlarms(recordsRef.current);
       } finally {
         // 알람 재등록이 실패해도 권한 결과는 반영한다(위젯 마이크가 영영 기다리지 않게)
         setPermissionGranted(audio.granted && speech.granted);
@@ -529,6 +543,14 @@ function AppInner() {
         Alert.alert(t('권한 필요'), t('마이크 및 음성 인식 권한이 모두 필요합니다.'));
       }
     })();
+  }, []);
+
+  // iOS 26+: 설정 앱에서 AlarmKit 권한을 켜고/끄고 돌아오면 알람 방식이 바뀌어야 한다 — 앞으로 올 때만 확인(폴링 없음)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') resyncAlarmsIfAlarmKitChanged(recordsRef.current).catch(() => {});
+    });
+    return () => sub.remove();
   }, []);
 
   // 지금 열려 있는 창 — 알림으로 상세를 열 때 겹치지 않게 본다(값은 아래 daySheet 선언 뒤 effect에서 채운다)
@@ -569,7 +591,7 @@ function AppInner() {
           const rec = recordsRef.current.find((r) => r.id === pre.recordId);
           if (rec && isMovedAway(rec)) return; // 알림 센터에 남은 알림이라도 미룬 일정은 다시 울리지 않는다
           const body = response.notification.request.content.body || rec?.content || t('미리 알림');
-          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true, voiceUri: voiceUriOf(rec) });
+          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true, voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound });
         }
         return;
       }
@@ -579,7 +601,7 @@ function AppInner() {
         const rec = recordsRef.current.find((r) => r.id === recordId);
         if (rec && isMovedAway(rec)) return; // 미룬 일정은 새 일정 쪽에서만 울린다
         const body = rec?.content || rec?.transcript || response.notification.request.content.body || t('알람');
-        await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { voiceUri: voiceUriOf(rec) });
+        await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound });
       } else {
         // 알람 끄기 버튼 / 알림 탭 / 스와이프 닫기 → 남은 재알림(+1/+2분) 취소
         cancelAlarmByRecordId(recordId).catch(() => {});
@@ -621,6 +643,15 @@ function AppInner() {
   // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
   // 새 일정의 알람 소리 기본값(설정): 꺼짐 = 기본 알람음, 켜짐 = 내 목소리
   const [defaultVoice, setDefaultVoice] = useState<boolean>(() => { const on = loadPrefs().voiceAlarm; setVoiceAlarmDefault(on); return on; });
+  // 기본 알람 소리(설정). 소리를 따로 고르지 않은 일정은 모두 이 소리로 울린다 → 바꾸면 이미 걸린 알람도 다시 건다
+  const [defaultSound, setDefaultSoundState] = useState<SoundId>(() => { const id = loadPrefs().alarmSound; setDefaultAlarmSound(id); return id; });
+  const handleDefaultSound = (id: SoundId) => {
+    if (id === defaultSound) return;
+    setDefaultAlarmSound(id);
+    setDefaultSoundState(id);
+    savePrefs({ alarmSound: id });
+    resyncAlarms(recordsRef.current).catch(() => {});
+  };
   const handleDefaultVoice = (on: boolean) => {
     setVoiceAlarmDefault(on);
     setDefaultVoice(on);
@@ -742,6 +773,13 @@ function AppInner() {
       if (w) {
         // Android 최근 앱에서 다시 열면 예전에 누른 위젯 링크가 다시 온다 → 무시(녹음이 저절로 시작되지 않게)
         if (!(initial && launchedFromHistory())) widgetLinkRef.current(w);
+        return;
+      }
+      // 일정 받기(mallo://receive?d=…) — 확인 시트를 띄운다(바로 저장하지 않는다)
+      const rv = parseReceiveUrl(url);
+      if (rv) {
+        // Android 최근 앱에서 다시 열면 예전에 누른 링크가 다시 온다 → 무시(같은 시트가 또 뜨지 않게)
+        if (!(initial && launchedFromHistory())) receiveLinkRef.current(rv);
         return;
       }
       const d = parseShiftImportUrl(url);
@@ -955,6 +993,13 @@ function AppInner() {
       commit([record, ...records]);
       setSelectedDate(recordedDate);
       if (res.audioLost) notifyAudioLost();
+      // 말로 보내기("…엄마한테 보내줘"): 내 달력에 저장한 뒤(알람도 평소대로) 보낼지 묻는 시트를 연다.
+      // 녹음 창이 닫힌 뒤에 연다(iOS는 창을 두 개 동시에 못 띄운다). 보내기는 시트에서 사용자가 고른다
+      if (parsed.sendTo && !res.audioLost) {
+        const to = parsed.sendTo;
+        if (voiceSendTimerRef.current) clearTimeout(voiceSendTimerRef.current);
+        voiceSendTimerRef.current = setTimeout(() => { voiceSendTimerRef.current = null; setVoiceSend({ id, to }); }, 450);
+      }
     };
 
     // 문장 끝의 명령형만 삭제 의도로 판단 ("…삭제해줘", "…지워 줘")
@@ -1034,6 +1079,84 @@ function AppInner() {
     await saveAsNew();
   };
 
+  // ── 일정 보내기·받기 (lib/sendSchedule.ts) ──────────────────────────────────────
+  // 말로 보내기: 방금 저장한 일정 + 말한 받는 사람. 시트에서 사용자가 카톡·문자를 골라야 보내진다
+  const [voiceSend, setVoiceSend] = useState<{ id: string; to: string } | null>(null);
+  // 말로 보내기 시트를 열기로 예약해 둔 타이머(녹음 창이 닫히길 기다리는 중) — 받기 링크가 오면 거둔다
+  const voiceSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceSendRef = useRef(voiceSend);
+  voiceSendRef.current = voiceSend;
+  const voiceSendRecord = useMemo(() => (voiceSend ? records.find((r) => r.id === voiceSend.id) ?? null : null), [records, voiceSend]);
+  // 받은 링크: 확인 시트에 띄울 것 / 쓰거나 녹음하는 중이라 기다리는 것
+  const [receiving, setReceiving] = useState<{ data: SharedSchedule; update: boolean } | null>(null);
+  const [pendingReceive, setPendingReceive] = useState<SharedSchedule | null>(null);
+  const handleReceiveLink = (rv: ReceiveParse) => {
+    if (!rv.ok) { Alert.alert(t('링크가 올바르지 않아요')); return; } // 깨진 링크는 저장하지 않고 알리기만
+    const dec = receiveDecision(rv.data, recordsRef.current);
+    if (dec.kind === 'stale') { Alert.alert(t('이미 받은 일정이에요'), (dec.existing.content || '').slice(0, 60)); return; }
+    if (dec.kind === 'own') { Alert.alert(t('내가 보낸 일정이에요'), (dec.existing.content || '').slice(0, 60)); return; }
+    const win = openWindowsRef.current;
+    // 말로 보내기 시트가 열려 있거나 열릴 예정이면 그 시트가 닫힌 뒤에 받기 시트를 연다(iOS 창 겹침 방지)
+    const sendPending = voiceSendTimerRef.current != null;
+    if (sendPending) { clearTimeout(voiceSendTimerRef.current!); voiceSendTimerRef.current = null; }
+    const hadWindow = win.settings || win.day || !!win.detail || voiceSendRef.current != null || sendPending;
+    // iOS는 창을 두 개 동시에 못 띄운다 → 열린 창을 닫고 닫힌 뒤에 연다. 쓰거나 녹음하는 중이면 끝날 때까지 기다린다
+    setSettingsOpen(false);
+    setDaySheet(null);
+    setDetailId(null);
+    setVoiceSend(null);
+    if (win.editor || win.recorder) { setPendingReceive(rv.data); return; }
+    setTimeout(() => setReceiving({ data: rv.data, update: dec.kind === 'update' }), hadWindow ? 450 : 0);
+  };
+  const receiveLinkRef = useRef(handleReceiveLink);
+  receiveLinkRef.current = handleReceiveLink;
+  useEffect(() => {
+    if (!pendingReceive || editorOpen || showRecorder) return;
+    const data = pendingReceive;
+    const id = setTimeout(() => {
+      setPendingReceive(null);
+      receiveLinkRef.current({ ok: true, data });
+    }, 450);
+    return () => clearTimeout(id);
+  }, [pendingReceive, editorOpen, showRecorder]);
+  // [달력에 넣기] — 알람은 lib/notifications.ts 진입점만(Android는 Expo+네이티브 두 경로를 진입점이 처리)
+  const receivingRef = useRef(false);
+  const acceptReceived = async (alarmOn: boolean) => {
+    const cur = receiving;
+    setReceiving(null);
+    if (!cur || receivingRef.current) return;
+    receivingRef.current = true;
+    try {
+      const data = cur.data;
+      const all = recordsRef.current;
+      const dec = receiveDecision(data, all); // 시트를 보는 사이 바뀌었을 수 있어 다시 본다
+      // 그사이 이미 받은 일정이 됐으면 저장하지 않고 알린다(시트는 위에서 이미 닫았다)
+      if (dec.kind === 'stale') { Alert.alert(t('이미 받은 일정이에요'), (dec.existing.content || '').slice(0, 60)); return; }
+      if (dec.kind === 'own') { Alert.alert(t('내가 보낸 일정이에요'), (dec.existing.content || '').slice(0, 60)); return; }
+      const armed = alarmOn && canArmShared(data);
+      if (dec.kind === 'update') {
+        const old = dec.existing;
+        await cancelAlarmGroup(old.id, old.notifIds);
+        const next = applySharedUpdate(old, data, armed);
+        const ids = armed
+          ? await scheduleAlarm(next.id, next.content, data.date, next.alarmMode ?? 'both', { remindBefore: next.remindBefore, exactAlarm: next.exactAlarm, voiceUri: voiceUriOf(next), alarmSound: next.alarmSound })
+          : [];
+        commit(recordsRef.current.map((r) => (r.id === old.id ? { ...next, notifIds: ids.length ? ids : undefined } : r)));
+      } else {
+        const id = Date.now().toString();
+        const rec = recordFromShared(data, id, armed);
+        const ids = armed
+          ? await scheduleAlarm(id, rec.content, data.date, 'both', { remindBefore: rec.remindBefore, exactAlarm: rec.exactAlarm })
+          : [];
+        commit([{ ...rec, notifIds: ids.length ? ids : undefined }, ...recordsRef.current]);
+      }
+      setActiveTab('calendar');
+      setSelectedDate(new Date(data.date.getFullYear(), data.date.getMonth(), data.date.getDate()));
+    } finally {
+      receivingRef.current = false;
+    }
+  };
+
   // ── 상세/편집기 ───────────────────────────────────────────────────────────────
   // 카드 탭 → 상세 보기. 상세에서 수정/추가를 누르면 상세를 닫고 편집기로 전환
   // (iOS는 Modal을 동시에 두 개 띄울 수 없어 닫힘 애니메이션 후 열어야 함)
@@ -1041,7 +1164,9 @@ function AppInner() {
     () => records.find((r) => r.id === detailId) ?? null,
     [records, detailId]
   );
-  const openDetail = (r: ScheduleRecord) => setDetailId(r.id);
+  // 일정 화면을 열자마자 띄울 팝업(카드 "정하기" → 날짜)
+  const [detailSheet, setDetailSheet] = useState<DetailOpenSheet | null>(null);
+  const openDetail = (r: ScheduleRecord) => { setDetailSheet(null); setDetailId(r.id); };
 
   // 새 일정의 기본 날짜: 보통은 달력에서 고른 날, 일정 탭의 빈 날 줄에서 열면 그 날(취소해도 달력 선택은 그대로)
   const [newDefaultDate, setNewDefaultDate] = useState<Date | null>(null);
@@ -1051,9 +1176,20 @@ function AppInner() {
   const clearCarry = () => { carryRef.current = null; setPrefill(null); };
   const openNew = () => { clearCarry(); setNewDefaultDate(null); setEditing(null); setAppendMode(false); setEditorOpen(true); };
   const openNewOn = (d: Date) => { clearCarry(); setNewDefaultDate(d); setEditing(null); setAppendMode(false); setEditorOpen(true); };
-  const openEdit = (r: ScheduleRecord) => { clearCarry(); setEditing(r); setAppendMode(false); setEditorOpen(true); };
+  // 있는 일정 고치기는 일정 화면(상세+수정 합친 화면)에서 한다. "정하기"는 날짜 팝업을 바로 띄운다
+  const openEdit = (r: ScheduleRecord) => { setDetailSheet({ kind: 'date', nonce: Date.now() }); setDetailId(r.id); };
   const openAppend = (r: ScheduleRecord) => { clearCarry(); setEditing(r); setAppendMode(true); setEditorOpen(true); };
-  const closeEditor = () => { clearCarry(); setEditorOpen(false); };
+  const closeEditor = () => { clearCarry(); setImportSeed(null); setEditorOpen(false); };
+  // 상세의 사진 보기 [📅 이 사진으로 일정 만들기]: 상세를 닫고 새 일정 화면을 열어 그 사진의 글자를 읽는다
+  const [importSeed, setImportSeed] = useState<ImportSeed | null>(null);
+  const openNewFromPhoto = (photo: Attachment) => {
+    setDetailId(null);
+    setTimeout(() => {
+      clearCarry(); setNewDefaultDate(null); setEditing(null); setAppendMode(false);
+      setImportSeed({ photo, nonce: Date.now() });
+      setEditorOpen(true);
+    }, 450);
+  };
 
   // ── 지난 일정의 결과 (lib/outcome.ts) ──────────────────────────────────────────
   // 상세를 닫고 새 일정 화면을 연다: 내용·시각·알림은 원래 일정에서, 날짜는 내일. 저장하면 원래 일정에 "→ 새 날짜"가 남는다
@@ -1069,6 +1205,7 @@ function AppInner() {
         alarmMode: rec.alarmMode ?? 'both',
         remindBefore: rec.remindBefore ?? defaultRemind,
         exactAlarm: rec.exactAlarm !== false,
+        alarmSound: rec.alarmSound,
       });
       setNewDefaultDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
       setEditing(null);
@@ -1083,7 +1220,7 @@ function AppInner() {
     if (rec && isMovedAway(rec) && !isPastItem(rec) && rec.hasTime && rec.scheduleAt != null) {
       await cancelAlarmGroup(rec.id, rec.notifIds);
       ids = await scheduleAlarm(rec.id, rec.content || rec.transcript, new Date(rec.scheduleAt), rec.alarmMode ?? 'both', {
-        remindBefore: rec.remindBefore, exactAlarm: rec.exactAlarm, voiceUri: voiceUriOf(rec),
+        remindBefore: rec.remindBefore, exactAlarm: rec.exactAlarm, voiceUri: voiceUriOf(rec), alarmSound: rec.alarmSound,
       });
     }
     const next = transform(recordsRef.current);
@@ -1135,27 +1272,23 @@ function AppInner() {
     }
   };
 
-  const openEditFromDetail = (r: ScheduleRecord) => {
-    setDetailId(null);
-    setTimeout(() => openEdit(r), 450);
-  };
-  // 상세의 "＋ 내용 추가"도 고치기·덧붙이기·알림을 한 번에 하는 수정 화면으로 연다(덧붙이기는 그 화면의 말하기 막대)
-  const openAppendFromDetail = (r: ScheduleRecord) => {
-    setDetailId(null);
-    setTimeout(() => openEdit(r), 450);
-  };
-
-  // 상세 화면의 알림 칩: 즉시 저장하고 두 경로(네이티브·Expo) 알람을 다시 건다
-  const handleAlarmChange = async (rec: ScheduleRecord, remindBefore: number[], exactAlarm: boolean, voiceOn: boolean = voiceAlarmOn(rec)) => {
-    const voiceAlarm = voiceAlarmToStore(voiceOn);
-    await cancelAlarmGroup(rec.id, rec.notifIds);
-    const at = rec.scheduleAt != null && rec.hasTime ? new Date(rec.scheduleAt) : null;
-    const ids = at && at.getTime() > Date.now() && !isMovedAway(rec) // 미룬 일정은 설정만 저장(알람은 새 일정 쪽)
-      ? await scheduleAlarm(rec.id, rec.content || rec.transcript, at, rec.alarmMode ?? 'both', { remindBefore, exactAlarm, voiceUri: voiceUriOf({ ...rec, voiceAlarm }) })
-      : [];
-    commit(recordsRef.current.map((r) =>
-      r.id === rec.id ? { ...r, remindBefore, exactAlarm, voiceAlarm, notifIds: ids.length ? ids : undefined } : r
-    ));
+  // 일정 화면의 [되돌리기]: 바꾸기 전 레코드로 저장하고 알람(두 경로)도 그 값으로 다시 건다
+  const restoreRecord = async (prev: ScheduleRecord) => {
+    const cur = recordsRef.current.find((r) => r.id === prev.id);
+    if (!cur) return; // 그사이 지워졌으면 되살리지 않는다
+    const notifIds = await rearmToRecord(prev, cur.notifIds);
+    // 이번에 덧붙였다가 되돌려 빠지는 항목의 녹음 파일은 지운다(남기면 쓰레기 파일)
+    const keep = new Set((prev.appends ?? []).map((a) => a.id));
+    for (const a of cur.appends ?? []) if (!keep.has(a.id) && a.uri) deleteAudio(a.uri);
+    const nextId = prev.outcome?.nextId;
+    const next = recordsRef.current.map((r) => {
+      // 첨부는 지금 값 그대로 — 저장 뒤 되돌리기 전에 붙인 사진·파일이 사라지지 않게(되돌리기는 날짜·알림·내용만)
+      if (r.id === prev.id) return { ...prev, notifIds, attachments: r.attachments };
+      // 저장 때 결과 표시를 지우며 끊은 "← 원래 일정" 연결을 다시 잇는다
+      if (nextId && r.id === nextId && !r.carriedFrom) return { ...r, carriedFrom: prev.id };
+      return r;
+    });
+    commit(syncCarryDate(next, prev.id));
   };
 
   // 휴가 같은 기간 일정과 겹치면 저장 전에 먼저 알린다 — 그래도 넣을 수 있다(2026-10-18 사용자 요청).
@@ -1187,52 +1320,76 @@ function AppInner() {
 
   // 저장 연타 방지 — 두 번 들어가면 같은 일정이 두 개(알람도 두 벌) 생긴다
   const savingRef = useRef(false);
-  const handleEditorSave = async (res: EditorResult) => {
-    if (savingRef.current) return;
+  // 저장했으면 true, 취소·중복 눌림이면 false(편집기가 미리보기를 남겨 둔다)
+  const handleEditorSave = async (res: EditorResult): Promise<boolean> => {
+    if (savingRef.current) return false;
     savingRef.current = true;
-    try { await saveEditor(res); } finally { savingRef.current = false; }
+    try { return await saveEditor(res); } finally { savingRef.current = false; }
   };
-  const saveEditor = async (res: EditorResult) => {
+  const saveEditor = async (res: EditorResult): Promise<boolean> => {
+    // 붙인 글에서 날짜를 못 찾은 새 일정: 날짜 없이 녹음한 것과 같게 오늘(시간 미정)로 두고 "정하기" 꼬리표(알람 없음)
+    if (!res.id && res.needsDate) {
+      const auto = recordedAtStamp(new Date());
+      const rec: ScheduleRecord = {
+        id: Date.now().toString(), uri: '', durationSec: 0, transcript: '',
+        content: res.content, scheduleAt: auto.date.getTime(), scheduleDisplay: auto.display,
+        hasDate: auto.hasDate, hasTime: auto.hasTime, needsDate: true,
+        alarmMode: res.alarmMode, remindBefore: res.remindBefore, exactAlarm: res.exactAlarm,
+        attachments: res.attachments?.length ? res.attachments : undefined,
+        createdAt: Date.now(),
+      };
+      commit([rec, ...records]);
+      clearCarry();
+      setImportSeed(null);
+      setSelectedDate(new Date(auto.date.getFullYear(), auto.date.getMonth(), auto.date.getDate()));
+      setEditorOpen(false);
+      return true;
+    }
     // 기간 일정: 끝나는 날이 시작일 뒤일 때만 (같은 날·앞이면 하루짜리)
     const endAt = res.endDate && startOfDay(res.endDate).getTime() > startOfDay(res.date).getTime()
       ? startOfDay(res.endDate).getTime() : undefined;
     const display = formatDisplay(res.date, true, res.hasTime) + (endAt ? ` ~ ${formatDisplay(new Date(endAt), true, false)}` : '');
     // 날짜·기간이 그대로인 수정(내용만 고침)에는 묻지 않는다
     const before = res.id ? records.find((r) => r.id === res.id) : undefined;
+    // 날짜를 아직 안 정한 일정의 내용·알림만 고쳤으면 꼬리표를 남기고 알람은 걸지 않는다
+    const stillNoDate = !!res.id && !!res.needsDate;
     const dateChanged = !before || !before.scheduleAt || dayKey(new Date(before.scheduleAt)) !== dayKey(res.date) || before.endAt !== endAt;
-    if (dateChanged && !(await confirmOverlap(res.date, endAt, res.id))) return; // 취소 → 수정 화면 그대로
+    if (dateChanged && !(await confirmOverlap(res.date, endAt, res.id))) return false; // 취소 → 수정 화면 그대로
     // 미룬 일정을 날짜는 그대로 두고 고치면 미룸 표시를 지키고 알람도 다시 걸지 않는다(날짜를 고치면 표시를 풀고 다시 건다)
     const silenced = !!before && isMovedAway(before) && !isPastItem(before) && !dateChanged;
-    const notifAt = res.hasTime && res.date.getTime() > Date.now() && !silenced ? res.date : null;
+    const notifAt = res.hasTime && res.date.getTime() > Date.now() && !silenced && !stillNoDate ? res.date : null;
     if (res.id) {
       const old = records.find((r) => r.id === res.id);
-      if (old) await cancelAlarmGroup(old.id, old.notifIds);
-      const newIds = notifAt
-        ? await scheduleAlarm(res.id, res.content, notifAt, res.alarmMode, {
-            remindBefore: res.remindBefore, exactAlarm: res.exactAlarm,
-            voiceUri: voiceUriOf({ uri: old?.uri, voiceAlarm: !!res.voiceAlarm, alarmMode: res.alarmMode }),
-          })
-        : [];
-      const notifIds = newIds.length ? newIds : undefined;
+      // 알람 소리: undefined = 그대로, null = 설정 기본을 따르게(필드를 비운다)
+      const alarmSound = res.alarmSound === undefined ? old?.alarmSound : (res.alarmSound ?? undefined);
+      // 옛 알람(두 경로)을 끄고 새 날짜·알림으로 다시 건다
+      const notifIds = await rearmAlarms(res.id, old?.notifIds, {
+        content: res.content, at: notifAt, alarmMode: res.alarmMode,
+        remindBefore: res.remindBefore, exactAlarm: res.exactAlarm,
+        voiceUri: voiceUriOf({ uri: old?.uri, voiceAlarm: !!res.voiceAlarm, alarmMode: res.alarmMode }),
+        alarmSound,
+      });
       const next = records.map((r) =>
         r.id === res.id
           ? {
               ...r,
               content: res.content,
               scheduleAt: res.date.getTime(),
-              scheduleDisplay: display,
+              // 날짜·시간을 안 바꾼 저장(내용·알림만)은 표시 문구를 그대로 둔다
+              scheduleDisplay: res.keepWhen ? r.scheduleDisplay : display,
               endAt,
-              hasDate: true,
+              hasDate: stillNoDate ? r.hasDate : true,
               hasTime: res.hasTime,
-              needsDate: false, // 사용자가 날짜·시간을 정했으니 꼬리표 해제
+              needsDate: stillNoDate, // 사용자가 날짜·시간을 정했으면 꼬리표 해제
               notifIds,
               alarmMode: res.alarmMode,
               remindBefore: res.remindBefore,
               exactAlarm: res.exactAlarm,
+              alarmSound,
               voiceAlarm: r.uri ? voiceAlarmToStore(!!res.voiceAlarm) : r.voiceAlarm,
               appends: res.append ? [...(r.appends ?? []), makeAppendEntry(r.id, res.append)] : r.appends,
               // 내용이 바뀌면 기존 단어별 타임스탬프는 무효 → 카드 표시도 새 내용으로
-              segments: res.content.trim() !== (r.content ?? '').trim() ? undefined : r.segments,
+              segments: res.content.trim() !== (r.content || r.transcript || '').trim() ? undefined : r.segments,
             }
           : r
       );
@@ -1251,9 +1408,10 @@ function AppInner() {
       }
       const voiceOn = !!res.voiceAlarm && !!uri;
       const voiceAlarm = uri ? voiceAlarmToStore(!!res.voiceAlarm) : undefined;
+      const alarmSound = res.alarmSound ?? undefined; // 새 일정은 보통 없음 = 설정 기본(다시 잡은 일정만 원래 소리)
       const newIds = notifAt
         ? await scheduleAlarm(id, res.content, notifAt, res.alarmMode, {
-            remindBefore: res.remindBefore, exactAlarm: res.exactAlarm,
+            remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, alarmSound,
             voiceUri: voiceUriOf({ uri, voiceAlarm: voiceOn, alarmMode: res.alarmMode }),
           })
         : [];
@@ -1263,7 +1421,9 @@ function AppInner() {
         segments: uri ? res.capture!.segments : undefined,
         content: res.content, scheduleAt: res.date.getTime(), scheduleDisplay: display, endAt,
         hasDate: true, hasTime: res.hasTime, notifIds, alarmMode: res.alarmMode,
-        remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, voiceAlarm, createdAt: Date.now(),
+        remindBefore: res.remindBefore, exactAlarm: res.exactAlarm, voiceAlarm, alarmSound,
+        attachments: res.attachments?.length ? res.attachments : undefined, // 붙여넣기·사진에서 만든 일정의 원문 메모·사진
+        createdAt: Date.now(),
       };
       const carry = carryRef.current;
       // 미룬 원래 일정은 알람(두 경로)을 끈다 — 새 일정 쪽에서만 울린다
@@ -1273,8 +1433,10 @@ function AppInner() {
       commit(from ? linked.map((r) => (r.id === from.id ? { ...r, notifIds: undefined } : r)) : linked);
     }
     clearCarry();
+    setImportSeed(null);
     setSelectedDate(new Date(res.date.getFullYear(), res.date.getMonth(), res.date.getDate()));
     setEditorOpen(false);
+    return true;
   };
 
   // 삭제 진입점 3곳(편집기 휴지통·상세 휴지통·카드 길게 누르기)이 같은 확인 창을 쓴다
@@ -1286,7 +1448,7 @@ function AppInner() {
   };
   const openCardMenu = (r: ScheduleRecord) => {
     Alert.alert((r.content || r.transcript || t('일정')).slice(0, 60), undefined, [
-      { text: t('수정'), onPress: () => openEdit(r) },
+      { text: t('수정'), onPress: () => openDetail(r) },
       { text: t('삭제'), style: 'destructive', onPress: () => confirmDelete(r) },
       { text: t('취소'), style: 'cancel' },
     ]);
@@ -1507,6 +1669,8 @@ function AppInner() {
         onDefaultRemind={handleDefaultRemind}
         defaultVoice={defaultVoice}
         onDefaultVoice={handleDefaultVoice}
+        defaultSound={defaultSound}
+        onDefaultSound={handleDefaultSound}
         onClose={() => setSettingsOpen(false)}
         onRestored={async (next) => {
           // 다른 폰의 알림 id는 이 폰에서 무효 → 전부 비우고 미래 일정 알람을 다시 건다
@@ -1520,15 +1684,18 @@ function AppInner() {
       <ScheduleDetail
         visible={detailId != null}
         record={detailRecord}
-        onClose={() => setDetailId(null)}
-        onEdit={openEditFromDetail}
-        onAppend={openAppendFromDetail}
-        onAlarmChange={handleAlarmChange}
+        onClose={() => { setDetailId(null); setDetailSheet(null); }}
+        onSave={handleEditorSave}
+        onUndo={restoreRecord}
+        markedDays={marked}
+        defaultRemind={defaultRemind}
+        openSheet={detailSheet}
         onDelete={confirmDelete}
         onOutcome={handleOutcome}
         origin={detailRecord?.carriedFrom ? records.find((r) => r.id === detailRecord.carriedFrom) ?? null : null}
         onOpenRecord={(id) => { if (records.some((r) => r.id === id)) setDetailId(id); }}
         onAttachmentsChange={handleAttachmentsChange}
+        onMakeScheduleFromPhoto={openNewFromPhoto}
       />
 
      </View>
@@ -1542,10 +1709,29 @@ function AppInner() {
         defaultRemind={defaultRemind}
         defaultVoice={defaultVoice}
         prefill={prefill}
+        importSeed={importSeed}
+        onDiscardImport={(atts) => releaseUnused(atts, recordsRef.current)} // 다른 일정에 붙은 사진은 그대로
         onSave={handleEditorSave}
         onAppend={handleEditorAppend}
-        onDelete={handleEditorDelete}
         onClose={closeEditor}
+      />
+
+      {/* ── 말로 보내기: 저장한 일정을 보낼지 묻는다 ── */}
+      <SendSheet
+        visible={voiceSendRecord != null}
+        record={voiceSendRecord}
+        recipient={voiceSend?.to}
+        savedNote
+        onClose={() => setVoiceSend(null)}
+      />
+
+      {/* ── 받은 일정 확인 ── */}
+      <ReceiveSheet
+        visible={receiving != null}
+        data={receiving?.data ?? null}
+        update={!!receiving?.update}
+        onAccept={acceptReceived}
+        onReject={() => setReceiving(null)}
       />
 
       {/* ── 녹음 오버레이 ── */}

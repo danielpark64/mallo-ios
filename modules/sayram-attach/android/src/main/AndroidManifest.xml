@@ -1,3 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <!-- 권한 없음: 시스템 사진 선택기·문서 선택기가 고른 항목만 열람 권한을 준다(READ_MEDIA_IMAGES 불필요) -->
+  <!-- 라이브러리가 넣으려는 INTERNET·ACCESS_NETWORK_STATE는 app.json blockedPermissions가 앱 매니페스트에서 뺀다 -->
+  <application>
+    <!-- 글자 인식(라틴) 모델을 앱 설치 때 Play 서비스가 미리 받게 한다. 한·일·중 모델은 처음 쓸 때 받는다 -->
+    <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr" />
+  </application>
 </manifest>

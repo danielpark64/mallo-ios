@@ -1,4 +1,5 @@
-// 편집기: 내용 추가 녹음 중 파형·실시간 글 표시, 키보드가 올라오면 날짜·시간 칸 접기
+// 편집기(새 일정·내용 추가): 녹음 중 파형·실시간 글 표시, 키보드가 올라오면 날짜·시간 칸 접기, 내용 칸 최소 높이.
+// 있는 일정 고치기(말로 덧붙이기·정하기·내용만 고치기)는 일정 화면 팝업으로 옮겨 ScheduleDetailMerged.test.tsx에서 본다.
 import { Alert, Keyboard } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ScheduleRecord } from '../../lib/storage';
@@ -26,6 +27,8 @@ jest.mock('../../lib/useVoiceRecorder', () => {
 const mockVoice = jest.requireMock('../../lib/useVoiceRecorder').__voice;
 
 import { ScheduleEditor } from '../ScheduleEditor';
+import { ThemeProvider } from '../../lib/theme';
+import { StyleSheet } from 'react-native';
 
 const record: ScheduleRecord = {
   id: 'r1', uri: '', durationSec: 0, transcript: '치과 예약', content: '치과 예약',
@@ -34,7 +37,7 @@ const record: ScheduleRecord = {
 };
 const base = {
   visible: true, record, defaultDate: new Date(Date.now() + 86_400_000), markedDays: new Set<string>(),
-  onSave: jest.fn(), onAppend: jest.fn(), onDelete: jest.fn(), onClose: jest.fn(),
+  onSave: jest.fn(), onAppend: jest.fn(), onClose: jest.fn(),
 };
 
 beforeEach(() => {
@@ -79,39 +82,10 @@ describe('새 일정 화면의 마이크', () => {
     }));
   });
 
-  test('기존 일정 수정 화면의 마이크는 원래 녹음·내용을 바꾸지 않고, 녹음을 새 항목으로 덧붙인다(저장 한 번에 함께)', async () => {
-    const onSave = jest.fn();
-    mockVoice.start.mockClear();
-    const view = await render(<ScheduleEditor {...base} onSave={onSave} />);
-    expect(view.getByText('＋ 말로 덧붙이기')).toBeTruthy();
-    await fireEvent.press(view.getByTestId('editor-mic'));
-    expect(mockVoice.start).toHaveBeenCalled();
-    await fireEvent.press(view.getByTestId('editor-mic'));
-    expect(view.getByText('덧붙일 내용 · 저장하면 추가돼요')).toBeTruthy();
-    await fireEvent.press(view.getByText('저장'));
-    const res = onSave.mock.calls[0][0];
-    expect(res.content).toBe('치과 예약'); // 메인 내용은 그대로
-    expect(res.capture).toBeUndefined();
-    expect(res.append).toEqual(expect.objectContaining({ content: '약국 들르기', uri: 'file:///a.m4a', durationSec: 3 }));
-  });
-
-  test('덧붙일 내용을 ✕로 지우면 저장 때 덧붙이지 않는다', async () => {
-    const onSave = jest.fn();
-    const view = await render(<ScheduleEditor {...base} onSave={onSave} />);
-    await fireEvent.press(view.getByTestId('editor-mic'));
-    await fireEvent.press(view.getByTestId('editor-mic'));
-    await fireEvent.press(view.getByLabelText('덧붙일 내용 지우기'));
-    await fireEvent.press(view.getByText('저장'));
-    expect(onSave.mock.calls[0][0].append).toBeUndefined();
-  });
 });
 
-describe('수정 화면에서 원래 녹음 듣기', () => {
-  test('녹음이 있는 일정을 고칠 때 "▶ 녹음 듣기"가 보인다(날짜 없이 녹음한 것을 정할 때 내용 확인용)', async () => {
-    const view = await render(<ScheduleEditor {...base} record={{ ...record, uri: 'file:///r1.m4a', needsDate: true }} />);
-    expect(view.getByText('▶ 녹음 듣기')).toBeTruthy();
-  });
-  test('새 일정에는 들을 녹음이 없으니 보이지 않는다', async () => {
+describe('새 일정 화면에는 들을 녹음이 없다', () => {
+  test('"▶ 녹음 듣기"가 보이지 않는다(있는 일정의 녹음은 일정 화면에서 그대로 듣는다)', async () => {
     const view = await render(<ScheduleEditor {...base} record={null} />);
     expect(view.queryByText('▶ 녹음 듣기')).toBeNull();
   });
@@ -131,33 +105,6 @@ describe('지난 시각 저장과 날짜 미정 녹음 정하기', () => {
     spy.mockRestore();
   });
 
-  test('날짜를 안 정한 녹음을 "정하기"로 열면 지난 녹음 시각이 아니라 다음 정시가 기본값이고, 기본 미리 알림이 붙는다', async () => {
-    const onSave = jest.fn();
-    const recAt = new Date(); recAt.setMinutes(recAt.getMinutes() - 30, 0, 0);
-    const view = await render(<ScheduleEditor {...base} defaultRemind={[30]} onSave={onSave}
-      record={{ ...record, uri: 'file:///r1.m4a', scheduleAt: recAt.getTime(), hasTime: true, needsDate: true, remindBefore: undefined }} />);
-    await fireEvent.press(view.getByText('저장'));
-    expect(onSave).toHaveBeenCalledTimes(1);
-    const res = onSave.mock.calls[0][0];
-    expect(res.date.getTime()).toBeGreaterThan(Date.now());
-    expect(res.date.getMinutes()).toBe(0);
-    expect(res.remindBefore).toEqual([30]);
-  });
-});
-
-describe('지난 일정 고치기', () => {
-  test('날짜·시간을 건드리지 않고 지난 일정의 내용만 고치면 확인 창 없이 바로 저장된다', async () => {
-    const onSave = jest.fn();
-    const spy = jest.spyOn(Alert, 'alert');
-    const past = new Date(Date.now() - 3 * 86_400_000); past.setHours(15, 37, 0, 0);
-    const view = await render(<ScheduleEditor {...base} onSave={onSave} record={{ ...record, scheduleAt: past.getTime(), hasTime: true }} />);
-    await fireEvent.changeText(view.getByDisplayValue('치과 예약'), '치과 예약 끝');
-    await fireEvent.press(view.getByText('저장'));
-    expect(spy).not.toHaveBeenCalled();
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave.mock.calls[0][0].date.getMinutes()).toBe(37); // 5분 단위가 아닌 분도 그대로
-    spy.mockRestore();
-  });
 });
 
 describe('말하기 막대', () => {
@@ -233,15 +180,36 @@ describe('키보드', () => {
       listeners[ev] = fn;
       return { remove: () => {} };
     }) as never);
-    const view = await render(<ScheduleEditor {...base} />);
+    const view = await render(<ScheduleEditor {...base} record={null} />);
     expect(view.getByText('시간')).toBeTruthy();
     await act(async () => { (listeners.keyboardWillShow ?? listeners.keyboardDidShow)(); });
     expect(view.queryByText('시간')).toBeNull();
     expect(view.queryByText('알림')).toBeNull();
     expect(view.getByText('입력 완료')).toBeTruthy();
-    expect(view.getByDisplayValue('치과 예약')).toBeTruthy();
+    expect(view.getByPlaceholderText('할 일을 입력하세요')).toBeTruthy();
     await act(async () => { (listeners.keyboardWillHide ?? listeners.keyboardDidHide)(); });
     expect(view.getByText('시간')).toBeTruthy();
     jest.restoreAllMocks();
+  });
+});
+
+describe('내용 칸 높이 (한 줄로 찌그러지던 문제)', () => {
+  const minH = (view: Awaited<ReturnType<typeof render>>) =>
+    (StyleSheet.flatten(view.getByTestId('editor-content').props.style) as { minHeight: number }).minHeight;
+  test('보통 글씨: 내용 칸이 최소 4줄 높이를 지키고, 화면 전체가 스크롤된다', async () => {
+    const view = await render(<ScheduleEditor {...base} record={null} />);
+    expect(minH(view)).toBeGreaterThanOrEqual(4 * 24);
+    expect(view.getByTestId('editor-scroll')).toBeTruthy();
+    // 날짜·시간 칸과 내용 칸이 한 스크롤 안에 함께 있다(모자라면 함께 밀린다)
+    expect(view.getByTestId('editor-scroll')).toContainElement(view.getByTestId('editor-content'));
+    expect(view.getByTestId('editor-scroll')).toContainElement(view.getByText('시간'));
+  });
+  test('아주 큰 글씨: 최소 높이도 글씨 배율만큼 커진다', async () => {
+    const view = await render(<ThemeProvider initial={{ fontScale: 'xlarge' }}><ScheduleEditor {...base} record={null} /></ThemeProvider>);
+    expect(minH(view)).toBeGreaterThanOrEqual(Math.round(4 * 24 * 1.45));
+  });
+  test('내용 추가 화면도 같은 최소 높이', async () => {
+    const view = await render(<ScheduleEditor {...base} appendMode />);
+    expect(minH(view)).toBeGreaterThanOrEqual(4 * 24);
   });
 });

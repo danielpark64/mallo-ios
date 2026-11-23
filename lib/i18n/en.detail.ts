@@ -163,7 +163,6 @@ export const EN_DETAIL: Record<string, string> = {
   "원본은 복사하지 않아요. 길게 누르면 뺄 수 있어요.": "Originals aren't copied. Press and hold to remove.",
   "사진·파일 {n}개": "{n} photos & files",
   "사진·파일 첨부는 원본을 복사하지 않고 위치만 기억해요. 새 폰이나 앱을 다시 깐 뒤에는 열리지 않으니 다시 붙여 주세요.": "Attached photos and files aren't copied — only where they are is remembered. They won't open on a new phone or after you reinstall the app, so attach them again.",
-  "사진·파일: 상세 화면의 \"＋ 사진\" \"＋ 파일\"로 일정에 붙입니다. 원본은 복사하지 않고 위치만 기억하므로 폰 저장 공간을 거의 쓰지 않습니다. 사진을 누르면 크게, 파일을 누르면 다른 앱으로 열고, 길게 누르면 뺍니다(원본은 그대로).": "Photos & files: on the detail screen, use \"+ Photo\" or \"+ File\" to attach them to a schedule. Originals aren't copied — only their location is remembered — so it uses almost no storage. Tap a photo to view it large, tap a file to open it in another app, and press and hold to remove it (the original stays).",
   "사진·파일 첨부는 원본을 복사하지 않고 위치만 기억합니다. 새 폰이나 앱을 다시 깐 뒤에는 열리지 않으니 다시 붙여 주세요.": "Attached photos and files aren't copied — only where they are is remembered. They won't open on a new phone or after you reinstall the app, so attach them again.",
   "{n}개는 붙이지 못했어요": "{n} couldn't be attached",
   "이 항목은 앱을 다시 열면 읽을 수 없어서 뺐어요. 다른 위치에서 골라 주세요.": "These couldn't be read after reopening the app, so they were left out. Pick them from another location.",

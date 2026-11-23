@@ -722,12 +722,16 @@ def crop_src(c, strip):
     return im
 
 
+TABLET = [False]  # --platform ipad: 폰 대신 아이패드 틀(make_bold_set 이 정한다)
+
+
 def phone_img(shot, inner_w, s, shadow_alpha=0.28, frame=BODY):
-    """기종을 특정하지 않는 둥근 짙은 틀 폰 + 넓은 그림자. 폰 몸체가 이미지 한가운데 오도록 여백을 둔 RGBA."""
-    bezel = round(15 * s)
+    """기종을 특정하지 않는 둥근 짙은 틀 폰 + 넓은 그림자. 폰 몸체가 이미지 한가운데 오도록 여백을 둔 RGBA.
+    TABLET 이면 아이패드처럼 테두리는 화면 폭에 비례해 조금 두껍게, 화면 모서리는 작게 둥글린다."""
+    bezel = round(inner_w * 0.03) if TABLET[0] else round(15 * s)
     inner_h = round(shot.height * inner_w / shot.width)
     shot = shot.resize((inner_w, inner_h), Image.LANCZOS)
-    r_in = round(58 * s)
+    r_in = round(inner_w * 0.022) if TABLET[0] else round(58 * s)
     r_out = r_in + bezel
     pw, ph = inner_w + 2 * bezel, inner_h + 2 * bezel
     pad = round(140 * s)
@@ -909,6 +913,12 @@ def body_bbox(rot):
     return rot.getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox()
 
 
+def ui_scale(W, H):
+    """글자·여백 배율(1080×1920 기준). Play(1080×1920)·아이폰(1206×2622)은 폭 비율이 작아 예전(W/1080)과 같고,
+    세로가 짧은 아이패드(2064×2752)는 높이 비율을 써서 글자가 화면 높이에 비해 너무 커지지 않게 한다."""
+    return min(W / 1080, H / 1920)
+
+
 def make_pano(c, src_l, src_r, out_l, out_r, W, H, variant="blue"):
     """두 장 폭(2W×H) 캔버스 한 장을 그린 뒤 반으로 잘라 1·2번을 만든다. 두 장 모두 혼자서도 '큰 제목 + 폰'이 보이게:
     1번: 위 말풍선 + 큰 제목 2줄, 아래 시계 방향으로 기울인 말하기 폰(오른쪽 끝자락이 이음매를 넘어 2번으로).
@@ -916,7 +926,7 @@ def make_pano(c, src_l, src_r, out_l, out_r, W, H, variant="blue"):
     아래를 가로지르는 말소리 파형 띠가 두 장을 잇는다."""
     import math
     import numpy as np
-    s = W / 1080
+    s = ui_scale(W, H)
     CW = 2 * W
     if variant == "blue":
         canvas = vgrad(CW, H, (0x3A, 0x8C, 0xFA), (0x1F, 0x63, 0xDB))
@@ -1096,7 +1106,7 @@ def wave_band(W, H, bh, amp, phase, s, color):
 
 def make_band(c, src_img, out, W, H, idx):
     """3번부터: 위쪽 파란 물결 띠(작은 설명 + 큰 제목 2줄, 둘째 줄 노랑 강조) + 아래 똑바로 선 큰 폰."""
-    s = W / 1080
+    s = ui_scale(W, H)
     canvas = paper_bg(W, H, s)
     lines = c["title"].split("\n")
     f, size = fit_lines(lines, W - round(2 * 70 * s), 150 * s, 104 * s)
@@ -1152,8 +1162,25 @@ def make_bold_set(copy, a, W, H, root):
     """bold 스타일 전체: 파노라마 2장(1 말하기 + 2 녹음) + 물결 띠 장들. 번호는 01부터.
     출력 폴더의 옛 bold 출력(NN-*.png)은 지우고 새로 만든다."""
     import glob
-    ios = a.platform == "ios"
+    ios = a.platform in ("ios", "ipad")
+    TABLET[0] = a.platform == "ipad"
     cfg = copy["bold"]
+    if ios and "ios" not in cfg:
+        cfg = dict(cfg, ios=cfg["play"])  # 이 언어에 iOS 장 목록이 없으면 Play 와 같은 순서
+    if a.src_dir:
+        # --src-dir: 이 언어의 iOS 캡처 폴더(01_speak.png … 07_large.png, 위젯은 04_widget_home.png)로 src_ios 를 바꾼다
+        sd = os.path.abspath(a.src_dir)
+        shots = {}
+        for name, sh in copy["shots"].items():
+            fn = "04_widget_home.png" if name == "04_widget" else name + ".png"
+            shots[name] = dict(sh, src_ios=os.path.join(sd, fn))
+        if a.widget_src:
+            shots["04_widget"]["src_ios"] = os.path.abspath(a.widget_src)
+        copy = dict(copy, shots=shots)
+        cfg = dict(cfg, pano=dict(cfg["pano"], src_ios=os.path.join(sd, "01_speak.png")))
+    if a.widget_box and "04_widget" in copy["shots"]:
+        copy = dict(copy, shots=dict(copy["shots"]))
+        copy["shots"]["04_widget"] = dict(copy["shots"]["04_widget"], bold_box_ios=[int(v) for v in a.widget_box.split(",")])
     set_bold_lang(a.lang)
     set_font_variant(a.font_variant, a.lang)
     if a.bold_font:
@@ -1215,7 +1242,8 @@ def make_bold_set(copy, a, W, H, root):
         n += 1
         # 아래 잘림: 안드로이드 캡처는 마이크 버튼이 잘라 낸 화면의 맨 아래(약 99%)까지 내려와 있어 화면 끝까지 보이게(-1.2%),
         # 아이폰 캡처는 마이크가 약 95% 위치라 조금(1.2%) 잘려도 된다
-        c = dict(shot, src=pj(shot[key]), _cut=0.012 if ios else -0.012)
+        # 아이패드 캡처는 세로가 짧아 폰처럼 다 넣으면 화면이 작아진다 → 아래 12%(빈 달력 줄·마이크 둘레)는 잘려도 된다
+        c = dict(shot, src=pj(shot[key]), _cut=0.12 if TABLET[0] else (0.012 if ios else -0.012))
         box = shot.get("bold_box_ios" if ios else "bold_box")
         if box:
             # 이 장만: [왼, 위, 오른, 아래] 픽셀 상자만 잘라 폰 화면에 넣는다(위젯 장면처럼 일부만 크게 보일 때).
@@ -1245,9 +1273,13 @@ def main():
     ap.add_argument("--strip-bars", action="store_true", help="shots 항목의 crop=[위,아래] 로 안드로이드 상태 표시줄·내비게이션 바를 잘라 낸다(App Store 용)")
     ap.add_argument("--pwfrac", type=float, default=0.64, help="폰 너비 / 캔버스 폭 (memo)")
     ap.add_argument("--only", default="", help="쉼표로 나눈 원본 파일명만 만든다(시안용)")
-    ap.add_argument("--platform", default="play", choices=["play", "ios"],
+    ap.add_argument("--src-dir", default="", help="bold iOS·아이패드: 그 언어 캡처 폴더(01_speak.png…07_large.png, 04_widget_home.png)")
+    ap.add_argument("--widget-src", default="", help="bold iOS·아이패드: 04 위젯 장면 원본을 따로 지정(아이패드는 아이폰 위젯 캡처를 쓴다)")
+    ap.add_argument("--widget-box", default="", help="bold iOS·아이패드: 04 위젯을 잘라 낼 '왼,위,오른,아래' 픽셀(JSON bold_box_ios 대신)")
+    ap.add_argument("--platform", default="play", choices=["play", "ios", "ipad"],
                     help="ios = App Store 용: shots 의 src_ios(아이폰 시뮬레이터 캡처)만 쓰고, src_ios 가 없는 장은 빼고 "
-                         "번호를 01부터 이어 붙인다. 소품은 폰 앞에 크게. 상태 표시줄은 그대로 둔다(crop 무시)")
+                         "번호를 01부터 이어 붙인다. 소품은 폰 앞에 크게. 상태 표시줄은 그대로 둔다(crop 무시). "
+                         "ipad = ios 와 같되 아이패드 틀·높이 기준 글자 배율(bold 전용, 2064x2752)")
     ap.add_argument("--pano-bg", default="blue", choices=["blue", "paper"], help="bold 파노라마 바탕색")
     ap.add_argument("--pano-over", type=float, default=0.15, help="bold 1번 폰이 2번으로 넘어가는 몫(회전한 폰 폭 기준, 0.10~0.20)")
     ap.add_argument("--pano-angle", type=float, default=None, help="bold 1번 폰 기울기(음수=시계 방향, 기본 -9)")

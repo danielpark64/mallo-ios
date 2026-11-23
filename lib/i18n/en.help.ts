@@ -40,8 +40,6 @@ export const EN_HELP: Record<string, string> = {
     'If you say something like "buy milk" with no date or time at all, the recording is still kept. It is saved for today (no time) for now, and no alarm is set.',
   '그 일정 카드에는 "언제인지 아직 안 정했어요 · 정하기" 꼬리표가 계속 남습니다. 서두를 필요 없이 아무 때나 "정하기"를 눌러 날짜·시간을 고르면 꼬리표가 사라집니다.':
     'That card keeps a "No date yet · Set" tag. There is no rush: tap "Set" whenever you like to choose a date and time, and the tag goes away.',
-  '편집기 맨 위의 오늘 · 내일 · 모레 버튼으로 날짜를 한 번에 고를 수 있습니다.':
-    'The Today · Tomorrow · Day after buttons at the top of the editor pick a date in one tap.',
 
   // 4
   '4. 달력 화면': '4. Calendar screen',
@@ -89,8 +87,6 @@ export const EN_HELP: Record<string, string> = {
   '8. 알람': '8. Alarms',
   '시간이 있는 일정은 그 시각에 알람이 울리고, 못 들었을 때를 위해 1분 · 2분 뒤에 한 번씩 더 울립니다. 알림의 "알람 끄기"를 누르면 남은 알림이 취소되고, "5분 뒤 다시"로 미룰 수 있습니다.':
     'A schedule with a time rings at that time, and once more after 1 and 2 minutes in case you missed it. "Stop alarm" on the notification cancels the remaining rings; "Snooze 5 min" puts it off.',
-  '알람 방식은 일정마다 소리+진동 · 소리 · 진동 중에서 고릅니다(편집기 시간 옆 아이콘).':
-    'Each schedule can use sound + vibration, sound only, or vibration only (the icon next to the time in the editor).',
   '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 알림 칩을 눌러 바로 바꿀 수 있습니다(누르는 즉시 저장).':
     'Reminders: pick any of 10 min · 30 min · 1 hour · Day before (8 PM the previous evening). Each rings once, like "In 30 min · Dentist appointment". Turn off the "On time" chip to skip the ring at the scheduled time. Set default reminders for new schedules in Settings › Alarm. For existing schedules, tap the reminder chips on the detail screen; changes are saved immediately.',
   '하루 전 미리 알림은 전날 달력에 빈 점으로, 전날 목록에는 점선 테두리의 "⏰ 오후 8:00 · 미리 알림" 줄로 따로 보입니다(실제 일정 카드와 구분). 눌러 보면 원래 일정이 열립니다.':
@@ -145,8 +141,6 @@ export const EN_HELP: Record<string, string> = {
   '"＋ 추가"에서도 "눌러서 말하기"를 누르면 소리 막대와 말하는 글이 바로 보입니다. 같은 화면에서 다시 녹음하면 앞 녹음을 새 녹음으로 바꿀지 먼저 물어봅니다.': 'In "＋ Add", tapping "Tap to speak" also shows the sound bars and your words right away. If you record again on the same screen, the app first asks whether to replace the earlier recording.',
   '녹음이 없는 일정(글자로 입력한 일정 등)도 ▶를 누르면 폰의 음성으로 날짜·시간과 내용을 읽어 줍니다. 인터넷은 쓰지 않습니다.': 'Schedules without a recording (such as ones you typed) can also be played with ▶: your phone\'s voice reads out the date, time and content. No internet is used.',
   '상세 화면 오른쪽 위 "수정"에서 날짜 · 시간(휠) · 내용 · 알람 방식을 바꿉니다. "눌러서 말하기"로 말해서 입력할 수도 있고, 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있습니다.': 'Tap "Edit" at the top right of the detail screen to change the date, time (wheels), content and alarm type. You can also dictate with "Tap to speak", and listen to the original recording with "▶ Play recording" next to the content while you edit.',
-  '상세 화면 오른쪽 위 "수정"(또는 아래 "＋ 내용 추가")을 누르면 한 화면에서 날짜 · 시간 · 알림(미리 알림 포함) · 내용을 고치고, "＋ 말로 덧붙이기"로 녹음을 덧붙일 수 있습니다. 내용 옆 "▶ 녹음 듣기"로 원래 녹음을 들으며 고칠 수 있고, "저장"을 한 번 누르면 모두 저장됩니다.':
-    'Tap "Edit" at the top right of the detail screen (or "＋ Add" below) to change the date, time, alarms (including early reminders) and content on one screen, and to add a recording with "＋ Add by voice". You can listen to the original recording with "▶ Play recording" next to the content while you edit, and one tap on "Save" saves everything.',
   '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "수정"에서 바꿉니다.':
     'Early reminders: choose any of 10 min, 30 min, 1 hour or a day before (8 PM the previous evening), and each one alerts you once, like "In 30 min · Dentist". Turn off the "On time" chip and nothing rings at the exact time. Set default reminders in Settings › Alarm and they are added to new schedules automatically. For an existing schedule, change them with "Edit" on the detail screen.',
   '＋ 말로 덧붙이기':
@@ -163,14 +157,10 @@ export const EN_HELP: Record<string, string> = {
     '🔔 Change alarms ›',
   '알림 없음 — 울리지 않아요':
     'No alarm — nothing will ring',
-  '미리 알림: 10분 전 · 30분 전 · 1시간 전 · 하루 전(전날 저녁 8시)을 여러 개 고를 수 있고, 각각 한 번씩 "30분 뒤 · 치과 예약"처럼 알려줍니다. "정각" 칩을 끄면 정각에는 울리지 않습니다. 설정 › 알람에서 새 일정의 기본 미리 알림을 정해 두면 자동으로 붙습니다. 이미 있는 일정은 상세 화면의 "🔔 알림 바꾸기"를 눌러 고른 뒤 "저장"하면 됩니다(수정 화면에서도 바꿀 수 있습니다).':
-    'Early reminders: choose any of 10 min, 30 min, 1 hour or a day before (8 PM the previous evening), and each one alerts you once, like "In 30 min · Dentist". Turn off the "On time" chip and nothing rings at the exact time. Set default reminders in Settings › Alarm and they are added to new schedules automatically. For an existing schedule, tap "🔔 Change alarms" on the detail screen, choose, and tap "Save" (you can also change them on the edit screen).',
   "기간: \"20일부터 24일까지 휴가\", \"다음 주 월요일부터 금요일까지 교육\", \"11월 3일부터 3박 4일 여행\"처럼 말하면 끝나는 날까지 저장됩니다. 알람은 시작하는 날에만 울리고, 휴가 중인 날에 다른 일정을 넣으면 먼저 알려 줍니다(그래도 넣을 수 있습니다).":
     "Ranges: say \"vacation from the 20th to the 24th\", \"training from next Monday to Friday\" or \"a 3-night, 4-day trip from November 3\" and it is saved through the end date. The alarm rings only on the first day, and if you add another schedule during a vacation you are told first (you can still add it).",
   "달력은 위아래로 밀면 다음 달이 이어집니다. 칸마다 일정 이름이 보이고, 휴가 같은 기간 일정은 이어진 막대로, 공휴일은 빨간 날짜와 이름으로 보입니다.":
     "Swipe up or down and the next month follows. Each day shows schedule names, multi-day schedules such as vacations appear as connected bars, and holidays show a red date and name.",
-  "날짜를 누르면 아래에서 그날 일정이 올라옵니다. 거기서 일정을 열거나 \"＋ 이 날 일정 추가\"로 바로 만들 수 있습니다.":
-    "Tap a date and that day's schedules slide up from the bottom. Open one, or tap \"＋ Add event on this day\" to create one right there.",
   "글씨가 작으면 두 손가락으로 벌려 화면을 확대하세요(최대 3배). 확대한 채로 옆으로 밀어 볼 수 있고, \"원래 크기\"를 누르면 돌아옵니다. 요일 줄을 두 번 눌러도 커집니다.":
     "If the text is small, spread two fingers to zoom the screen (up to 3×). While zoomed, swipe sideways to look around and tap \"Actual size\" to go back. Double-tapping the weekday row also zooms in.",
   "왼쪽 위 달 이름을 누르면 1년 달력이 나오고, 달을 누르면 그 달로 갑니다. \"오늘\"은 이번 달로 돌아오고, \"음력\"은 음력과 절기를 함께 보여 줍니다.":

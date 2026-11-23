@@ -18,6 +18,9 @@ import { BackupSheet } from './BackupSheet';
 import { LongRecSheet } from './LongRecSheet';
 import { LONGREC_ENABLED } from '../lib/longRecFlag';
 import { HelpSheet } from './HelpSheet';
+import { Popup } from './DetailSheets';
+import { SoundList, type SoundChoice } from './SoundPicker';
+import { SOUND_IDS, SOUND_LABEL, type SoundId } from '../lib/alarmSounds';
 
 export function SettingsSheet({
   visible,
@@ -34,6 +37,8 @@ export function SettingsSheet({
   onDefaultRemind,
   defaultVoice = false,
   onDefaultVoice,
+  defaultSound = 'default',
+  onDefaultSound,
   onRestored,
   onClose,
 }: {
@@ -55,6 +60,9 @@ export function SettingsSheet({
   /** 새 일정의 알람 소리: false = 기본 알람음, true = 내 목소리 */
   defaultVoice?: boolean;
   onDefaultVoice?: (on: boolean) => void;
+  /** 기본 알람 소리 — 소리를 따로 고르지 않은 일정은 모두 이 소리로 울린다 */
+  defaultSound?: SoundId;
+  onDefaultSound?: (id: SoundId) => void;
   onRestored: (records: ScheduleRecord[]) => void;
   onClose: () => void;
 }) {
@@ -72,12 +80,13 @@ export function SettingsSheet({
     return () => sub.remove();
   }, [visible]);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [soundPick, setSoundPick] = useState<SoundChoice | null>(null); // 기본 알람 소리 고르기 팝업(열려 있을 때 고르는 값)
   const [longRecOpen, setLongRecOpen] = useState(false); // [LONGREC 시험판]
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const withAudio = records.filter((r) => r.uri).length;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={() => (soundPick != null ? setSoundPick(null) : onClose())}>
       <SafeAreaProvider>
         <SafeAreaView style={s.screen}>
           <View style={s.navBar}>
@@ -161,6 +170,23 @@ export function SettingsSheet({
                 })}
               </View>
               <Text style={s.rowSub}>{t('하루 전은 전날 저녁 8시에 울려요')}</Text>
+              {onDefaultSound && (
+                <>
+                  <View style={s.divider} />
+                  <TouchableOpacity
+                    style={s.rowBetween}
+                    onPress={() => setSoundPick(defaultSound)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t('기본 알람 소리')} ${t(SOUND_LABEL[defaultSound])}`}
+                    testID="settings-sound"
+                  >
+                    {/* 제목이 긴 언어(스페인어 등)에서도 소리 이름이 밀려나지 않게 둘이 나눠 줄어든다 */}
+                    <Text style={[s.rowTitle, { flex: 1 }]}>{t('🎵 기본 알람 소리')}</Text>
+                    <Text style={[s.rowValue, { color: C.accent, flexShrink: 1, maxWidth: '50%', textAlign: 'right' }]} numberOfLines={2}>{`${t(SOUND_LABEL[defaultSound])} ›`}</Text>
+                  </TouchableOpacity>
+                  <Text style={s.rowSub}>{t("기본 소리를 바꾸면 '기본'으로 둔 일정이 모두 새 소리로 울려요. 따로 고른 일정은 그대로예요.")}</Text>
+                </>
+              )}
               {/* [VOICE_ALARM] 보류된 기능 — 상용에서는 보이지 않는다 */}
               {onDefaultVoice && voiceAlarmSupported() && (
                 <>
@@ -298,6 +324,16 @@ export function SettingsSheet({
             onRestored={onRestored}
           />
           <HelpSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
+          {soundPick != null && onDefaultSound && (
+            <Popup
+              title={t('기본 알람 소리')}
+              onCancel={() => setSoundPick(null)}
+              onDone={() => { if (soundPick !== 'follow') onDefaultSound(soundPick); setSoundPick(null); }}
+              testID="sheet-default-sound"
+            >
+              <SoundList choices={[...SOUND_IDS]} value={soundPick} onChange={setSoundPick} followSound={defaultSound} />
+            </Popup>
+          )}
           {/* 열 때만 올린다 — 닫혀 있을 때 녹음기·인식 이벤트를 붙잡아 두지 않게 */}
           {LONGREC_ENABLED && longRecOpen && <LongRecSheet visible onClose={() => setLongRecOpen(false)} />}
         </SafeAreaView>

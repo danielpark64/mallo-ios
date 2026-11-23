@@ -8,7 +8,7 @@ module.exports = (config) => ({
   bundleIdentifier: '.widget',
   // 앱과 같은 최소 버전. ▲▼ 넘기기 버튼만 iOS 17 이상
   deploymentTarget: '16.4',
-  frameworks: ['SwiftUI', 'WidgetKit', 'AppIntents'],
+  frameworks: ['SwiftUI', 'WidgetKit', 'AppIntents', 'ActivityKit'], // ActivityKit: iOS 26+ AlarmKit Live Activity(AlarmLiveActivity.swift)
   entitlements: {
     'com.apple.security.application-groups': config.ios.entitlements['com.apple.security.application-groups'],
   },

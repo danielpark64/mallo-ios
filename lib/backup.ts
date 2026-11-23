@@ -1,5 +1,6 @@
 // ─── 전체 백업 / 복원 (폰 옮기기용) ───────────────────────────────────────────────
-// 일정 목록(records.json)과 모든 녹음 파일(m4a)을 한 폴더로 모아 둔다.
+// 일정 목록(records.json)과 모든 녹음 파일(m4a), 붙여넣은 이미지(clip_….jpg)를 한 폴더로 모아 둔다.
+// 메모·링크 첨부는 records.json 안에 글로 들어 있어 따로 옮길 것이 없다.
 // iOS: Documents/mallo-backups/<백업명>/ — 파일 앱(나의 iPhone › 세이람)에 그대로 보이므로
 //      iCloud Drive로 복사해 두고, 새 폰에서 같은 자리에 넣은 뒤 "복원"하면 된다.
 // Android: 같은 폴더 구조를 사용자가 고른 폴더(드라이브·다운로드)로 내보내고/가져온다(SAF).
@@ -8,6 +9,7 @@ import * as Legacy from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import type { ScheduleRecord } from './storage';
 import { t } from './i18n';
+import { appFileName } from './attachments';
 
 const DB_DIR = new Directory(Paths.document, 'mallo');
 export const BACKUP_ROOT = new Directory(Paths.document, 'mallo-backups');
@@ -50,6 +52,21 @@ export function audioNamesOf(records: ScheduleRecord[]): string[] {
   return Array.from(names);
 }
 
+/** 붙여넣은 이미지 첨부("app:clip_….jpg")의 파일 이름들 — 원본이 없어 이 파일도 백업에 넣는다 */
+export function attachFileNamesOf(records: ScheduleRecord[]): string[] {
+  const names = new Set<string>();
+  for (const r of records) for (const a of r.attachments ?? []) {
+    const n = appFileName(a.ref);
+    if (n) names.add(n);
+  }
+  return Array.from(names);
+}
+
+/** 백업에 함께 옮길 앱 폴더 파일(녹음 + 붙여넣은 이미지) */
+export function backupFileNamesOf(records: ScheduleRecord[]): string[] {
+  return Array.from(new Set([...audioNamesOf(records), ...attachFileNamesOf(records)]));
+}
+
 /** 백업에서 읽은 레코드의 녹음 경로를 현재 앱 폴더 기준으로 바꾼다 (폰이 달라도 파일명은 같다) */
 function relocate(records: ScheduleRecord[]): ScheduleRecord[] {
   const here = (uri: string) => (uri ? new File(DB_DIR, baseName(uri)).uri : uri);
@@ -77,13 +94,14 @@ export function createBackup(records: ScheduleRecord[]): BackupInfo {
   if (!manifest.exists) manifest.create();
   manifest.write(JSON.stringify(records));
   let audioFiles = 0;
-  for (const n of audioNamesOf(records)) {
+  const audio = new Set(audioNamesOf(records));
+  for (const n of backupFileNamesOf(records)) {
     const src = new File(DB_DIR, n);
     if (!src.exists) continue;
     const dest = new File(dir, n);
     if (dest.exists) dest.delete();
     src.copySync(dest);
-    audioFiles++;
+    if (audio.has(n)) audioFiles++;
   }
   return { name, uri: dir.uri, count: records.length, audioFiles, createdAt: Date.now() };
 }
@@ -117,11 +135,12 @@ export function restoreBackup(dirUri: string, existing: ScheduleRecord[]): Resto
   if (!Array.isArray(incoming)) throw new Error(t('백업 목록 파일이 올바르지 않아요'));
   if (!DB_DIR.exists) DB_DIR.create({ intermediates: true });
   let missingAudio = 0;
-  for (const n of audioNamesOf(incoming)) {
+  const audio = new Set(audioNamesOf(incoming));
+  for (const n of backupFileNamesOf(incoming)) {
     const dest = new File(DB_DIR, n);
     if (dest.exists) continue;
     const src = new File(dir, n);
-    if (!src.exists) { missingAudio++; continue; }
+    if (!src.exists) { if (audio.has(n)) missingAudio++; continue; }
     src.copySync(dest);
   }
   const merged = mergeRecords(existing, relocate(incoming));
@@ -145,13 +164,14 @@ export async function exportBackupToFolderAndroid(records: ScheduleRecord[]): Pr
   const manifestUri = await SAF.createFileAsync(sub, MANIFEST, 'application/json');
   await Legacy.writeAsStringAsync(manifestUri, JSON.stringify(records));
   let audioFiles = 0;
-  for (const n of audioNamesOf(records)) {
+  const audio = new Set(audioNamesOf(records));
+  for (const n of backupFileNamesOf(records)) {
     const src = new File(DB_DIR, n);
     if (!src.exists) continue;
     const b64 = await Legacy.readAsStringAsync(src.uri, { encoding: Legacy.EncodingType.Base64 });
-    const target = await SAF.createFileAsync(sub, n, 'audio/mp4');
+    const target = await SAF.createFileAsync(sub, n, audio.has(n) ? 'audio/mp4' : 'image/jpeg');
     await Legacy.writeAsStringAsync(target, b64, { encoding: Legacy.EncodingType.Base64 });
-    audioFiles++;
+    if (audio.has(n)) audioFiles++;
   }
   return { name, uri: sub, count: records.length, audioFiles, createdAt: Date.now() };
 }
@@ -169,11 +189,12 @@ export async function importBackupFromFolderAndroid(existing: ScheduleRecord[]):
   if (!Array.isArray(incoming)) throw new Error(t('백업 목록 파일이 올바르지 않아요'));
   if (!DB_DIR.exists) DB_DIR.create({ intermediates: true });
   let missingAudio = 0;
-  for (const n of audioNamesOf(incoming)) {
+  const audio = new Set(audioNamesOf(incoming));
+  for (const n of backupFileNamesOf(incoming)) {
     const dest = new File(DB_DIR, n);
     if (dest.exists) continue;
     const src = byName.get(n);
-    if (!src) { missingAudio++; continue; }
+    if (!src) { if (audio.has(n)) missingAudio++; continue; }
     const b64 = await Legacy.readAsStringAsync(src, { encoding: Legacy.EncodingType.Base64 });
     await Legacy.writeAsStringAsync(dest.uri, b64, { encoding: Legacy.EncodingType.Base64 });
   }

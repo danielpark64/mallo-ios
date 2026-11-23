@@ -131,7 +131,7 @@ class AlarmRingActivity : Activity() {
             a.runOnUiThread { if (!a.isFinishing) a.finish() }
         }
 
-        fun intent(context: Context, recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean) =
+        fun intent(context: Context, recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String) =
             Intent(context, AlarmRingActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(AlarmScheduling.EXTRA_RECORD_ID, recordId)
@@ -139,6 +139,7 @@ class AlarmRingActivity : Activity() {
                 putExtra(AlarmScheduling.EXTRA_BODY, body)
                 putExtra(AlarmScheduling.EXTRA_SOUND_ON, soundOn)
                 putExtra(AlarmScheduling.EXTRA_VIB_ON, vibOn)
+                putExtra(AlarmScheduling.EXTRA_TONE, tone) // 울림 화면의 "5분 후"도 같은 소리로 다시 건다
             }
     }
 }

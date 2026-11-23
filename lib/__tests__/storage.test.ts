@@ -1,5 +1,6 @@
 // records.json 저장/백업/복구 — expo-file-system을 인메모리로 대체
 const mockStore = new Map<string, string>();
+const mockMtime = new Map<string, number>();
 
 jest.mock('expo-file-system', () => {
   const join = (parts: any[]) => parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');
@@ -8,6 +9,7 @@ jest.mock('expo-file-system', () => {
     constructor(...parts: any[]) { this.uri = join(parts); }
     get exists() { return true; }
     create() {}
+    list() { return [...mockStore.keys()].filter((k) => k.startsWith(this.uri + '/') && !k.slice(this.uri.length + 1).includes('/')).map((k) => new File(k)); }
   }
   class File {
     uri: string;
@@ -18,11 +20,14 @@ jest.mock('expo-file-system', () => {
     textSync() { return mockStore.get(this.uri) ?? ''; }
     delete() { mockStore.delete(this.uri); }
     copySync(dest: File) { mockStore.set(dest.uri, mockStore.get(this.uri) ?? ''); }
+    get name() { return this.uri.split('/').pop() ?? ''; }
+    info() { return { exists: this.exists, modificationTime: mockMtime.get(this.uri) }; }
   }
   return { Directory, File, Paths: { document: 'doc', cache: 'cache' } };
 });
 
-import { loadRecords, saveRecords, type ScheduleRecord } from '../storage';
+import { cleanupOrphanClips, loadRecords, saveRecords, type ScheduleRecord } from '../storage';
+import { holdClipRefs } from '../attachments';
 
 const MAIN = 'doc/mallo/records.json';
 const BAK = 'doc/mallo/records.bak.json';
@@ -92,5 +97,21 @@ describe('녹음 경로 보정(resolveAudioUri)', () => {
   test('빈 uri(수동 입력)는 그대로', () => {
     saveRecords([rec('2')]);
     expect(loadRecords()[0].uri).toBe('');
+  });
+});
+
+describe('cleanupOrphanClips (앱 시작 때 한 번)', () => {
+  test('참조 없는 오래된 clip만 지우고 records.json·녹음·새 clip·미리보기 clip은 남긴다', () => {
+    const now = 1_000_000_000;
+    const old = now - 11 * 60_000;
+    for (const n of ['records.json', 'records.bak.json', 'rec_1.m4a', 'clip_1.jpg', 'clip_2.jpg', 'clip_3.jpg', 'clip_4.jpg']) {
+      mockStore.set(`doc/mallo/${n}`, 'x'); mockMtime.set(`doc/mallo/${n}`, old);
+    }
+    mockMtime.set('doc/mallo/clip_3.jpg', now - 60_000);
+    holdClipRefs(['app:clip_4.jpg']);
+    const r = { ...rec('a'), attachments: [{ ref: 'app:clip_1.jpg', kind: 'photo' as const, name: '', addedAt: 0 }] };
+    expect(cleanupOrphanClips([r], now)).toBe(1);
+    holdClipRefs([]);
+    expect([...mockStore.keys()].sort()).toEqual(['doc/mallo/clip_1.jpg', 'doc/mallo/clip_3.jpg', 'doc/mallo/clip_4.jpg', 'doc/mallo/rec_1.m4a', 'doc/mallo/records.bak.json', 'doc/mallo/records.json']);
   });
 });

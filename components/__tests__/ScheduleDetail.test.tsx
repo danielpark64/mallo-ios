@@ -16,6 +16,22 @@ jest.mock('expo-audio', () => ({
 jest.mock('../../lib/exportUtils', () => ({
   copyRecords: jest.fn(), exportRecordsTxt: jest.fn(), exportRecordsPdf: jest.fn(),
 }));
+jest.mock('expo-speech-recognition', () => ({
+  ExpoSpeechRecognitionModule: { start: jest.fn(), stop: jest.fn(), abort: jest.fn() },
+  useSpeechRecognitionEvent: jest.fn(),
+}));
+jest.mock('../../lib/useVoiceRecorder', () => {
+  const voice = {
+    recorderState: { isRecording: false, durationMillis: 0, metering: -20 },
+    liveText: '',
+    listening: false,
+    fileRecording: true,
+    start: jest.fn(async () => {}),
+    stop: jest.fn(async () => ({ uri: 'file:///a.m4a', transcript: '약국 들르기', durationSec: 3, segments: [] })),
+    cancel: jest.fn(async () => {}),
+  };
+  return { useVoiceRecorder: () => voice, __voice: voice };
+});
 
 import { ScheduleDetail } from '../ScheduleDetail';
 
@@ -32,7 +48,7 @@ const record: ScheduleRecord = {
 };
 
 const ui = () => (
-  <ScheduleDetail visible record={record} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />
+  <ScheduleDetail visible record={record} onClose={() => {}} />
 );
 
 // 칩 4개를 한 줄에 가로로 배치한 것으로 가정 (x: 0, 44, 88, 132 / 폭 40 / 높이 25)
@@ -223,7 +239,7 @@ describe('ScheduleDetail 단어 시각이 없는 녹음(iOS 인식기 미제공)
     segments: record.segments!.map((seg) => ({ ...seg, startTimeMillis: 303, endTimeMillis: 303 })),
   };
   const ui2 = () => (
-    <ScheduleDetail visible record={degenerateRecord} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />
+    <ScheduleDetail visible record={degenerateRecord} onClose={() => {}} />
   );
   test('모든 단어가 같은 시각이면 녹음 길이에 글자 수 비례로 배분해 단어 탭이 그 구간을 재생한다', async () => {
     mockStatus = { currentTime: 0, duration: 0, playing: false, didJustFinish: false }; // 플레이어 duration 미제공 → durationSec 4 사용
@@ -395,7 +411,7 @@ describe('ScheduleDetail 글을 고친 추가 엔트리(단어 시각 없음)', 
       }],
     };
     const screen = await render(
-      <ScheduleDetail visible record={withAppend} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />,
+      <ScheduleDetail visible record={withAppend} onClose={() => {}} />,
     );
     // 메인 4개 + 추가 4개 → chip-0이 두 블록에 하나씩
     expect(screen.getAllByTestId('chip-0')).toHaveLength(2);
@@ -405,101 +421,10 @@ describe('ScheduleDetail 글을 고친 추가 엔트리(단어 시각 없음)', 
   test('녹음 파일이 없는 항목(Android 12 이하)은 칩 없이 글만 보이고 안내가 뜬다', async () => {
     const noAudio: ScheduleRecord = { ...record, uri: '', segments: undefined, appends: undefined };
     const screen = await render(
-      <ScheduleDetail visible record={noAudio} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} />,
+      <ScheduleDetail visible record={noAudio} onClose={() => {}} />,
     );
     expect(screen.queryAllByTestId('chip-0')).toHaveLength(0);
     expect(screen.getByText('녹음 파일 없이 글만 저장된 항목이에요')).toBeTruthy();
   });
 });
 
-describe('상세 화면의 알림 바꾸기 시트', () => {
-  test('상세에는 칩이 없고 "알림 바꾸기" 버튼만 있다 — 칩과 저장은 시트 안에서만', async () => {
-    const rec = { ...record, remindBefore: [30], exactAlarm: true };
-    const screen = await render(
-      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={() => {}} />,
-    );
-    expect(screen.getByText('미리 알림 30분 전 · 정각 알림 켬')).toBeTruthy();
-    expect(screen.getByTestId('remind-open')).toBeTruthy();
-  });
-  test('시트에서 칩을 바꿔도 "저장"을 눌러야 onAlarmChange가 한 번 불린다', async () => {
-    const onAlarmChange = jest.fn();
-    const rec = { ...record, remindBefore: [30], exactAlarm: true };
-    const screen = await render(
-      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={onAlarmChange} />,
-    );
-    await fireEvent.press(screen.getByTestId('remind-open'));
-    await fireEvent.press(screen.getByLabelText('미리 알림 하루 전'));
-    await fireEvent.press(screen.getByLabelText('정각 알림'));
-    expect(onAlarmChange).not.toHaveBeenCalled(); // 바꾸기만 해서는 저장되지 않는다
-    await fireEvent.press(screen.getByTestId('remind-save'));
-    expect(onAlarmChange).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('remind-save')).toBeNull(); // 저장하면 시트가 닫혀 연타로 두 번 걸리지 않는다
-    expect(onAlarmChange).toHaveBeenLastCalledWith(rec, [30, 1440], false, false);
-  });
-  test('시트에서 바꾸고 취소하면 저장하지 않는다', async () => {
-    const onAlarmChange = jest.fn();
-    const rec = { ...record, remindBefore: [30], exactAlarm: true };
-    const screen = await render(
-      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={onAlarmChange} />,
-    );
-    await fireEvent.press(screen.getByTestId('remind-open'));
-    await fireEvent.press(screen.getByLabelText('미리 알림 10분 전'));
-    await fireEvent.press(screen.getByText('취소'));
-    expect(onAlarmChange).not.toHaveBeenCalled();
-  });
-  test('지난 일정은 칩 없이 안내만', async () => {
-    const rec = { ...record, scheduleAt: Date.now() - 3_600_000 };
-    const screen = await render(
-      <ScheduleDetail visible record={rec} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onAlarmChange={() => {}} />,
-    );
-    expect(screen.getByText('지난 일정 (알림 없음)')).toBeTruthy();
-    expect(screen.queryByTestId('remind-open')).toBeNull();
-  });
-});
-
-describe('지난 일정의 결과 버튼', () => {
-  // Date.now는 위 테스트에서 고정될 수 있어 테스트 안에서 시각을 잡는다
-  let past: ScheduleRecord;
-  beforeEach(() => { past = { ...record, id: 'p1', scheduleAt: Date.now() - 3_600_000 }; });
-
-  it('지난 일정에만 "어떻게 됐나요?"가 보이고, 누르면 부모에게 종류를 넘긴다', async () => {
-    const onOutcome = jest.fn();
-    const screen = await render(
-      <ScheduleDetail visible record={past} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={onOutcome} />
-    );
-    expect(screen.getByText('어떻게 됐나요?')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('outcome-moved'));
-    expect(onOutcome).toHaveBeenCalledWith(past, 'moved');
-  });
-
-  it('앞으로의 일정에는 "미루기" 하나만 보이고, 누르면 바뀜(moved)으로 넘긴다', async () => {
-    const onOutcome = jest.fn();
-    const screen = await render(
-      <ScheduleDetail visible record={record} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={onOutcome} />
-    );
-    expect(screen.queryByText('어떻게 됐나요?')).toBeNull();
-    expect(screen.queryByTestId('outcome-skipped')).toBeNull();
-    await fireEvent.press(screen.getByText('미루기'));
-    expect(onOutcome).toHaveBeenCalledWith(record, 'moved');
-  });
-
-  it('앞으로의 기간 일정에는 미루기를 두지 않는다(날짜를 고쳐 옮긴다)', async () => {
-    const range = { ...record, endAt: (record.scheduleAt ?? 0) + 3 * 86_400_000 };
-    const screen = await render(
-      <ScheduleDetail visible record={range} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={jest.fn()} />
-    );
-    expect(screen.queryByTestId('outcome-box')).toBeNull();
-  });
-
-  it('다시 잡은 날짜를 누르면 그 일정으로, 원래 일정 줄을 누르면 원래 일정으로 간다', async () => {
-    const onOpenRecord = jest.fn();
-    const marked: ScheduleRecord = { ...past, outcome: { kind: 'moved', nextId: 'n1', nextAt: Date.now() + 86_400_000, nextHasTime: true } };
-    const screen = await render(
-      <ScheduleDetail visible record={marked} onClose={() => {}} onEdit={() => {}} onAppend={() => {}} onOutcome={jest.fn()} onOpenRecord={onOpenRecord} origin={{ ...past, id: 'o1' }} />
-    );
-    await fireEvent.press(screen.getByTestId('outcome-next'));
-    expect(onOpenRecord).toHaveBeenCalledWith('n1');
-    await fireEvent.press(screen.getByTestId('outcome-origin'));
-    expect(onOpenRecord).toHaveBeenCalledWith('o1');
-  });
-});

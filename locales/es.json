@@ -4,6 +4,8 @@
     "CFBundleName": "SayRam",
     "NSMicrophoneUsageDescription": "SayRam necesita acceso al micrófono para grabar tus notas de voz.",
     "NSSpeechRecognitionUsageDescription": "SayRam necesita el reconocimiento de voz para convertir lo que dices en texto.",
-    "NSPhotoLibraryUsageDescription": "SayRam lee tu fototeca para mostrar las fotos que adjuntas a un evento. Las fotos nunca se copian ni se envían a ningún sitio."
+    "NSPhotoLibraryUsageDescription": "SayRam lee tu fototeca para mostrar las fotos que adjuntas a un evento. Las fotos nunca se copian ni se envían a ningún sitio.",
+    "NSAlarmKitUsageDescription": "Permite las alarmas para que las de tu agenda suenen como en la app Reloj, incluso en modo Silencio o Concentración.",
+    "NSContactsUsageDescription": "Cuando dices «envíaselo a mamá», SayRam busca su número en tus contactos para completar el SMS. Tus contactos nunca salen de este teléfono."
   }
 }

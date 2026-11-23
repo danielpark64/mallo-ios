@@ -4,6 +4,8 @@
     "CFBundleName": "SayRam",
     "NSMicrophoneUsageDescription": "SayRam needs microphone access to record your voice notes.",
     "NSSpeechRecognitionUsageDescription": "SayRam needs speech recognition to turn what you say into text.",
-    "NSPhotoLibraryUsageDescription": "SayRam reads your photo library to show previews of photos you attach to a schedule. Photos are never copied or sent anywhere."
+    "NSPhotoLibraryUsageDescription": "SayRam reads your photo library to show previews of photos you attach to a schedule. Photos are never copied or sent anywhere.",
+    "NSAlarmKitUsageDescription": "Allow alarms so your schedule alarms ring like the Clock app, even in Silent or Focus mode.",
+    "NSContactsUsageDescription": "When you say “send it to Mom”, SayRam looks up that person’s number in your contacts to fill in the text message. Contacts never leave this phone."
   }
 }

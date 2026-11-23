@@ -3,6 +3,7 @@ import { extractRemindBefore } from './reminders';
 import { getLang } from './i18n';
 import { parseScheduleEn } from './parseScheduleEn';
 import { parseScheduleIntl, formatDisplayIntl } from './parseScheduleIntl';
+import { extractSendIntent } from './parseSendIntent';
 // STT로 받은 한국어 문장에서 날짜·시간을 추출해 실제 Date 로 변환한다.
 // 예) "내일 오후 3시에 팀 회의" → { date: 2026-06-07 15:00, content: "팀 회의" }
 
@@ -21,6 +22,8 @@ export type ParsedSchedule = {
   remindBefore?: number[];
   /** 기간 일정의 끝나는 날(그날 0시). "20일부터 24일까지 휴가" → 24일. 하루짜리 일정은 undefined */
   endDate?: Date;
+  /** "…엄마한테 보내줘"처럼 말한 받는 사람(lib/parseSendIntent.ts). 그 구절은 content에서 빠진다 */
+  sendTo?: string;
 };
 
 // 한글 고유어 수사 → 숫자 (시(時)에 주로 쓰임: 한시~열두시)
@@ -56,8 +59,15 @@ function isValidMonthDay(month: number, date: number): boolean {
 
 // ─── 메인 파서 ────────────────────────────────────────────────────────────────
 export function parseSchedule(input: string, base: Date = new Date()): ParsedSchedule {
-  // 영어 모드면 영어 파서로, 그 외 언어(ja·zh·es·fr·de·pt)는 표 기반 파서로 (한국어 경로는 그대로)
+  // 말 끝의 "엄마한테 보내줘"(말로 보내기)는 먼저 떼어 내고, 남은 말만 날짜·내용으로 읽는다
   const lang = getLang();
+  const send = extractSendIntent(input ?? '', lang);
+  const r = parseByLang(send.sendTo ? send.text : input, base, lang);
+  return send.sendTo ? { ...r, sendTo: send.sendTo } : r;
+}
+
+function parseByLang(input: string, base: Date, lang: ReturnType<typeof getLang>): ParsedSchedule {
+  // 영어 모드면 영어 파서로, 그 외 언어(ja·zh·es·fr·de·pt)는 표 기반 파서로 (한국어 경로는 그대로)
   if (lang === 'en') return parseScheduleEn(input, base);
   if (lang !== 'ko') return parseScheduleIntl(input, base, lang);
   const pre = extractRemindBefore((input ?? '').trim());

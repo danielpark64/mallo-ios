@@ -76,6 +76,10 @@ class AlarmService : Service() {
         val body = intent?.getStringExtra(AlarmScheduling.EXTRA_BODY) ?: ""
         val soundOn = intent?.getBooleanExtra(AlarmScheduling.EXTRA_SOUND_ON, true) ?: true
         val vibOn = intent?.getBooleanExtra(AlarmScheduling.EXTRA_VIB_ON, true) ?: true
+        // 알람 소리 id — 없으면 끄기·5분 후는 지금 울리는 것, 새 울림(1.2.0 이전 예약)은 기본 소리
+        val tone = intent?.getStringExtra(AlarmScheduling.EXTRA_TONE)
+            ?: (if (intent?.action == ACTION_SNOOZE || intent?.action == ACTION_STOP) currentRinging?.tone else null)
+            ?: AlarmTones.DEFAULT
 
         when (intent?.action) {
             ACTION_STOP -> {
@@ -88,7 +92,7 @@ class AlarmService : Service() {
                 val info = currentRinging
                 val rid = recordId.ifEmpty { info?.recordId ?: "" }
                 stopEverything(rid)
-                scheduleSnooze(rid, title.ifEmpty { info?.title ?: AlarmLabels.app(this) }, body.ifEmpty { info?.body ?: "" }, soundOn, vibOn)
+                scheduleSnooze(rid, title.ifEmpty { info?.title ?: AlarmLabels.app(this) }, body.ifEmpty { info?.body ?: "" }, soundOn, vibOn, tone)
                 emit("malloAlarmSnoozed", rid)
                 return START_NOT_STICKY
             }
@@ -96,8 +100,8 @@ class AlarmService : Service() {
 
         // ACTION_RING (기본)
         stopRinging()
-        currentRinging = RingingInfo(recordId, title, body, soundOn, vibOn)
-        val notif = buildServiceNotification(recordId, title, body, soundOn, vibOn)
+        currentRinging = RingingInfo(recordId, title, body, soundOn, vibOn, tone)
+        val notif = buildServiceNotification(recordId, title, body, soundOn, vibOn, tone)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } else {
@@ -106,12 +110,12 @@ class AlarmService : Service() {
         // 사용자가 보는 알람 알림(워치로 브릿지되는 쪽). 알림 권한이 없으면 조용히 실패한다.
         try {
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .notify(ALERT_ID, buildAlertNotification(recordId, title, body, soundOn, vibOn))
+                .notify(ALERT_ID, buildAlertNotification(recordId, title, body, soundOn, vibOn, tone))
         } catch (e: Exception) { e.printStackTrace() }
         acquireWakeLock()
-        startRinging(soundOn, vibOn, recordId)
+        startRinging(soundOn, vibOn, recordId, tone)
         emit("malloAlarmRinging", recordId)
-        showRingScreen(recordId, title, body, soundOn, vibOn)
+        showRingScreen(recordId, title, body, soundOn, vibOn, tone)
 
         autoStop?.let { handler.removeCallbacks(it) }
         autoStop = Runnable {
@@ -139,7 +143,7 @@ class AlarmService : Service() {
      * 고정 지연으로는 못 맞춘다. DisplayListener로 커버가 켜지는 순간을 잡고, 1.2초 안에 안 켜지면
      * (= 접혀 있지 않음) 기본 화면에 띄운다. 디스플레이가 하나뿐인 일반 폰은 기다리지 않는다.
      */
-    private fun showRingScreen(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean) {
+    private fun showRingScreen(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String) {
         cancelCoverWork()
         val dm = try { getSystemService(Context.DISPLAY_SERVICE) as DisplayManager } catch (_: Exception) { null }
         var launched = false
@@ -151,14 +155,14 @@ class AlarmService : Service() {
             displayListener = null
             try {
                 val isCover = displayId != null && displayId != Display.DEFAULT_DISPLAY
-                val i = AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn)
+                val i = AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone)
                     // 기본 화면에서 키가드 해제를 요청하면 보안 잠금 입력창이 알람 화면을 가린다 — 커버 화면일 때만
                     .putExtra(AlarmRingActivity.EXTRA_DISMISS_KEYGUARD, isCover)
                 val options = ActivityOptions.makeBasic()
                 displayId?.let { options.setLaunchDisplayId(it) }
                 startActivity(i, options.toBundle())
                 // 커버 화면은 몇 초 뒤 삼성 AOD로 덮여 끄기 버튼이 사라진다 → 울리는 동안 주기적으로 다시 올린다
-                if (isCover) scheduleCoverRelaunch(recordId, title, body, soundOn, vibOn, displayId!!)
+                if (isCover) scheduleCoverRelaunch(recordId, title, body, soundOn, vibOn, tone, displayId!!)
             } catch (e: Exception) { e.printStackTrace() }
         }
 
@@ -186,13 +190,13 @@ class AlarmService : Service() {
         dm.displays.firstOrNull { it.state != Display.STATE_OFF && it.displayId != Display.DEFAULT_DISPLAY }?.displayId
     } catch (_: Exception) { null }
 
-    private fun scheduleCoverRelaunch(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, displayId: Int) {
+    private fun scheduleCoverRelaunch(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String, displayId: Int) {
         coverRelaunch?.let { handler.removeCallbacks(it) }
         val r = object : Runnable {
             override fun run() {
                 if (currentRinging == null) return
                 try {
-                    val i = AlarmRingActivity.intent(this@AlarmService, recordId, title, body, soundOn, vibOn)
+                    val i = AlarmRingActivity.intent(this@AlarmService, recordId, title, body, soundOn, vibOn, tone)
                         .putExtra(AlarmRingActivity.EXTRA_DISMISS_KEYGUARD, true)
                     startActivity(i, ActivityOptions.makeBasic().apply { setLaunchDisplayId(displayId) }.toBundle())
                 } catch (e: Exception) { e.printStackTrace() }
@@ -233,7 +237,7 @@ class AlarmService : Service() {
     }
 
     // 스누즈는 원장(AlarmStore)에 넣는다 — 재부팅 뒤에도 살아야 하고, 끄기/재동기화 때 recordId로 함께 정리된다.
-    private fun scheduleSnooze(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean) {
+    private fun scheduleSnooze(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String) {
         if (recordId.isEmpty()) return
         val base = System.currentTimeMillis() + SNOOZE_MS
         // 미리 알림(id#preN)은 "한 번" 울리는 것이 설계라 스누즈도 1슬롯 (정각은 3슬롯)
@@ -242,7 +246,7 @@ class AlarmService : Service() {
             val e = AlarmStore.Entry(
                 key = AlarmScheduling.snoozeKey(recordId, slot), recordId = recordId,
                 triggerAtMs = base + slot * 60_000L, title = title, body = body,
-                soundOn = soundOn, vibOn = vibOn,
+                soundOn = soundOn, vibOn = vibOn, tone = tone,
             )
             AlarmScheduling.arm(this, e)
             AlarmStore.put(this, e)
@@ -256,9 +260,18 @@ class AlarmService : Service() {
             .build()
 
     /** 기본 알람음 플레이어(준비만 하고 시작은 호출자가) */
-    private fun newChimePlayer(): MediaPlayer = MediaPlayer().apply {
+    private fun newChimePlayer(): MediaPlayer = newRawPlayer(R.raw.mallo_alarm)
+
+    /** 고른 알람 소리 플레이어. 파일을 못 열면 기본 알람음으로(무음 방지) */
+    private fun newTonePlayer(tone: String): MediaPlayer {
+        val res = AlarmTones.rawRes(tone)
+        if (res == R.raw.mallo_alarm) return newChimePlayer()
+        return try { newRawPlayer(res) } catch (e: Exception) { e.printStackTrace(); newChimePlayer() }
+    }
+
+    private fun newRawPlayer(res: Int): MediaPlayer = MediaPlayer().apply {
         setAudioAttributes(alarmAttrs())
-        val afd = resources.openRawResourceFd(R.raw.mallo_alarm)
+        val afd = resources.openRawResourceFd(res)
         setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
         afd.close()
         isLooping = true
@@ -343,6 +356,14 @@ class AlarmService : Service() {
         }
     }
 
+    /** 재생 중 오류가 난 고른 소리 플레이어를 기본 알람음으로 바꾼다. 이미 멈췄거나 다른 플레이어면 아무것도 안 한다 */
+    private fun swapToChime(failed: MediaPlayer) {
+        if (mediaPlayer !== failed) return
+        try { failed.release() } catch (_: Exception) {}
+        mediaPlayer = null
+        try { mediaPlayer = newChimePlayer().apply { setVolume(1f, 1f); start() } } catch (e: Exception) { e.printStackTrace() }
+    }
+
     private fun stopVoice() {
         voiceStep?.let { handler.removeCallbacks(it) }
         voiceStep = null
@@ -353,15 +374,18 @@ class AlarmService : Service() {
         voicePlayer = null
     }
 
-    private fun startRinging(soundOn: Boolean, vibOn: Boolean, recordId: String) {
+    private fun startRinging(soundOn: Boolean, vibOn: Boolean, recordId: String, tone: String) {
         if (soundOn) {
             // [VOICE_ALARM] 상용에서는 항상 null → 아래 기본 알람음 분기
             val voicePath = AlarmVoice.get(this, recordId)
             val voiceStarted = voicePath != null && startVoiceCycle(voicePath)
             if (!voiceStarted) {
                 try {
-                    mediaPlayer = newChimePlayer().apply {
+                    // 고른 알람 소리(없거나 못 읽으면 기본 소리) — 반복 재생, 작게 시작해 5초 안에 커진다(예전 그대로)
+                    mediaPlayer = newTonePlayer(tone).apply {
                         setVolume(FADE_START, FADE_START)
+                        // 고른 소리가 재생 도중 깨지면(디코딩 오류) 기본 알람음으로 바꿔 끝까지 울린다(무음 방지)
+                        setOnErrorListener { mp, _, _ -> handler.post { swapToChime(mp) }; true }
                         start()
                     }
                     startFade()
@@ -467,7 +491,7 @@ class AlarmService : Service() {
         )
     }
 
-    private fun servicePi(code: Int, action: String, recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean): PendingIntent =
+    private fun servicePi(code: Int, action: String, recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String): PendingIntent =
         PendingIntent.getService(
             this, code,
             Intent(this, AlarmService::class.java).apply {
@@ -477,13 +501,14 @@ class AlarmService : Service() {
                 putExtra(AlarmScheduling.EXTRA_BODY, body)
                 putExtra(AlarmScheduling.EXTRA_SOUND_ON, soundOn)
                 putExtra(AlarmScheduling.EXTRA_VIB_ON, vibOn)
+                putExtra(AlarmScheduling.EXTRA_TONE, tone) // 워치·알림의 "5분 후"도 같은 소리로
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
     /** 포그라운드 서비스가 요구하는 상시 알림 — 조용한 채널, 워치로는 보내지 않는다 */
-    private fun buildServiceNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean): Notification {
-        val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn)
+    private fun buildServiceNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String): Notification {
+        val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn, tone)
         return NotificationCompat.Builder(this, CHANNEL_SERVICE)
             .setContentTitle(AlarmLabels.ringing(this))
             .setContentText(body)
@@ -502,9 +527,9 @@ class AlarmService : Service() {
      * 사용자가 보는 알람 알림. 상시(ongoing)가 아니므로 Wear OS 워치로 브릿지된다.
      * 워치/폰에서 "끄기"·"5분 후"를 누르거나 알림을 닫으면(스와이프) 이 서비스의 STOP/SNOOZE로 들어온다.
      */
-    private fun buildAlertNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean): Notification {
-        val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn)
-        val snoozePi = servicePi(11, ACTION_SNOOZE, recordId, title, body, soundOn, vibOn)
+    private fun buildAlertNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String): Notification {
+        val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn, tone)
+        val snoozePi = servicePi(11, ACTION_SNOOZE, recordId, title, body, soundOn, vibOn, tone)
         // 알림을 누르면 앱을 열고 이 일정 ID를 넘긴다(앱이 그 일정 상세 화면을 연다 — MalloAlarmModule.consumeOpenRecordId)
         val launch = packageManager.getLaunchIntentForPackage(packageName)
             ?.putExtra(AlarmScheduling.EXTRA_OPEN_RECORD_ID, recordId)
@@ -531,7 +556,7 @@ class AlarmService : Service() {
         if (!canDrawOverlays()) {
             val fullScreenPi = PendingIntent.getActivity(
                 this, 12,
-                AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn),
+                AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             b.setFullScreenIntent(fullScreenPi, true)
@@ -554,7 +579,7 @@ class AlarmService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        data class RingingInfo(val recordId: String, val title: String, val body: String, val soundOn: Boolean, val vibOn: Boolean)
+        data class RingingInfo(val recordId: String, val title: String, val body: String, val soundOn: Boolean, val vibOn: Boolean, val tone: String = AlarmTones.DEFAULT)
         @Volatile var currentRinging: RingingInfo? = null
 
         private const val LEGACY_CHANNEL_ID = "mallo_alarm_ring"

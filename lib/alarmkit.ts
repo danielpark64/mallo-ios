@@ -1,0 +1,113 @@
+// iOS 26+ AlarmKit 연결(modules/sayram-alarmkit) — 경로 결정은 ./alarmkitRoute.ts(순수), 여기는 네이티브 호출만.
+// notifications.ts 밖에서 직접 쓰지 말 것(알람 진입점은 notifications.ts 하나).
+//
+// 원장: 네이티브가 "AlarmKit 예약 UUID → { 슬롯 식별자, recordId, 원래 일정 id }"를 UserDefaults에 적어 둔다
+// (Android 네이티브 원장과 같은 역할). 개별 취소는 원장에서 식별자/recordId로 찾아 지우고, 전체 정리는
+// 원장 + AlarmKit이 알고 있는 이 앱의 예약 전부를 지운다(지금 울리는 중인, 남아 있는 일정의 것만 남김).
+//
+// ⚠️ 모든 예약·취소는 serial() 직렬 큐로만 보낸다 — 네이티브가 JS 호출 순서대로 처리하게 하는 것까지만 한다.
+// 겹친 resyncAlarms에서 앞 호출이 뒤 호출의 cancelAll **뒤에** 새 schedule을 넣는 것은 이 큐로는 못 막는다.
+// 그것은 notifications.ts의 세대 번호(resyncGen)가 막는다: 새 재동기화가 시작되면 앞 호출은 다음 슬롯을 큐에 넣기 전에 멈춘다.
+// (이미 큐에 들어간 앞 호출의 schedule은 뒤 호출의 cancelAll보다 먼저 처리되므로 거기서 지워진다.)
+import { requireOptionalNativeModule } from 'expo-modules-core';
+import { Platform } from 'react-native';
+
+import { alarmKitEnabled, alarmKitUuid, shouldAskAlarmKit, type AlarmKitAuth, type AlarmKitEnv } from './alarmkitRoute';
+
+type ScheduleOptions = {
+  id: string;           // 예약 UUID(alarmKitUuid)
+  key: string;          // 슬롯 식별자(mallo_<id>_0 / mallo_<id>_pre30) — 레코드의 notifIds와 같은 값
+  recordId: string;     // 정각: 일정 id, 미리 알림: <id>#pre<분>(Android 네이티브와 같은 규칙)
+  baseRecordId: string; // 원래 일정 id — 전체 정리 때 "남아 있는 일정인지" 판단용
+  fireMs: number;
+  title: string;
+  stopText: string;     // iOS 26.0은 끄기 버튼을 직접 줘야 한다(26.1부터 시스템이 그린다)
+  sound: string;        // 앱 번들 소리 파일 이름(lib/alarmSounds.iosSoundFile — alarm_long.wav / snd_<id>.caf)
+};
+type Native = {
+  isAvailable(): boolean;
+  authorizationState(): AlarmKitAuth;
+  requestAuthorization(): Promise<AlarmKitAuth>;
+  schedule(o: ScheduleOptions): Promise<boolean>;
+  cancelKeys(keys: string[]): Promise<number>;
+  cancelForRecord(recordId: string): Promise<number>;
+  cancelAll(keepBaseRecordIds: string[]): Promise<number>;
+  listScheduled(): Promise<{ id: string; key: string; recordId: string; state: string; when: number | null }[]>;
+};
+
+function getNative(): Native | null {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    return requireOptionalNativeModule<Native>('SayramAlarmKit');
+  } catch {
+    return null;
+  }
+}
+
+let queue: Promise<unknown> = Promise.resolve();
+function serial<T>(fn: () => Promise<T>): Promise<T> {
+  const p = queue.then(fn, fn);
+  queue = p.catch(() => {});
+  return p;
+}
+
+export function alarmKitEnv(): AlarmKitEnv {
+  const native = getNative();
+  let available = false;
+  try { available = !!native && native.isAvailable(); } catch {}
+  let auth: AlarmKitAuth = 'unavailable';
+  if (available) { try { auth = native!.authorizationState(); } catch {} }
+  return { os: Platform.OS, available, auth };
+}
+
+/** 지금 소리 알람을 AlarmKit으로 보내는 방식인지 — 예약할 때마다 새로 판정한다(설정 앱에서 권한을 바꿔도 바로 따라감). */
+export function isAlarmKitMode(): boolean {
+  return alarmKitEnabled(alarmKitEnv());
+}
+
+/** iOS 26+에서 아직 안 물었으면 한 번 묻는다. 반환: 물은 결과 허용됐는지. */
+export async function requestAlarmKitIfNeeded(): Promise<boolean> {
+  const native = getNative();
+  if (!native || !shouldAskAlarmKit(alarmKitEnv())) return false;
+  try { await native.requestAuthorization(); } catch {}
+  return isAlarmKitMode();
+}
+
+/** 슬롯 하나를 AlarmKit에 건다. false면 실패(호출한 쪽이 Expo 방식으로 대신 건다). */
+export function scheduleAlarmKit(p: { key: string; recordId: string; baseRecordId: string; at: Date; title: string; stopText: string; sound?: string }): Promise<boolean> {
+  const native = getNative();
+  if (!native) return Promise.resolve(false);
+  const fireMs = p.at.getTime();
+  const o: ScheduleOptions = {
+    id: alarmKitUuid(p.key, fireMs), key: p.key, recordId: p.recordId, baseRecordId: p.baseRecordId,
+    fireMs, title: p.title, stopText: p.stopText, sound: p.sound || 'alarm_long.wav',
+  };
+  return serial(() => native.schedule(o)).catch(() => false);
+}
+
+// 취소는 방식과 무관하게 항상 부른다(권한을 끈 뒤에도 예전에 AlarmKit으로 걸린 것이 남지 않게).
+export function cancelAlarmKitKeys(keys: string[]): Promise<number> {
+  const native = getNative();
+  if (!native || keys.length === 0) return Promise.resolve(0);
+  return serial(() => native.cancelKeys(keys)).catch(() => 0);
+}
+
+export function cancelAlarmKitForRecord(recordId: string): Promise<number> {
+  const native = getNative();
+  if (!native) return Promise.resolve(0);
+  return serial(() => native.cancelForRecord(recordId)).catch(() => 0);
+}
+
+/** keepBaseRecordIds: 지금 울리는 중인 예약 가운데 이 일정들(아직 남아 있는 일정)의 것은 남긴다 —
+ *  울리는 도중 앱을 열어 재동기화가 돌아도 울림이 끊기지 않게. 지운 일정의 것은 상태와 무관하게 지운다. */
+export function cancelAllAlarmKit(keepBaseRecordIds: string[] = []): Promise<number> {
+  const native = getNative();
+  if (!native) return Promise.resolve(0);
+  return serial(() => native.cancelAll(keepBaseRecordIds)).catch(() => 0);
+}
+
+export function listAlarmKit(): Promise<{ id: string; key: string; recordId: string; state: string; when: number | null }[]> {
+  const native = getNative();
+  if (!native) return Promise.resolve([]);
+  return serial(() => native.listScheduled()).catch(() => []);
+}

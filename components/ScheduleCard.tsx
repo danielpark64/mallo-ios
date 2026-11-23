@@ -11,6 +11,7 @@ import { formatDayHeader, formatRangeTail, formatTime, isPastItem } from '../lib
 import { isMovedAway, outcomeTag } from '../lib/outcome';
 import type { ScheduleRecord } from '../lib/storage';
 import { MicIcon } from './MicIcon';
+import { receivedLabel } from '../lib/sendSchedule';
 import { useT } from '../lib/i18n';
 
 export function ScheduleCard({
@@ -128,8 +129,10 @@ export function ScheduleCard({
         </View>
       )}
       {item.attachments && item.attachments.length > 0 && (
-        <Text style={styles.cardAppendedNote} testID="card-attach">📎 {t('사진·파일 {n}개', { n: item.attachments.length })}</Text>
+        <Text style={styles.cardAppendedNote} testID="card-attach">📎 {t(item.attachments.some((a) => a.kind === 'text' || a.kind === 'link') ? '첨부 {n}개' : '사진·파일 {n}개', { n: item.attachments.length })}</Text>
       )}
+      {/* 다른 사람이 보낸 일정 — 보낸 사람 이름표 */}
+      {item.received ? <Text style={styles.cardReceived} numberOfLines={1} testID="card-received">{receivedLabel(item, t)}</Text> : null}
     </>
   );
 
@@ -158,6 +161,7 @@ export function ScheduleCard({
         {tag ? <Text style={styles.compactOutcome} numberOfLines={1}>{tag}</Text> : null}
         {appendCount > 0 && <Text style={styles.compactAppend}>+{appendCount}</Text>}
         {(item.attachments?.length ?? 0) > 0 && <Text style={styles.compactAppend}>📎</Text>}
+        {item.received ? <Text style={styles.compactAppend} testID="card-received">📩</Text> : null}
         {canPlay ? (
           <TouchableOpacity
             style={styles.compactPlay}
@@ -290,6 +294,7 @@ const makeStyles = (C: Palette, scale: number) => StyleSheet.create({
   },
   cardAppendBtnText: { color: C.accent, fontSize: 12, fontWeight: '700' },
   cardAppendedNote: { color: C.textSub, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  cardReceived: { color: C.accent, fontSize: 13, fontWeight: '800', marginTop: 4 },
   cardRange: { color: C.accent, fontSize: 13, fontWeight: '600', marginTop: 3 },
   compactRange: { color: C.accent, fontSize: 12, fontWeight: '600', flexShrink: 1, maxWidth: '35%' },
   cardAppendRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },

@@ -38,10 +38,11 @@ class MalloAlarmModule : Module() {
         }
 
         /** key = Expo 식별자와 동일(mallo_<recordId>_<slot>). 같은 키로 다시 부르면 덮어쓴다. */
-        Function("schedule") { key: String, recordId: String, triggerAtMs: Double, title: String, body: String, soundOn: Boolean, vibOn: Boolean ->
+        Function("schedule") { key: String, recordId: String, triggerAtMs: Double, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String ->
             val e = AlarmStore.Entry(
                 key = key, recordId = recordId, triggerAtMs = triggerAtMs.toLong(),
                 title = title, body = body, soundOn = soundOn, vibOn = vibOn,
+                tone = tone.ifEmpty { AlarmTones.DEFAULT },
             )
             AlarmScheduling.arm(context, e)
             AlarmStore.put(context, e)

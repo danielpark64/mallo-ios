@@ -76,7 +76,7 @@ describe('scheduleAlarm — 두 경로 모두 예약', () => {
     expect(nativeCalls.map((c) => c[0])).toEqual(['mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
     expect(nativeCalls.map((c) => c[1])).toEqual(['r1', 'r1', 'r1']);
     expect(nativeCalls.map((c) => c[2] - at.getTime())).toEqual([0, 60_000, 120_000]);
-    expect(nativeCalls[0].slice(3)).toEqual(['세이람', '회의', true, true]);
+    expect(nativeCalls[0].slice(3)).toEqual(['세이람', '회의', true, true, 'default']);
 
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
     const expoOffsets = mocked.scheduleNotificationAsync.mock.calls.map(
@@ -91,10 +91,10 @@ describe('scheduleAlarm — 두 경로 모두 예약', () => {
 
   test('모드 → 네이티브 soundOn/vibOn 매핑: sound=소리만, vibe=진동만', async () => {
     await scheduleAlarm('r1', '회의', future(10), 'sound');
-    expect(mockNative.schedule.mock.calls[0].slice(5)).toEqual([true, false]);
+    expect(mockNative.schedule.mock.calls[0].slice(5, 7)).toEqual([true, false]);
     jest.clearAllMocks();
     await scheduleAlarm('r1', '회의', future(10), 'vibe');
-    expect(mockNative.schedule.mock.calls[0].slice(5)).toEqual([false, true]);
+    expect(mockNative.schedule.mock.calls[0].slice(5, 7)).toEqual([false, true]);
   });
 
   test('네이티브가 없으면 Expo만, 유예 없이 정시에 건다', async () => {
