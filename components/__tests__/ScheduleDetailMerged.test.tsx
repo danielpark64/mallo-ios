@@ -6,6 +6,8 @@ import type { ScheduleRecord } from '../../lib/storage';
 import type { EditorResult } from '../ScheduleEditor';
 
 const mockPlayer = { play: jest.fn(), pause: jest.fn(), seekTo: jest.fn(), replace: jest.fn() };
+// 일정 보내기의 나라 메신저: 이 테스트는 한국 지역으로 본다(lib/messenger.ts)
+jest.mock('expo-localization', () => ({ getLocales: () => [{ regionCode: 'KR' }] }));
 jest.mock('expo-audio', () => ({
   useAudioPlayer: () => mockPlayer,
   useAudioPlayerStatus: () => ({ currentTime: 0, duration: 3, playing: false, didJustFinish: false }),
@@ -507,6 +509,7 @@ describe('버튼 줄', () => {
     expect(q.getByText('녹음한 목소리는 보내지 않고 글로만 갑니다', { exact: false })).toBeTruthy();
     expect(q.getByText('💬 카톡으로 보내기')).toBeTruthy();
     expect(q.getByText('✉️ 문자로 보내기')).toBeTruthy();
+    expect(q.getByText('📤 다른 앱으로 보내기')).toBeTruthy(); // 교대알람처럼 공유 창 버튼은 늘 있다
   });
   test('날짜를 안 정한 녹음에는 보내기·미루기가 없다', async () => {
     const q = await render(ui({ ...withAudio, needsDate: true }, { onOutcome: jest.fn() }));

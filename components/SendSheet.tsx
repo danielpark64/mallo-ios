@@ -1,7 +1,9 @@
 // ─── 일정 보내기 시트 ───────────────────────────────────────────────────────────
 // 상세 화면의 [📤 일정 보내기]와 말로 보내기("…엄마한테 보내줘")가 같은 시트를 쓴다.
-// 미리보기(내용·날짜시간·미리 알림) + 보내는 사람 이름(선택, 기억) → [카톡] / [문자] 중 사용자가 고른다.
-// 보내기는 항상 사용자가 버튼으로 한다 — 이 시트는 카톡·문자 앱의 보내기 화면을 열 뿐 자동 발송하지 않는다.
+// 미리보기(내용·날짜시간·미리 알림) + 보내는 사람 이름(선택, 기억) → [나라 메신저] / [문자] / [다른 앱] 중 사용자가 고른다.
+// 나라 메신저는 폰의 지역으로 정한다(lib/messenger.ts: 한국 카톡·일본 LINE·중국 WeChat·그 밖 WhatsApp, 미국/캐나다·모름은 없음).
+// [다른 앱으로 보내기]는 OS 공유 창 — 교대알람 '내 근무표 보내기'와 같은 경로라 어느 나라든 항상 있다.
+// 보내기는 항상 사용자가 버튼으로 한다 — 이 시트는 메신저·문자 앱의 보내기 화면을 열 뿐 자동 발송하지 않는다.
 // 보내는 것은 글만(lib/sendSchedule.ts). 목소리·사진·첨부는 보내지 않는다.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -11,8 +13,9 @@ import { useT } from '../lib/i18n';
 import { useTheme, type Palette } from '../lib/theme';
 import { loadPrefs, savePrefs, type SendVia } from '../lib/prefs';
 import { normalizeRemind, remindLabel } from '../lib/reminders';
-import { buildShareLink, decodePayload, encodePayload, kakaoText, smsText, whenText } from '../lib/sendSchedule';
-import { findPhoneByName, openKakao, openSms } from '../lib/sendActions';
+import { buildShareLink, decodePayload, encodePayload, messengerText, smsText, whenText } from '../lib/sendSchedule';
+import { findPhoneByName, openMessenger, openSms, shareSheet } from '../lib/sendActions';
+import { deviceRegion, messengerButtonLabel, messengerForRegion, messengerNote, sendButtons, type Messenger } from '../lib/messenger';
 import type { ScheduleRecord } from '../lib/storage';
 
 export function SendSheet({
@@ -35,7 +38,8 @@ export function SendSheet({
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const [name, setName] = useState('');
-  const [via, setVia] = useState<SendVia>('kakao');
+  const [via, setVia] = useState<SendVia | 'auto'>('auto');
+  const [messenger, setMessenger] = useState<Messenger>(() => messengerForRegion(deviceRegion())); // 첫 화면부터 이 나라 버튼으로
   const busyRef = useRef(false);
 
   // 열릴 때마다 기억해 둔 이름·방식을 읽는다
@@ -44,6 +48,8 @@ export function SendSheet({
     const p = loadPrefs();
     setName(p.sendName);
     setVia(p.sendVia);
+    // 지역은 열 때마다 읽는다(설정에서 지역을 바꾸고 돌아와도 맞게). 가벼운 읽기 한 번
+    setMessenger(messengerForRegion(deviceRegion()));
     busyRef.current = false;
   }, [visible]);
 
@@ -72,7 +78,8 @@ export function SendSheet({
     const data = decodePayload(encodePayload(payload));
     if (!data) { busyRef.current = false; return; }
     try {
-      if (how === 'kakao') await openKakao(kakaoText(data, link, t));
+      if (how === 'messenger') await openMessenger(messengerText(data, link, t), messenger);
+      else if (how === 'share') await shareSheet(messengerText(data, link, t));
       else await openSms(smsText(data, link, t), recipient ? await findPhoneByName(recipient) : null);
     } finally {
       busyRef.current = false;
@@ -80,7 +87,8 @@ export function SendSheet({
     }
   };
 
-  const order: SendVia[] = via === 'sms' ? ['sms', 'kakao'] : ['kakao', 'sms'];
+  // 마지막에 고른 방식을 위에. 아직 안 골랐으면 나라 기본(lib/messenger.ts sendButtons)
+  const order: SendVia[] = sendButtons(messenger, via);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -123,11 +131,11 @@ export function SendSheet({
               testID={`send-${how}`}
             >
               <Text style={[s.btnText, i === 0 ? s.btnTextMain : s.btnTextSub]}>
-                {t(how === 'kakao' ? '💬 카톡으로 보내기' : '✉️ 문자로 보내기')}
+                {how === 'messenger' ? messengerButtonLabel(messenger.id, t) : how === 'share' ? t('📤 다른 앱으로 보내기') : t('✉️ 문자로 보내기')}
               </Text>
             </TouchableOpacity>
           ))}
-          <Text style={s.note}>{t('문자는 글이 길면 요금이 나올 수 있어요. 카톡은 무료예요')}</Text>
+          <Text style={s.note}>{messengerNote(messenger.id, t)}</Text>
           <TouchableOpacity style={s.cancel} onPress={onClose} accessibilityRole="button">
             <Text style={s.cancelText}>{t('취소')}</Text>
           </TouchableOpacity>

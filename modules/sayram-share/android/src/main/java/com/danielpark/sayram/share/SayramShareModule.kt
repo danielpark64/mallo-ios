@@ -14,13 +14,13 @@ import expo.modules.kotlin.modules.ModuleDefinition
 //  pushToSibling(authority, name)  — 내 데이터가 지난번에 넣어 준 것과 다를 때만 상대 창구에 넣는다(그때만 상대가 깬다)
 //  pullToInbox(authority, name)    — 상대 데이터를 직접 가져와 inbox에 저장(처음 한 번·옛 버전 상대일 때만 — 상대가 깬다)
 //  isInstalled(pkg)                — 우리 앱(com.danielpark.*)이 깔려 있는지(세이람 실행 때 한 번만 부른다)
-//  shareTextTo(pkg, text)          — 일정 보내기: 정한 앱(카카오톡)의 보내기 화면을 글을 채워 연다. 없으면 false(JS가 공유 창을 연다)
+//  shareTextTo(pkg, text)          — 일정 보내기: 나라별 메신저(카카오톡·LINE·WeChat·WhatsApp)의 보내기 화면을 글을 채워 연다. 없으면 false(JS가 공유 창을 연다)
 class SayramShareModule : Module() {
   private val context get() = requireNotNull(appContext.reactContext)
   private val authorityRe = Regex("^com\\.danielpark\\.[a-z]+\\.share$")
   private val nameRe = Regex("^[a-z]+$")
-  /** 일정 보내기로 바로 열 수 있는 앱(지금은 카카오톡만) */
-  private val SHARE_TARGETS = setOf("com.kakao.talk")
+  /** 일정 보내기로 바로 열 수 있는 앱(lib/messenger.ts MESSENGER_PKG와 같게) */
+  private val SHARE_TARGETS = setOf("com.kakao.talk", "jp.naver.line.android", "com.tencent.mm", "com.whatsapp")
 
   override fun definition() = ModuleDefinition {
     Name("SayramShare")
@@ -33,8 +33,9 @@ class SayramShareModule : Module() {
       ShareFiles.readInbox(context, name)
     }
 
-    // 일정 보내기(카톡): ACTION_SEND를 그 앱으로만 보낸다. 사용자가 그 앱에서 받는 사람을 골라 직접 보낸다(자동 발송 없음).
-    // 다른 앱 목록을 훑지 않는다 — 열어 보고 없으면(ActivityNotFoundException) false. <queries> 선언이 필요 없다.
+    // 일정 보내기(메신저): ACTION_SEND를 그 앱으로만 보낸다. 사용자가 그 앱에서 받는 사람을 골라 직접 보낸다(자동 발송 없음).
+    // 다른 앱 목록을 훑지 않는다 — 열어 보고 없으면(ActivityNotFoundException) false.
+    // 네 메신저는 매니페스트 <queries>에도 적어 두었다(기기별 패키지 가시성 차이로 못 여는 일이 없게).
     AsyncFunction("shareTextTo") { pkg: String, text: String, promise: Promise ->
       if (pkg !in SHARE_TARGETS || text.length > 4000) { promise.resolve(false); return@AsyncFunction }
       val intent = Intent(Intent.ACTION_SEND).apply {
@@ -55,7 +56,7 @@ class SayramShareModule : Module() {
       } ?: promise.resolve(false)
     }
 
-    // 매니페스트 <queries>에 적힌 앱만 보인다(지금은 교대알람). 다른 앱 목록을 훑지 않는다
+    // 우리 앱(com.danielpark.*)만 묻는다 — <queries>의 메신저는 여기서 확인하지 않는다. 다른 앱 목록을 훑지 않는다
     Function("isInstalled") { pkg: String ->
       if (!pkg.matches(Regex("^com\\.danielpark\\.[a-z]+$"))) return@Function false
       try {

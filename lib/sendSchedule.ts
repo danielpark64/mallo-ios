@@ -1,6 +1,6 @@
-// ─── 일정 보내기 (카톡·문자로 링크 한 줄, 서버 없음) ─────────────────────────────
+// ─── 일정 보내기 (메신저·문자로 링크 한 줄, 서버 없음) ─────────────────────────────
 // 보내는 쪽: 일정 하나 → 링크 https://sayram-app.github.io/s/#v1.<페이로드>
-//   - '#' 뒤는 브라우저가 서버로 보내지 않는다 → 서버에 아무것도 남지 않는다(인터넷 권한도 필요 없음: 링크는 카톡·문자 앱이 연다)
+//   - '#' 뒤는 브라우저가 서버로 보내지 않는다 → 서버에 아무것도 남지 않는다(인터넷 권한도 필요 없음: 링크는 메신저·문자 앱이 연다)
 //   - 안내 페이지(docs/s/index.html)가 '#' 뒤를 읽어 보여 주고 [세이람에서 열기] → mallo://receive?d=v1.<페이로드>
 // 받는 쪽: 확인 시트에서 사용자가 [달력에 넣기]를 눌러야 저장된다(자동 저장·자동 발송 없음).
 // 보내는 것은 글만: 내용·시각·미리 알림·정각 알림 여부·보낸 사람 이름·만든 시각(t)·일정 id.
@@ -210,8 +210,8 @@ export function whenText(s: Pick<SharedSchedule, 'date' | 'hasTime' | 'endDate'>
   return s.endDate ? `${head} ~ ${formatDisplay(s.endDate, true, false)}` : head;
 }
 
-/** 카톡용 글: 앱이 없어도 읽히는 안내 + 링크 */
-export function kakaoText(s: SharedSchedule, link: string, t: (k: string, p?: Record<string, string | number>) => string = tr): string {
+/** 메신저용 글(카카오톡·LINE·WeChat·WhatsApp·공유 창 공통): 앱이 없어도 읽히는 안내 + 링크 */
+export function messengerText(s: SharedSchedule, link: string, t: (k: string, p?: Record<string, string | number>) => string = tr): string {
   const head = s.from ? t('📅 {name}에게서 일정이 왔어요', { name: s.from }) : t('📅 세이람 일정이 도착했어요');
   return `${head}\n${whenText(s)}\n${s.content}\n\n${t('눌러서 세이람에 넣기 ▶')} ${link}`;
 }

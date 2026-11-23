@@ -11,7 +11,7 @@ import {
   encodePayload,
   fromBase64Url,
   isPastShared,
-  kakaoText,
+  messengerText,
   parseReceiveUrl,
   receiveDecision,
   receivedLabel,
@@ -211,13 +211,13 @@ describe('받은 일정 → 레코드', () => {
   });
 });
 
-describe('카톡·문자 글', () => {
+describe('메신저·문자 글', () => {
   const s: SharedSchedule = { id: 'o', content: '엄마 병원', date: new Date(2026, 10, 25, 15, 0), hasTime: true, remindBefore: [], exactAlarm: true, t: NOW };
-  test('카톡: 이름이 있으면 "○○에게서 일정이 왔어요"', () => {
-    expect(kakaoText({ ...s, from: '아들' }, 'L')).toBe('📅 아들에게서 일정이 왔어요\n11월 25일 (수) 오후 3:00\n엄마 병원\n\n눌러서 세이람에 넣기 ▶ L');
+  test('메신저: 이름이 있으면 "○○에게서 일정이 왔어요"', () => {
+    expect(messengerText({ ...s, from: '아들' }, 'L')).toBe('📅 아들에게서 일정이 왔어요\n11월 25일 (수) 오후 3:00\n엄마 병원\n\n눌러서 세이람에 넣기 ▶ L');
   });
-  test('카톡: 이름이 없으면 "세이람 일정이 도착했어요"', () => {
-    expect(kakaoText(s, 'L').split('\n')[0]).toBe('📅 세이람 일정이 도착했어요');
+  test('메신저: 이름이 없으면 "세이람 일정이 도착했어요"', () => {
+    expect(messengerText(s, 'L').split('\n')[0]).toBe('📅 세이람 일정이 도착했어요');
   });
   test('문자는 짧게', () => {
     expect(smsText({ ...s, content: '가'.repeat(100) }, 'L').length).toBeLessThan(60);

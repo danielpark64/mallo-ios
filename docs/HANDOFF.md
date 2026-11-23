@@ -80,6 +80,8 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 1.2.0 내용: iOS 26 AlarmKit, 일정 보내기(+안내 docs/s), 복사한 것 붙이기·OCR, 상세+수정 한 화면, 알람 소리 6개(`lib/alarmSounds.ts`, Android `AlarmTones.kt`, iOS `plugins/withIosAlarmSounds.js`). '점점 크게'는 사용자 지시로 뺌.
 - 커밋 `56bcc48`(푸시 안 됨). 스토어 이미지 폴더(store-assets/appstore-final 등, 수백 MB)는 커밋 안 함.
 
+- **1.2.1 준비(11-24, 제출 대기)** — 일정 보내기 버튼을 나라별 메신저로(`lib/messenger.ts`: KR 카톡, JP·TW·TH LINE, CN WeChat, US·CA 문자, 그 밖 WhatsApp) + 항상 "다른 앱으로 보내기"(교대알람과 같은 공유 창). expo-localization 추가. vc7·빌드 14. AAB `~/Desktop/세이람-1.2.1-vc7.aab`, 문구 `docs/release-1.2.1-notes.md`. **Play는 1.2.0 건너뛰고 1.2.1로만.** 사용자가 iOS 1.2.0 출시 뒤 시험하고 알려 주면 진행. 실제 카톡·LINE·WhatsApp 앱 열림·iOS 실행은 아직 미확인.
+
 ## 4. 지금 상태 (2026-11-21 밤)
 
 **스토어**: 1.1.0이 양쪽 공개(Play vc4 13개국, App Store 빌드 6 175개국). 다음 판은 **1.1.1을 Android·iOS 같은 버전으로 함께 제출**(사용자 규칙).

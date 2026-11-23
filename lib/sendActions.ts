@@ -1,10 +1,12 @@
-// ─── 일정 보내기: 카톡·문자 앱 열기, 연락처에서 번호 찾기 ─────────────────────────────
-// 모두 "보내기 화면을 여는" 데까지만 한다. 실제 발송은 사용자가 카톡·문자 앱에서 직접 누른다(자동 발송 없음).
-// - 카톡: Android는 카카오톡(com.kakao.talk)을 지정해 ACTION_SEND(modules/sayram-share), 없으면 공유 창.
-//         iOS는 공유 창(카카오 SDK 쓰지 않음).
+// ─── 일정 보내기: 메신저·문자 앱 열기, 연락처에서 번호 찾기 ───────────────────────────
+// 모두 "보내기 화면을 여는" 데까지만 한다. 실제 발송은 사용자가 메신저·문자 앱에서 직접 누른다(자동 발송 없음).
+// - 메신저(나라별, lib/messenger.ts):
+//     Android는 그 앱 패키지(카카오톡·LINE·WeChat·WhatsApp)를 지정해 ACTION_SEND(modules/sayram-share), 없으면 공유 창.
+//     iOS는 WhatsApp(whatsapp://send?text=)·LINE(https://line.me/R/msg/text/?)만 바로 열고,
+//     카카오톡·WeChat·일반은 공유 창(각 SDK 쓰지 않음). 앱이 없거나 열기에 실패하면 공유 창.
 // - 문자: expo-sms 작성 화면(Android SEND_SMS 권한 없이 작성 화면만 연다). 문자를 못 쓰는 기기면 공유 창.
 // - 연락처: "엄마한테 보내줘"라고 말했을 때만, 문자를 고른 그 순간에 권한을 묻는다. 번호는 이 폰 안에서만 쓰고 저장하지 않는다.
-import { Platform, Share } from 'react-native';
+import { Linking, Platform, Share } from 'react-native';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import * as SMS from 'expo-sms';
 // expo-contacts는 불러오는 순간 네이티브 클래스를 이어받는다 — 쓸 때만 불러온다(테스트·네이티브 없는 빌드에서 앱이 죽지 않게)
@@ -12,9 +14,10 @@ type ContactsLib = typeof import('expo-contacts');
 
 type Native = { shareTextTo?(pkg: string, text: string): Promise<boolean> };
 const native = requireOptionalNativeModule<Native>('SayramShare');
-const KAKAO = 'com.kakao.talk';
+import type { Messenger } from './messenger';
 
-async function shareSheet(text: string): Promise<void> {
+/** OS 공유 창('다른 앱으로 보내기' 버튼, 그리고 모든 실패의 대체 경로) — 교대알람 근무표 보내기와 같은 방식 */
+export async function shareSheet(text: string): Promise<void> {
   try {
     await Share.share({ message: text });
   } catch (e) {
@@ -22,12 +25,34 @@ async function shareSheet(text: string): Promise<void> {
   }
 }
 
-/** 카톡으로 보내기 화면 열기 */
-export async function openKakao(text: string): Promise<void> {
-  if (Platform.OS === 'android' && native?.shareTextTo) {
-    try {
-      if (await native.shareTextTo(KAKAO, text)) return;
-    } catch {}
+/** iOS에서 바로 열 주소(설치 확인용 scheme, 열 주소). 카카오톡·WeChat·일반은 없음 → 공유 창 */
+export function iosMessengerUrl(m: Messenger, text: string): { check: string; open: string } | null {
+  const q = encodeURIComponent(text);
+  if (m.id === 'whatsapp') return { check: 'whatsapp://', open: `whatsapp://send?text=${q}` };
+  // LINE은 유니버설 링크 — 앱이 없으면 사파리로 가므로 line:// 로 설치부터 확인한다
+  if (m.id === 'line') return { check: 'line://', open: `https://line.me/R/msg/text/?${q}` };
+  return null;
+}
+
+/** 메신저로 보내기 화면 열기(나라별 앱, 안 되면 공유 창) */
+export async function openMessenger(text: string, m: Messenger): Promise<void> {
+  if (Platform.OS === 'android') {
+    if (m.androidPkg && native?.shareTextTo) {
+      try {
+        if (await native.shareTextTo(m.androidPkg, text)) return;
+      } catch {}
+    }
+  } else if (Platform.OS === 'ios') {
+    const url = iosMessengerUrl(m, text);
+    if (url) {
+      try {
+        // canOpenURL은 Info.plist LSApplicationQueriesSchemes(whatsapp·line)에 있어야 true가 나온다
+        if (await Linking.canOpenURL(url.check)) {
+          await Linking.openURL(url.open);
+          return;
+        }
+      } catch {}
+    }
   }
   await shareSheet(text);
 }
