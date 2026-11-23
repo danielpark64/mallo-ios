@@ -74,6 +74,12 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 화면 조작: `python3 scripts/dev/ui.py <adb시리얼> list | tap "<글자>" | shot <이름>` (스크린샷은 `UI_SHOT_DIR` 폴더, 기본 /tmp). 녹음 시트 같은 Modal은 목록에 안 잡혀 좌표로 눌러야 할 때가 있습니다. 32의 마이크 버튼 (540,2096) 근처.
 - 스토어 스크린샷: `python3 scripts/dev/pad.py <원본.png> <출력.png>` → 1350×2400(9:16) 여백 붙이기.
 
+## 4-0. 최신 (2026-11-23)
+- **iOS 1.2.0(빌드 13) 심사 대기** — 11-23 제출, 재제출 금지. 9개 로캘 새 기능 입력(`docs/release-1.2.0-notes.md`).
+- **Android 1.2.0(vc6) AAB** `~/Desktop/세이람-1.2.0-vc6.aab` — 사용자가 Play 프로덕션에 직접 올림. 새 권한 READ_CONTACTS(말로 보내기) → 데이터 보안 '연락처' 확인.
+- 1.2.0 내용: iOS 26 AlarmKit, 일정 보내기(+안내 docs/s), 복사한 것 붙이기·OCR, 상세+수정 한 화면, 알람 소리 6개(`lib/alarmSounds.ts`, Android `AlarmTones.kt`, iOS `plugins/withIosAlarmSounds.js`). '점점 크게'는 사용자 지시로 뺌.
+- 커밋 `56bcc48`(푸시 안 됨). 스토어 이미지 폴더(store-assets/appstore-final 등, 수백 MB)는 커밋 안 함.
+
 ## 4. 지금 상태 (2026-11-21 밤)
 
 **스토어**: 1.1.0이 양쪽 공개(Play vc4 13개국, App Store 빌드 6 175개국). 다음 판은 **1.1.1을 Android·iOS 같은 버전으로 함께 제출**(사용자 규칙).
