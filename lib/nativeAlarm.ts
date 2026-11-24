@@ -19,6 +19,8 @@ type MalloAlarmNative = {
   openExactAlarmSettings(): void;
   canDrawOverlays(): boolean;
   requestOverlayPermission(): void;
+  canUseFullScreenIntent?(): boolean;
+  openFullScreenIntentSettings?(): void;
   setLabels?(stop: string, snooze: string, ringing: string, app: string): void;
   setVoice?(recordId: string, path: string): void;
   clearVoices?(): void;
@@ -128,6 +130,22 @@ export function requestOverlayPermission(): void {
   const native = getNative();
   if (!native) return;
   try { native.requestOverlayPermission(); } catch {}
+}
+
+/**
+ * Android 14+ "전체 화면 알림" 허용 여부 — 꺼져 있으면 잠금·화면 꺼짐 상태에서도 울림 화면이 안 뜨고 배너만 뜬다
+ * (Play가 알람·전화 앱이 아니면 설치 때 끌 수 있다). 13 이하·네이티브 없으면 true(안내 불필요).
+ */
+export function canUseFullScreenIntent(): boolean {
+  const native = getNative();
+  if (!native?.canUseFullScreenIntent) return true;
+  try { return native.canUseFullScreenIntent(); } catch { return true; }
+}
+
+export function openFullScreenIntentSettings(): void {
+  const native = getNative();
+  if (!native?.openFullScreenIntentSettings) return;
+  try { native.openFullScreenIntentSettings(); } catch {}
 }
 
 /**

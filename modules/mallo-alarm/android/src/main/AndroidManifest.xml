@@ -38,12 +38,15 @@
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
       </intent-filter>
     </receiver>
+    <!-- 울림 화면: 홈 버튼 등으로 가려져도 최근 앱 목록에서 다시 찾을 수 있게 목록에 남기고(excludeFromRecents=false),
+         끄면 목록에서 저절로 빠진다(autoRemoveFromRecents). 별도 작업(taskAffinity="")·singleInstance는 커버 화면 표시 때문에 유지. -->
     <activity
       android:name=".AlarmRingActivity"
       android:exported="false"
       android:directBootAware="true"
       android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen"
-      android:excludeFromRecents="true"
+      android:excludeFromRecents="false"
+      android:autoRemoveFromRecents="true"
       android:showOnLockScreen="true"
       android:turnScreenOn="true"
       android:taskAffinity=""

@@ -254,6 +254,9 @@ async function scheduleSlots(
           body,
           sound,
           categoryIdentifier: 'alarm',
+          // iOS: 집중 모드에서도 뜨고 잠금 화면 위쪽에 오래 남는 '시간 민감' 단계(AlarmKit을 못 쓸 때 가능한 가장 높은 단계.
+          // critical은 Apple 별도 승인이 필요). 권한(엔타이틀먼트)이 없으면 iOS가 조용히 보통 단계로 낮춘다. Android는 무시.
+          interruptionLevel: 'timeSensitive',
           data: { recordId: subId, baseRecordId: recordId, pre: m },
         },
         trigger: {
@@ -279,6 +282,7 @@ async function scheduleSlots(
     // both/sound → 고른 알람 소리 또는 내 목소리 (iOS는 소리+진동 자동), vibe → 무음(배너만)
     sound,
     categoryIdentifier: 'alarm',
+    interruptionLevel: 'timeSensitive', // 위 미리 알림과 같은 이유(iOS 전용)
     data: { recordId },
   };
   // AlarmKit은 끌 때까지 시스템이 울리므로 정각 슬롯 하나만 건다(+1·+2분 재알림 없음 — 걸면 끈 뒤에 또 울린다)
@@ -431,6 +435,9 @@ export async function resyncAlarms(
 // ── iOS 26+ AlarmKit 권한 ──────────────────────────────────────────────
 // 마지막 재동기화 때의 권한 상태. 앱이 앞으로 올 때 이것과 다르면(설정 앱에서 켜고/끄고 돌아옴) 다시 건다.
 let lastAlarmKitAuth: string | null = null;
+
+// 설정 화면·안내 창용(권한만 다룬다 — 알람 예약·취소는 여기 notifications.ts의 함수로만)
+export { alarmKitAuthState, openAlarmKitPermission } from './alarmkit';
 
 /** 앱 시작 때 iOS 26+면 AlarmKit 권한을 한 번 묻는다(알림 권한 창이 닫힌 뒤에 부를 것). Android·iOS 26 미만은 아무것도 안 한다. */
 export async function requestAlarmKitPermission(): Promise<void> {

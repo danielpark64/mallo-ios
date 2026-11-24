@@ -80,6 +80,7 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 1.2.0 내용: iOS 26 AlarmKit, 일정 보내기(+안내 docs/s), 복사한 것 붙이기·OCR, 상세+수정 한 화면, 알람 소리 6개(`lib/alarmSounds.ts`, Android `AlarmTones.kt`, iOS `plugins/withIosAlarmSounds.js`). '점점 크게'는 사용자 지시로 뺌.
 - 커밋 `56bcc48`(푸시 안 됨). 스토어 이미지 폴더(store-assets/appstore-final 등, 수백 MB)는 커밋 안 함.
 
+- **1.2.1 제출(11-24)** — iOS 1.2.1(빌드 14) 심사 대기(재제출 금지), iOS 1.2.0 판매 중. Play는 1.2.0 건너뛰고 1.2.1 vc7 AAB(`~/Desktop/세이람-1.2.1-vc7.aab`, iCloud에도 복사)를 사용자가 직접 업로드. 1.2.1 = 나라별 메신저 보내기 + **Android 알람 화면 항상 맨 앞**(뒤로 가기 막기, 가려지면 2.5초마다 다시 올림, 앱·알림 누르면 울림 화면, '다른 앱 위에 표시' 안내 창 `lib/alarmScreenAsk.ts`) + iOS 시간 민감 알림(엔타이틀먼트). 노트10+에서 확인, 32는 PIN 잠금으로 마지막본 미확인. Android 14·15·플립 실기기 미확인. iOS 시뮬레이터 빌드 링크 오류는 남아 있음(기기 아카이브는 정상).
 - **1.2.1 준비(11-24, 제출 대기)** — 일정 보내기 버튼을 나라별 메신저로(`lib/messenger.ts`: KR 카톡, JP·TW·TH LINE, CN WeChat, US·CA 문자, 그 밖 WhatsApp) + 항상 "다른 앱으로 보내기"(교대알람과 같은 공유 창). expo-localization 추가. vc7·빌드 14. AAB `~/Desktop/세이람-1.2.1-vc7.aab`, 문구 `docs/release-1.2.1-notes.md`. **Play는 1.2.0 건너뛰고 1.2.1로만.** 사용자가 iOS 1.2.0 출시 뒤 시험하고 알려 주면 진행. 실제 카톡·LINE·WhatsApp 앱 열림·iOS 실행은 아직 미확인.
 
 ## 4. 지금 상태 (2026-11-21 밤)

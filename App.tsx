@@ -34,7 +34,8 @@ import {
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs } from './lib/prefs';
 import { baseRecordId, normalizeRemind, parsePreRecordId } from './lib/reminders';
-import { addNativeOpenRecordListener, consumeNativeOpenRecordId, setNativeAlarmLabels } from './lib/nativeAlarm';
+import { addNativeOpenRecordListener, canDrawOverlays, canUseFullScreenIntent, consumeNativeOpenRecordId, openFullScreenIntentSettings, requestOverlayPermission, setNativeAlarmLabels } from './lib/nativeAlarm';
+import { nextAlarmScreenNeed, shouldAskAlarmScreen, type AlarmScreenEnv, type AlarmScreenNeed } from './lib/alarmScreenAsk';
 import { LanguageProvider, useT } from './lib/i18n';
 import {
   EMPTY_FILTER,
@@ -65,6 +66,8 @@ import {
   cancelAlarmByRecordId,
   registerAndroidChannels,
   registerNotificationCategories,
+  alarmKitAuthState,
+  openAlarmKitPermission,
   requestAlarmKitPermission,
   requestNotificationPermission,
   resyncAlarms,
@@ -541,8 +544,62 @@ function AppInner() {
       }
       if (!audio.granted || !speech.granted) {
         Alert.alert(t('권한 필요'), t('마이크 및 음성 인식 권한이 모두 필요합니다.'));
+      } else {
+        // 알림 창이 겹치지 않게 마이크 안내를 띄우지 않은 때만
+        maybeAskAlarmScreen();
       }
     })();
+  }, []);
+
+  // ── 알람 화면 권한 안내(lib/alarmScreenAsk.ts) ──
+  // 울릴 때 끄기 화면이 맨 앞에 뜨게 하는 권한(Android: 전체 화면 알림·다른 앱 위에 표시, iOS 26+: AlarmKit)이 꺼져 있으면 알려 준다.
+  // 안내를 보고 설정으로 간 동안에는 이미 물은 것 목록을 들고 있다가, 돌아왔을 때 남은 것이 있으면 이어서 한 번 더 묻는다.
+  const askChainRef = useRef<AlarmScreenNeed[] | null>(null);
+  const alarmScreenEnv = (): AlarmScreenEnv => ({
+    os: Platform.OS,
+    fullScreenIntent: canUseFullScreenIntent(),
+    overlay: canDrawOverlays(),
+    alarmKit: alarmKitAuthState(),
+  });
+  const askAlarmScreen = (need: AlarmScreenNeed, asked: AlarmScreenNeed[]) => {
+    const tt = tRef.current;
+    const title = need === 'alarmkit' ? tt('알람을 시계 앱처럼 울리려면') : tt('알람 화면을 맨 앞에 띄우려면');
+    const body =
+      need === 'fsi'
+        ? tt('알람이 울릴 때 화면이 꺼져 있거나 잠겨 있어도 끄기 화면이 뜨게 하려면 "전체 화면 알림"을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 스위치를 켜고 ← 버튼으로 돌아오면 돼요.')
+        : need === 'overlay'
+          ? tt('알람이 울릴 때 다른 앱을 쓰는 중이어도 끄기 화면이 맨 앞에 바로 뜨게 하려면 "다른 앱 위에 표시"를 켜 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 "세이람" 옆 스위치를 켜고 ← 버튼으로 돌아오면 돼요.')
+          : tt('무음·집중 모드에서도 시계 앱처럼 화면 가득 알람이 울리게 하려면 설정 앱에서 "알람 및 타이머"를 켜 주세요.\n\n"설정으로 이동"을 누르면 세이람 설정이 열려요. "알람 및 타이머"를 켜고 세이람으로 돌아오면 돼요.');
+    const open = () => {
+      askChainRef.current = [...asked, need];
+      if (need === 'fsi') openFullScreenIntentSettings();
+      else if (need === 'overlay') requestOverlayPermission();
+      else openAlarmKitPermission().catch(() => {});
+    };
+    Alert.alert(title, body, [
+      { text: tt('나중에'), style: 'cancel' },
+      { text: tt('설정으로 이동'), onPress: open },
+    ]);
+  };
+  const maybeAskAlarmScreen = () => {
+    const now = Date.now();
+    const upcoming = recordsRef.current.some((r) => (r.notifIds?.length ?? 0) > 0 && (r.scheduleAt ?? 0) > now);
+    if (!shouldAskAlarmScreen(loadPrefs().alarmScreenAskedAt, now, upcoming)) return;
+    const need = nextAlarmScreenNeed(alarmScreenEnv());
+    if (!need) return;
+    savePrefs({ alarmScreenAskedAt: now });
+    askAlarmScreen(need, []);
+  };
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active' || !askChainRef.current) return;
+      const asked = askChainRef.current;
+      askChainRef.current = null;
+      const need = nextAlarmScreenNeed(alarmScreenEnv(), asked);
+      if (need) setTimeout(() => askAlarmScreen(need, asked), 400);
+    });
+    return () => sub.remove();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // iOS 26+: 설정 앱에서 AlarmKit 권한을 켜고/끄고 돌아오면 알람 방식이 바뀌어야 한다 — 앞으로 올 때만 확인(폴링 없음)

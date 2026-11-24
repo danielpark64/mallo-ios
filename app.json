@@ -54,7 +54,8 @@
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.danielpark.shared"
-        ]
+        ],
+        "com.apple.developer.usernotifications.time-sensitive": true
       },
       "appleTeamId": "T5Z6ACK2PU"
     },

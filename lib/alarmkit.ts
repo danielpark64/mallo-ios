@@ -10,7 +10,7 @@
 // 그것은 notifications.ts의 세대 번호(resyncGen)가 막는다: 새 재동기화가 시작되면 앞 호출은 다음 슬롯을 큐에 넣기 전에 멈춘다.
 // (이미 큐에 들어간 앞 호출의 schedule은 뒤 호출의 cancelAll보다 먼저 처리되므로 거기서 지워진다.)
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { alarmKitEnabled, alarmKitUuid, shouldAskAlarmKit, type AlarmKitAuth, type AlarmKitEnv } from './alarmkitRoute';
 
@@ -71,6 +71,18 @@ export async function requestAlarmKitIfNeeded(): Promise<boolean> {
   if (!native || !shouldAskAlarmKit(alarmKitEnv())) return false;
   try { await native.requestAuthorization(); } catch {}
   return isAlarmKitMode();
+}
+
+/** 설정 화면 안내용 AlarmKit 권한 상태(iOS 26 미만·Android는 'unavailable') */
+export function alarmKitAuthState(): AlarmKitAuth {
+  return alarmKitEnv().auth;
+}
+
+/** 설정 화면에서 누름: 아직 안 물었으면 묻고, 거부했으면 설정 앱의 세이람 화면("알람 및 타이머" 스위치)을 연다. */
+export async function openAlarmKitPermission(): Promise<void> {
+  const auth = alarmKitAuthState();
+  if (auth === 'notDetermined') { await requestAlarmKitIfNeeded(); return; }
+  if (auth === 'denied') { try { await Linking.openSettings(); } catch {} }
 }
 
 /** 슬롯 하나를 AlarmKit에 건다. false면 실패(호출한 쪽이 Expo 방식으로 대신 건다). */

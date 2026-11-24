@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
@@ -26,6 +28,7 @@ import java.util.Locale
  */
 class AlarmRingActivity : Activity() {
     private var recordId = ""
+    private var backBlocker: Any? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,9 +101,44 @@ class AlarmRingActivity : Activity() {
         if (!tiny) root.addView(snoozeBtn, lp(if (short) 4 else 12))   // 아주 작은 화면은 끄기 하나만(5분 후는 알림 버튼에 있음)
         setContentView(root)
         showing = WeakReference(this)
+        blockBack()
+    }
+
+    /**
+     * 울리는 동안 뒤로 가기로 울림 화면이 닫히면 소리·진동은 계속되는데 끌 곳이 안 보인다(사용자 보고 "알람이 숨어 버림").
+     * → 뒤로 가기는 무시한다. 울림 화면은 끄기·5분 후, 또는 다른 경로로 꺼졌을 때(onResume·finishIfShowing)만 닫힌다.
+     * Android 13+에서 예측형 뒤로 가기를 쓰는 경우(onBackPressed가 안 불림)를 위해 콜백도 함께 건다.
+     */
+    private fun blockBack() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                val cb = OnBackInvokedCallback { /* 울리는 중에는 닫지 않는다 */ }
+                onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, cb)
+                backBlocker = cb
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    @Deprecated("Android 13 미만·예측형 뒤로 가기를 안 쓰는 경우의 뒤로 가기")
+    @Suppress("DEPRECATION", "MissingSuperCall")
+    override fun onBackPressed() {
+        // 울리는 중에는 닫지 않는다(super를 부르지 않음). 이미 꺼졌다면 남아 있을 이유가 없으니 닫는다.
+        if (AlarmService.currentRinging == null) finish()
+    }
+
+    /** 이미 떠 있는 울림 화면을 다시 부르면(앱 열기·알림 누르기·커버 재표시) 여기로 온다. 다른 일정이 울리면 내용을 새로 그린다. */
+    override fun onNewIntent(newIntent: Intent) {
+        super.onNewIntent(newIntent)
+        val newId = newIntent.getStringExtra(AlarmScheduling.EXTRA_RECORD_ID) ?: ""
+        setIntent(newIntent)
+        if (newId.isNotEmpty() && newId != recordId) recreate()
     }
 
     private fun act(action: String) {
+        // 서비스가 처리하기 전에 이 화면이 닫히면서 앱 화면이 앞으로 오면, 앱은 "아직 울리는 중"으로 보고 울림 화면을
+        // 다시 띄운다(MalloAlarmModule.OnActivityEntersForeground). 누른 즉시 울림 상태를 비워 그 되돌아옴을 막는다.
+        // 서비스는 인텐트의 recordId·title·body·tone으로 처리하므로 이 값이 없어도 된다.
+        AlarmService.currentRinging = null
         try {
             startService(Intent(this, AlarmService::class.java).apply {
                 this.action = action
@@ -111,13 +149,27 @@ class AlarmRingActivity : Activity() {
         finish()
     }
 
+    override fun onPause() {
+        inFront = false
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
+        inFront = true
         // 다른 경로(알림 버튼 등)로 이미 꺼졌으면 남아 있을 이유가 없다
         if (AlarmService.currentRinging == null) finish()
     }
 
     override fun onDestroy() {
+        // 늦게 끝나는 예전 화면이 새 화면의 "맨 앞" 표시를 지우지 않게 지금 화면일 때만
+        if (showing?.get() === this) inFront = false
+        if (Build.VERSION.SDK_INT >= 33) {
+            (backBlocker as? OnBackInvokedCallback)?.let {
+                try { onBackInvokedDispatcher.unregisterOnBackInvokedCallback(it) } catch (_: Exception) {}
+            }
+        }
+        backBlocker = null
         if (showing?.get() === this) showing = null
         super.onDestroy()
     }
@@ -125,10 +177,19 @@ class AlarmRingActivity : Activity() {
     companion object {
         const val EXTRA_DISMISS_KEYGUARD = "dismissKeyguard"
         @Volatile private var showing: WeakReference<AlarmRingActivity>? = null
+        /** 울림 화면이 지금 맨 앞(resumed)인지 — AlarmService가 가려졌는지 볼 때 쓴다 */
+        @Volatile var inFront = false
+            private set
 
         fun finishIfShowing() {
             val a = showing?.get() ?: return
             a.runOnUiThread { if (!a.isFinishing) a.finish() }
+        }
+
+        /** 지금 울리는 알람의 울림 화면 인텐트. 울리는 중이 아니면 null */
+        fun ringingIntent(context: Context): Intent? {
+            val r = AlarmService.currentRinging ?: return null
+            return intent(context, r.recordId, r.title, r.body, r.soundOn, r.vibOn, r.tone)
         }
 
         fun intent(context: Context, recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String) =

@@ -9,8 +9,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.audiofx.LoudnessEnhancer
 import java.io.File
@@ -25,6 +27,8 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
 import android.view.Display
+import android.view.View
+import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.Arguments
@@ -64,6 +68,8 @@ class AlarmService : Service() {
     private var fade: Runnable? = null
     private var displayListener: DisplayManager.DisplayListener? = null
     private var coverRelaunch: Runnable? = null
+    private var keepFront: Runnable? = null
+    private var balOverlay: View? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -135,9 +141,10 @@ class AlarmService : Service() {
     /**
      * 교대알람처럼 배너가 아니라 "별도의 팝업"(전체화면 AlarmRingActivity)을 띄운다.
      *  - 화면 꺼짐/잠금: 알람 알림의 fullScreenIntent로 시스템이 띄워 준다("다른 앱 위에 표시"가 없을 때의 경로).
-     *  - "다른 앱 위에 표시"(SYSTEM_ALERT_WINDOW)가 허용돼 있으면 여기서 직접 띄운다. 이때만 디스플레이를
+     *  - "다른 앱 위에 표시"(SYSTEM_ALERT_WINDOW)가 허용돼 있으면 여기서 직접 띄운다. 잠금이 풀린 채 다른 앱을 쓰는
+     *    중에는 fullScreenIntent가 배너로만 뜨므로 이 경로가 있어야 울림 화면이 맨 앞에 뜬다. 이때만 디스플레이를
      *    지정할 수 있어 **접은 플립의 커버 화면**에도 뜬다. (권한이 없으면 Android 10+ 백그라운드 실행 제한으로
-     *    조용히 막힌다 — 예외 없음.)
+     *    조용히 막힌다 — 예외 없음. 앱이 이를 안내한다: 설정 › 알람 화면 항상 띄우기, 시작 때 안내.)
      *
      * 폴더를 접으면 메인 디스플레이(0)는 꺼지고 커버 디스플레이가 켜지는데 그 전환이 100~400ms 걸려
      * 고정 지연으로는 못 맞춘다. DisplayListener로 커버가 켜지는 순간을 잡고, 1.2초 안에 안 켜지면
@@ -158,16 +165,21 @@ class AlarmService : Service() {
                 val i = AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone)
                     // 기본 화면에서 키가드 해제를 요청하면 보안 잠금 입력창이 알람 화면을 가린다 — 커버 화면일 때만
                     .putExtra(AlarmRingActivity.EXTRA_DISMISS_KEYGUARD, isCover)
-                val options = ActivityOptions.makeBasic()
-                displayId?.let { options.setLaunchDisplayId(it) }
-                startActivity(i, options.toBundle())
+                launchRing(i, displayId)
                 // 커버 화면은 몇 초 뒤 삼성 AOD로 덮여 끄기 버튼이 사라진다 → 울리는 동안 주기적으로 다시 올린다
                 if (isCover) scheduleCoverRelaunch(recordId, title, body, soundOn, vibOn, tone, displayId!!)
             } catch (e: Exception) { e.printStackTrace() }
+            // 기본 화면: 울리는 동안 홈 버튼·다른 앱에 가려지면 다시 맨 앞으로 올린다(커버 화면은 위의 재표시가 맡는다)
+            if (displayId == null || displayId == Display.DEFAULT_DISPLAY) scheduleKeepFront()
         }
 
+        val justAttached = canDrawOverlays() && showBalOverlay()
         val displays = try { dm?.displays ?: emptyArray() } catch (_: Exception) { emptyArray<Display>() }
-        if (dm == null || displays.size <= 1) { launch(null); return }   // 일반 폰
+        if (dm == null || displays.size <= 1) {   // 일반 폰
+            // 오버레이 창을 방금 붙였으면 시스템이 "보이는 창"으로 인정할 틈을 준다(Android 15+)
+            if (justAttached) handler.postDelayed({ if (currentRinging != null) launch(null) }, BAL_OVERLAY_WAIT_MS) else launch(null)
+            return
+        }
         findCoverDisplayId(dm)?.let { launch(it); return }               // 이미 접혀 커버가 켜져 있음
 
         // 커버는 OFF → DOZE → ON 순으로 켜진다. DOZE면 이미 켜지는 중이므로 그때 띄운다.
@@ -198,7 +210,7 @@ class AlarmService : Service() {
                 try {
                     val i = AlarmRingActivity.intent(this@AlarmService, recordId, title, body, soundOn, vibOn, tone)
                         .putExtra(AlarmRingActivity.EXTRA_DISMISS_KEYGUARD, true)
-                    startActivity(i, ActivityOptions.makeBasic().apply { setLaunchDisplayId(displayId) }.toBundle())
+                    launchRing(i, displayId)
                 } catch (e: Exception) { e.printStackTrace() }
                 handler.postDelayed(this, COVER_RELAUNCH_INTERVAL_MS)
             }
@@ -207,7 +219,85 @@ class AlarmService : Service() {
         handler.postDelayed(r, COVER_RELAUNCH_INTERVAL_MS)
     }
 
+    /**
+     * 울림 화면을 띄운다. "다른 앱 위에 표시"가 있으면 백그라운드에서도 띄울 수 있는데, Android 15부터는 그 권한만으로는
+     * 부족하고 **보이는 오버레이 창**이 있어야 한다 → 울리기 시작할 때 1px 투명 오버레이를 붙여 두고(showRingScreen),
+     * 울림이 끝나면 뗀다(cancelCoverWork). 터치·포커스를 받지 않아 사용자에게는 보이지 않는다.
+     * 권한이 없으면 Android 10+ 백그라운드 실행 제한으로 조용히 막힌다(예외 없음) — 그때는 fullScreenIntent가 맡는다.
+     */
+    private fun launchRing(i: Intent, displayId: Int?) {
+        if (canDrawOverlays()) showBalOverlay()
+        val options = ActivityOptions.makeBasic()
+        displayId?.let { options.setLaunchDisplayId(it) }
+        startActivity(i, options.toBundle())
+    }
+
+    /** 1px 투명 오버레이를 붙인다(울리는 동안 붙여 두고 cancelCoverWork에서 뗀다). 반환: 이번에 새로 붙였는지 */
+    private fun showBalOverlay(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || balOverlay != null) return false
+        return try {
+            val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            run {
+                val v = View(this)
+                val lp = WindowManager.LayoutParams(
+                    1, 1,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                    PixelFormat.TRANSLUCENT
+                )
+                wm.addView(v, lp)
+                balOverlay = v
+            }
+            true
+        } catch (e: Exception) { e.printStackTrace(); false }
+    }
+
+    private fun removeBalOverlay() {
+        val v = balOverlay ?: return
+        balOverlay = null
+        try { (getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(v) } catch (_: Exception) {}
+    }
+
+    /**
+     * 울리는 동안에만 KEEP_FRONT_INTERVAL_MS마다 "울림 화면이 맨 앞인가"를 보고, 가려졌으면 다시 올린다.
+     * 울림이 끝나면(끄기·5분 후·자동 종료) cancelCoverWork가 멈춘다 — 한 슬롯 최대 RING_MAX_MS 동안만 돈다.
+     * 화면이 꺼져 있으면(전원 버튼) 다시 켜지 않고, 통화 중이면 통화 화면을 덮지 않는다.
+     * "다른 앱 위에 표시"가 없으면 백그라운드에서 띄울 수 없으므로 돌리지 않는다.
+     */
+    private fun scheduleKeepFront() {
+        keepFront?.let { handler.removeCallbacks(it) }
+        keepFront = null
+        if (!canDrawOverlays()) return
+        val r = object : Runnable {
+            override fun run() {
+                if (currentRinging == null) return
+                // 커버 화면이 켜져 있으면(펼쳐서 울리다 접은 플립) 메인 화면에 다시 띄우지 않는다 — 예전 동작 그대로
+                val dm = try { getSystemService(Context.DISPLAY_SERVICE) as DisplayManager } catch (_: Exception) { null }
+                val coverOn = dm != null && findCoverDisplayId(dm) != null
+                if (!AlarmRingActivity.inFront && coverRelaunch == null && !coverOn && isScreenOn() && !inCall()) {
+                    try { AlarmRingActivity.ringingIntent(this@AlarmService)?.let { launchRing(it, null) } } catch (e: Exception) { e.printStackTrace() }
+                }
+                handler.postDelayed(this, KEEP_FRONT_INTERVAL_MS)
+            }
+        }
+        keepFront = r
+        handler.postDelayed(r, KEEP_FRONT_INTERVAL_MS)
+    }
+
+    private fun isScreenOn(): Boolean =
+        try { (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive } catch (_: Exception) { true }
+
+    private fun inCall(): Boolean = try {
+        val mode = (getSystemService(Context.AUDIO_SERVICE) as AudioManager).mode
+        mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION || mode == AudioManager.MODE_RINGTONE
+    } catch (_: Exception) { false }
+
     private fun cancelCoverWork() {
+        keepFront?.let { handler.removeCallbacks(it) }
+        keepFront = null
+        removeBalOverlay()
         coverRelaunch?.let { handler.removeCallbacks(it) }
         coverRelaunch = null
         displayListener?.let { l ->
@@ -509,9 +599,16 @@ class AlarmService : Service() {
     /** 포그라운드 서비스가 요구하는 상시 알림 — 조용한 채널, 워치로는 보내지 않는다 */
     private fun buildServiceNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String): Notification {
         val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn, tone)
+        // 누르면 울림 화면(끄기·5분 후)으로 바로 간다 — 이 알림은 울리는 동안에만 있으므로 언제 눌러도 울림 화면이 맞다
+        val ringPi = PendingIntent.getActivity(
+            this, 14,
+            AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         return NotificationCompat.Builder(this, CHANNEL_SERVICE)
             .setContentTitle(AlarmLabels.ringing(this))
             .setContentText(body)
+            .setContentIntent(ringPi)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, AlarmLabels.stop(this), stopPi)
             .setOngoing(true)
@@ -530,7 +627,9 @@ class AlarmService : Service() {
     private fun buildAlertNotification(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String): Notification {
         val stopPi = servicePi(10, ACTION_STOP, recordId, title, body, soundOn, vibOn, tone)
         val snoozePi = servicePi(11, ACTION_SNOOZE, recordId, title, body, soundOn, vibOn, tone)
-        // 알림을 누르면 앱을 열고 이 일정 ID를 넘긴다(앱이 그 일정 상세 화면을 연다 — MalloAlarmModule.consumeOpenRecordId)
+        // 알림을 누르면 앱을 열고 이 일정 ID를 넘긴다(앱이 그 일정 상세 화면을 연다 — MalloAlarmModule.consumeOpenRecordId).
+        // 아직 울리는 중이면 앱이 앞으로 오는 순간 울림 화면이 그 위에 다시 뜬다(MalloAlarmModule.OnActivityEntersForeground).
+        // 울림이 끝난 뒤(다음 슬롯 대기 중)에 누르면 상세 화면만 열린다.
         val launch = packageManager.getLaunchIntentForPackage(packageName)
             ?.putExtra(AlarmScheduling.EXTRA_OPEN_RECORD_ID, recordId)
         val openPi = launch?.let {
@@ -553,7 +652,9 @@ class AlarmService : Service() {
             .setShowWhen(true)
         // "다른 앱 위에 표시"가 허용돼 있으면 showRingScreen이 디스플레이를 지정해 직접 띄운다. 그때 fullScreenIntent까지
         // 달면 시스템이 먼저 기본 화면에 띄워 버려 접은 플립의 커버 화면 지정과 경쟁한다(교대알람에서 확인) → 생략.
-        if (!canDrawOverlays()) {
+        // 단, 화면이 하나뿐인 일반 폰은 커버와 경쟁할 일이 없으므로 권한이 있어도 단다 — 직접 띄우기가 어떤 이유로 막혀도
+        // (Android 15+ 백그라운드 실행 제한 등) 잠금·화면 꺼짐 상태에서는 시스템이 울림 화면을 띄운다. 둘 다 떠도 singleInstance라 한 화면.
+        if (!canDrawOverlays() || !hasMultipleDisplays()) {
             val fullScreenPi = PendingIntent.getActivity(
                 this, 12,
                 AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone),
@@ -563,6 +664,9 @@ class AlarmService : Service() {
         }
         return b.build()
     }
+
+    private fun hasMultipleDisplays(): Boolean =
+        try { (getSystemService(Context.DISPLAY_SERVICE) as DisplayManager).displays.size > 1 } catch (_: Exception) { false }
 
     private fun canDrawOverlays(): Boolean =
         try { Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this) } catch (_: Exception) { false }
@@ -590,6 +694,8 @@ class AlarmService : Service() {
         const val ALERT_ID = 7002          // 사용자가 보는 알람 알림(워치로 브릿지)
         private const val COVER_WAIT_MS = 1_200L
         private const val COVER_RELAUNCH_INTERVAL_MS = 2_500L
+        private const val KEEP_FRONT_INTERVAL_MS = 2_500L
+        private const val BAL_OVERLAY_WAIT_MS = 300L
         const val ACTION_RING = "com.danielpark.mallo.alarm.RING"
         const val ACTION_STOP = "com.danielpark.mallo.alarm.STOP"
         const val ACTION_SNOOZE = "com.danielpark.mallo.alarm.SNOOZE"

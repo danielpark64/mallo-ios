@@ -10,7 +10,8 @@ import { FONT_SCALE_LABEL, THEME_LABEL, useTheme, useThemeSetting, type Palette 
 import type { FontScaleName, LanguageSetting, ThemeSetting } from '../lib/prefs';
 import { LANGS, LANGUAGE_LABEL, useT } from '../lib/i18n';
 import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
-import { canDrawOverlays, requestOverlayPermission } from '../lib/nativeAlarm';
+import { canDrawOverlays, canUseFullScreenIntent, openFullScreenIntentSettings, requestOverlayPermission } from '../lib/nativeAlarm';
+import { alarmKitAuthState, openAlarmKitPermission } from '../lib/notifications';
 import type { CalendarMode } from '../lib/prefs';
 import type { ScheduleRecord } from '../lib/storage';
 import { voiceAlarmSupported } from '../lib/voiceAlarm';
@@ -73,10 +74,18 @@ export function SettingsSheet({
   const [backupOpen, setBackupOpen] = useState(false);
   // "다른 앱 위에 표시" 허용 여부 — 설정 앱에서 돌아오면 다시 확인한다
   const [overlayOk, setOverlayOk] = useState(() => canDrawOverlays());
+  // Android 14+ "전체 화면 알림"(잠금·화면 꺼짐 때 울림 화면) — 13 이하는 늘 허용이라 줄을 숨긴다
+  const showFsiRow = Platform.OS === 'android' && Number(Platform.Version) >= 34;
+  const [fsiOk, setFsiOk] = useState(() => canUseFullScreenIntent());
+  // iOS 26+ AlarmKit("알람 및 타이머") — iOS 26 미만은 'unavailable'이라 줄을 숨긴다
+  const [akAuth, setAkAuth] = useState(() => alarmKitAuthState());
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    if (visible) setOverlayOk(canDrawOverlays());
-    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') setOverlayOk(canDrawOverlays()); });
+    const refresh = () => {
+      if (Platform.OS === 'android') { setOverlayOk(canDrawOverlays()); setFsiOk(canUseFullScreenIntent()); }
+      else setAkAuth(alarmKitAuthState());
+    };
+    if (visible) refresh();
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') refresh(); });
     return () => sub.remove();
   }, [visible]);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -228,6 +237,53 @@ export function SettingsSheet({
                       </Text>
                     </View>
                     <Text style={[s.rowValue, overlayOk && { color: C.green }]}>{overlayOk ? t('켜짐') : t('꺼짐 ›')}</Text>
+                  </TouchableOpacity>
+                  {showFsiRow && (
+                    <>
+                      <View style={s.divider} />
+                      <TouchableOpacity
+                        style={s.rowBetween}
+                        onPress={() => { if (!fsiOk) openFullScreenIntentSettings(); }}
+                        activeOpacity={fsiOk ? 1 : 0.7}
+                        accessibilityLabel="잠금 화면에 알람 띄우기"
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.rowTitle}>{t('잠금 화면에 알람 띄우기')}</Text>
+                          <Text style={s.rowSub}>
+                            {fsiOk
+                              ? t('화면이 꺼져 있거나 잠겨 있어도 알람 끄기 화면이 떠요')
+                              : t('눌러서 "전체 화면 알림"을 허용하면 화면이 꺼져 있거나 잠겨 있어도 알람 끄기 화면이 떠요')}
+                          </Text>
+                        </View>
+                        <Text style={[s.rowValue, fsiOk && { color: C.green }]}>{fsiOk ? t('켜짐') : t('꺼짐 ›')}</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              )}
+              {Platform.OS === 'ios' && akAuth !== 'unavailable' && (
+                <>
+                  <View style={s.divider} />
+                  <TouchableOpacity
+                    style={s.rowBetween}
+                    onPress={() => {
+                      if (akAuth === 'authorized') return;
+                      openAlarmKitPermission().then(() => setAkAuth(alarmKitAuthState())).catch(() => {});
+                    }}
+                    activeOpacity={akAuth === 'authorized' ? 1 : 0.7}
+                    accessibilityLabel="시계 앱처럼 울리기"
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle}>{t('시계 앱처럼 울리기')}</Text>
+                      <Text style={s.rowSub}>
+                        {akAuth === 'authorized'
+                          ? t('무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요')
+                          : akAuth === 'notDetermined'
+                            ? t('눌러서 허용하면 무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요')
+                            : t('눌러서 설정 앱의 "알람 및 타이머"를 켜면 무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요')}
+                      </Text>
+                    </View>
+                    <Text style={[s.rowValue, akAuth === 'authorized' && { color: C.green }]}>{akAuth === 'authorized' ? t('켜짐') : t('꺼짐 ›')}</Text>
                   </TouchableOpacity>
                 </>
               )}
