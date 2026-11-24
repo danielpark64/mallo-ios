@@ -1,5 +1,7 @@
 // ─── 일정 보내기 (메신저·문자로 링크 한 줄, 서버 없음) ─────────────────────────────
-// 보내는 쪽: 일정 하나 → 링크 https://sayram-app.github.io/s/#v1.<페이로드>
+// 보내는 쪽: 일정 하나 → 링크 https://danielpark64.github.io/sayram/s/#v1.<페이로드>
+//   - 1.2.2부터 이 주소(유니버설 링크·App Links)로 보낸다. 앱이 깔려 있으면 페이지 없이 바로 앱이 열린다
+//   - 옛 주소 https://sayram-app.github.io/s/#v1.… 도 계속 받는다(이미 보낸 링크)
 //   - '#' 뒤는 브라우저가 서버로 보내지 않는다 → 서버에 아무것도 남지 않는다(인터넷 권한도 필요 없음: 링크는 메신저·문자 앱이 연다)
 //   - 안내 페이지(docs/s/index.html)가 '#' 뒤를 읽어 보여 주고 [세이람에서 열기] → mallo://receive?d=v1.<페이로드>
 // 받는 쪽: 확인 시트에서 사용자가 [달력에 넣기]를 눌러야 저장된다(자동 저장·자동 발송 없음).
@@ -11,11 +13,19 @@ import { normalizeRemind, type RemindBefore } from './reminders';
 import { t as tr } from './i18n';
 import type { ScheduleRecord } from './storage';
 
-/** 안내 페이지 주소(GitHub Pages, 처리방침과 같은 자리 docs/) */
-export const SHARE_PAGE_URL = 'https://sayram-app.github.io/s/';
+/** 보내는 링크의 안내 페이지 주소(공용 GitHub Pages — 유니버설 링크·App Links 도메인) */
+export const SHARE_PAGE_URL = 'https://danielpark64.github.io/sayram/s/';
+/** 1.2.1까지 보내던 옛 안내 페이지 주소(받기만 한다) */
+export const LEGACY_SHARE_PAGE_URL = 'https://sayram-app.github.io/s/';
 /** 받는 앱 주소 */
 export const RECEIVE_URL_PREFIX = 'mallo://receive?d=';
 export const PAYLOAD_VERSION = 'v1';
+/** 세이람 스토어 주소('업데이트가 필요해요' 창의 [업데이트]).
+ *  Android는 market:// 대신 https 주소 — 삼성 폰은 market://에 원스토어·갤럭시 스토어까지 골라라 창이 떠서(기기 확인 11-24) Play 앱으로 바로 가는 https를 쓴다 */
+export const SAYRAM_APP_STORE_URL = 'https://apps.apple.com/app/id6825225042';
+export const SAYRAM_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.danielpark.sayram';
+/** 이 앱이 읽을 줄 아는 가장 높은 형식 번호 — 이보다 큰 번호는 '업데이트가 필요해요' */
+export const KNOWN_PAYLOAD_NUMBER = 1;
 
 /** 링크에 넣는 내용 최대 글자 수(넘으면 잘라 '…'). 한국어 140자 ≈ 링크 700자 */
 export const MAX_CONTENT = 140;
@@ -285,27 +295,57 @@ export function decodePayload(s: string, now: number = Date.now()): SharedSchedu
   }
 }
 
-export type ReceiveParse = { ok: true; data: SharedSchedule } | { ok: false };
+/**
+ * 받은 글 읽기 결과
+ * - ok: true → 일정
+ * - ok: false, needsUpdate: true → 'v<숫자>.' 모양인데 이 앱이 모르는 더 새 형식(앱을 업데이트하면 열림)
+ * - ok: false (needsUpdate 없음) → 깨진 링크
+ */
+export type ReceiveParse =
+  | { ok: true; data: SharedSchedule }
+  | { ok: false; needsUpdate?: true };
+
+/** 새 형식이 얼마나 길지 모르니 넉넉히 — 이보다 길면 새 형식이라도 깨진 것으로 본다 */
+const MAX_FUTURE_PAYLOAD = 8000;
+
+/** 'v<숫자>.<글>' 를 읽는다. 아는 번호(1)는 일정으로, 더 큰 번호는 업데이트 필요, 나머지는 깨진 링크 */
+export function classifyPayload(s: string, now: number = Date.now()): ReceiveParse {
+  if (typeof s !== 'string') return { ok: false };
+  const t = s.trim();
+  const m = /^v(\d{1,6})\.(\S+)$/.exec(t);
+  if (m && Number(m[1]) > KNOWN_PAYLOAD_NUMBER) {
+    // 뒤 글의 모양은 새 형식이 정하므로 따지지 않는다(길이만 본다)
+    return t.length <= MAX_FUTURE_PAYLOAD ? { ok: false, needsUpdate: true } : { ok: false };
+  }
+  const data = decodePayload(t, now);
+  return data ? { ok: true, data } : { ok: false };
+}
+
+/** 받는 https 주소: 새 주소(danielpark64.github.io/sayram/s/)·옛 주소(sayram-app.github.io/s/). '?…'(메신저가 붙이는 꼬리)·index.html 허용 */
+const SHARE_PAGE_RE = /^https?:\/\/(?:danielpark64\.github\.io\/sayram\/s|sayram-app\.github\.io\/s)(?:\/(?:index\.html)?)?(?:\?[^#]*?)?(?:#|%23)(.*)$/i;
 
 /** 받은 주소 읽기. 받기 주소가 아니면 null(다른 링크 처리로 넘긴다), 받기 주소인데 틀리면 { ok: false } */
 export function parseReceiveUrl(url: string, now: number = Date.now()): ReceiveParse | null {
   if (typeof url !== 'string') return null;
   let raw: string | null = null;
-  const m = /^mallo:\/\/receive\?(.*)$/i.exec(url.trim());
+  const u = url.trim();
+  const m = /^mallo:\/\/receive\?(.*)$/i.exec(u);
   if (m) {
     for (const part of m[1].split('&')) {
       if (part.startsWith('d=')) raw = part.slice(2);
     }
     if (raw == null) return { ok: false };
   } else {
-    // 안내 페이지 주소를 그대로 열었을 때(https 링크가 앱으로 바로 온 경우)
-    const i = url.indexOf('#');
-    if (!url.startsWith(SHARE_PAGE_URL) || i < 0) return null;
-    raw = url.slice(i + 1);
+    // 안내 페이지 주소가 앱으로 바로 온 경우(유니버설 링크·App Links, 또는 옛 주소)
+    const h = SHARE_PAGE_RE.exec(u);
+    if (!h) return null;
+    raw = h[1];
   }
   try { raw = decodeURIComponent(raw); } catch { return { ok: false }; }
-  const data = decodePayload(raw, now);
-  return data ? { ok: true, data } : { ok: false };
+  // 메신저·복사 과정에서 페이로드 뒤에 붙는 꼬리(?utm=…, &x=…, 끝 마침표·공백)는 떼고 읽는다
+  const tail = /^(v\d{1,6}\.[A-Za-z0-9_-]+)[?&.\s]/.exec(raw);
+  if (tail) raw = tail[1];
+  return classifyPayload(raw, now);
 }
 
 /** 받은 일정이 이미 지났나(지났으면 알람을 걸지 않는다) */

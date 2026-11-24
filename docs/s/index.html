@@ -31,6 +31,7 @@
   .main { background: var(--accent); color: #fff; }
   .sub { background: transparent; color: var(--accent); }
   .note { color: var(--sub); font-size: 13px; text-align: center; margin-top: 18px; }
+  .hint { color: var(--sub); font-size: 14px; text-align: center; margin: 18px 0 0; }
   .err { color: #d33; font-weight: 700; }
   [hidden] { display: none !important; }
 </style>
@@ -46,7 +47,9 @@
   </div>
   <p class="err" id="err" hidden></p>
   <a class="btn main" id="open" href="#" hidden></a>
-  <a class="btn sub" id="install" href="#"></a>
+  <p class="hint" id="hint" hidden></p>
+  <a class="btn sub" id="install" href="#" hidden></a>
+  <a class="btn sub" id="install2" href="#" hidden></a>
   <p class="note" id="note"></p>
 </main>
 <script>
@@ -57,15 +60,15 @@
   var MAX_PAYLOAD = 1600;
 
   var L = {
-    ko: { title: '일정이 도착했어요', from: '보낸 사람: {n}', open: '세이람에서 열기', install: '앱이 없어요 — 설치하기', note: '이 페이지는 아무것도 저장하지 않아요. 일정은 링크 안에만 있어요.', err: '링크가 올바르지 않아요', allday: '시간 미정' },
-    en: { title: 'You got a schedule', from: 'From: {n}', open: 'Open in SayRam', install: 'No app? Install SayRam', note: 'This page stores nothing. The schedule lives only in the link.', err: 'This link isn’t valid', allday: 'No time set' },
-    ja: { title: '予定が届きました', from: '送った人：{n}', open: 'SayRamで開く', install: 'アプリがない — インストール', note: 'このページは何も保存しません。予定はリンクの中だけにあります。', err: 'リンクが正しくありません', allday: '時刻未定' },
-    'zh-Hans': { title: '收到一个日程', from: '发送人：{n}', open: '在 SayRam 中打开', install: '没有应用？去安装', note: '此页面不保存任何内容。日程只在链接里。', err: '链接无效', allday: '时间未定' },
-    'zh-Hant': { title: '收到一個行程', from: '傳送人：{n}', open: '在 SayRam 中開啟', install: '沒有 App？去安裝', note: '此頁面不儲存任何內容。行程只在連結裡。', err: '連結無效', allday: '時間未定' },
-    es: { title: 'Te llegó un evento', from: 'De: {n}', open: 'Abrir en SayRam', install: '¿No tienes la app? Instálala', note: 'Esta página no guarda nada. El evento solo está en el enlace.', err: 'El enlace no es válido', allday: 'Sin hora' },
-    fr: { title: 'Vous avez reçu un événement', from: 'De : {n}', open: 'Ouvrir dans SayRam', install: 'Pas l’app ? L’installer', note: 'Cette page n’enregistre rien. L’événement est uniquement dans le lien.', err: 'Ce lien n’est pas valide', allday: 'Sans heure' },
-    de: { title: 'Du hast einen Termin erhalten', from: 'Von: {n}', open: 'In SayRam öffnen', install: 'Keine App? Installieren', note: 'Diese Seite speichert nichts. Der Termin steckt nur im Link.', err: 'Dieser Link ist ungültig', allday: 'Ohne Uhrzeit' },
-    pt: { title: 'Chegou um compromisso', from: 'De: {n}', open: 'Abrir no SayRam', install: 'Não tem o app? Instale', note: 'Esta página não salva nada. O compromisso fica só no link.', err: 'Este link não é válido', allday: 'Sem horário' }
+    ko: { title: '일정이 도착했어요', from: '보낸 사람: {n}', open: '세이람에서 열기', ios: 'App Store에서 설치 / 업데이트', play: 'Google Play에서 설치 / 업데이트', hint: '버튼을 눌러도 안 열리면 세이람을 설치하거나 업데이트해 주세요', note: '이 페이지는 아무것도 저장하지 않아요. 일정은 링크 안에만 있어요.', err: '링크가 올바르지 않아요', allday: '시간 미정' },
+    en: { title: 'You got a schedule', from: 'From: {n}', open: 'Open in SayRam', ios: 'Install / Update on the App Store', play: 'Install / Update on Google Play', hint: 'If it doesn’t open, install or update SayRam', note: 'This page stores nothing. The schedule lives only in the link.', err: 'This link isn’t valid', allday: 'No time set' },
+    ja: { title: '予定が届きました', from: '送った人：{n}', open: 'SayRamで開く', ios: 'App Storeでインストール / アップデート', play: 'Google Playでインストール / アップデート', hint: '開かないときは、SayRamをインストールまたはアップデートしてください', note: 'このページは何も保存しません。予定はリンクの中だけにあります。', err: 'リンクが正しくありません', allday: '時刻未定' },
+    'zh-Hans': { title: '收到一个日程', from: '发送人：{n}', open: '在 SayRam 中打开', ios: '在 App Store 安装 / 更新', play: '在 Google Play 安装 / 更新', hint: '如果打不开，请安装或更新 SayRam', note: '此页面不保存任何内容。日程只在链接里。', err: '链接无效', allday: '时间未定' },
+    'zh-Hant': { title: '收到一個行程', from: '傳送人：{n}', open: '在 SayRam 中開啟', ios: '在 App Store 安裝 / 更新', play: '在 Google Play 安裝 / 更新', hint: '如果打不開，請安裝或更新 SayRam', note: '此頁面不儲存任何內容。行程只在連結裡。', err: '連結無效', allday: '時間未定' },
+    es: { title: 'Te llegó un evento', from: 'De: {n}', open: 'Abrir en SayRam', ios: 'Instalar / Actualizar en App Store', play: 'Instalar / Actualizar en Google Play', hint: 'Si no se abre, instala o actualiza SayRam', note: 'Esta página no guarda nada. El evento solo está en el enlace.', err: 'El enlace no es válido', allday: 'Sin hora' },
+    fr: { title: 'Vous avez reçu un événement', from: 'De : {n}', open: 'Ouvrir dans SayRam', ios: 'Installer / Mettre à jour sur l’App Store', play: 'Installer / Mettre à jour sur Google Play', hint: 'Si rien ne s’ouvre, installez ou mettez à jour SayRam', note: 'Cette page n’enregistre rien. L’événement est uniquement dans le lien.', err: 'Ce lien n’est pas valide', allday: 'Sans heure' },
+    de: { title: 'Du hast einen Termin erhalten', from: 'Von: {n}', open: 'In SayRam öffnen', ios: 'Im App Store installieren / aktualisieren', play: 'Bei Google Play installieren / aktualisieren', hint: 'Öffnet sich nichts? Dann SayRam installieren oder aktualisieren', note: 'Diese Seite speichert nichts. Der Termin steckt nur im Link.', err: 'Dieser Link ist ungültig', allday: 'Ohne Uhrzeit' },
+    pt: { title: 'Chegou um compromisso', from: 'De: {n}', open: 'Abrir no SayRam', ios: 'Instalar / Atualizar na App Store', play: 'Instalar / Atualizar no Google Play', hint: 'Se não abrir, instale ou atualize o SayRam', note: 'Esta página não salva nada. O compromisso fica só no link.', err: 'Este link não é válido', allday: 'Sem horário' }
   };
   function pickLang() {
     var list = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']);
@@ -135,8 +138,12 @@
   var ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   $('title').textContent = T.title;
-  $('install').textContent = T.install;
-  $('install').href = ios ? APP_STORE : PLAY;
+  // 스토어 버튼: 아이폰은 App Store 하나, 안드로이드는 Google Play 하나, 컴퓨터 등 그 밖은 둘 다
+  var android = /Android/i.test(navigator.userAgent);
+  function storeBtn(id, isIos) { $(id).textContent = isIos ? T.ios : T.play; $(id).href = isIos ? APP_STORE : PLAY; $(id).hidden = false; }
+  if (ios) storeBtn('install', true);
+  else if (android) storeBtn('install', false);
+  else { storeBtn('install', true); storeBtn('install2', false); }
   $('note').textContent = T.note;
   if (!data) {
     $('title').textContent = T.err;
@@ -154,6 +161,8 @@
   $('open').href = 'mallo://receive?d=' + encodeURIComponent(raw);
   $('open').textContent = T.open;
   $('open').hidden = false;
+  $('hint').textContent = T.hint;
+  $('hint').hidden = false;
 })();
 </script>
 </body>

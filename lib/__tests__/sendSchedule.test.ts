@@ -4,7 +4,9 @@ import {
   MAX_LINK,
   MAX_PAYLOAD,
   SHARE_PAGE_URL,
+  LEGACY_SHARE_PAGE_URL,
   applySharedUpdate,
+  classifyPayload,
   buildShareLink,
   canArmShared,
   decodePayload,
@@ -92,10 +94,70 @@ describe('링크 만들기·읽기 왕복', () => {
     expect(parseReceiveUrl(`mallo://receive?d=${encodeURIComponent(p)}`, NOW)).toMatchObject({ ok: true });
     expect(parseReceiveUrl(link, NOW)).toMatchObject({ ok: true });
   });
+  test('페이로드 뒤 꼬리(?utm·&x·마침표)와 %23으로 바뀐 #도 읽는다', () => {
+    const { link } = buildShareLink(base(), '아들', NOW);
+    expect(parseReceiveUrl(`${link}?utm=1`, NOW)).toMatchObject({ ok: true });
+    expect(parseReceiveUrl(`${link}&x=1`, NOW)).toMatchObject({ ok: true });
+    expect(parseReceiveUrl(`${link}.`, NOW)).toMatchObject({ ok: true });
+    expect(parseReceiveUrl(link.replace('#', '%23'), NOW)).toMatchObject({ ok: true });
+  });
   test('받기 주소가 아니면 null(다른 링크 처리로 넘긴다)', () => {
     expect(parseReceiveUrl('mallo://import-shifts?v=1&p=x', NOW)).toBeNull();
     expect(parseReceiveUrl('mallo://widget/mic', NOW)).toBeNull();
     expect(parseReceiveUrl('https://example.com/#v1.abc', NOW)).toBeNull();
+  });
+});
+
+describe('받기 주소 — 새 주소·옛 주소·mallo://', () => {
+  const p = () => payloadOf(buildShareLink(base(), '아들', NOW).link);
+  test('보내는 링크는 새 주소', () => {
+    expect(SHARE_PAGE_URL).toBe('https://danielpark64.github.io/sayram/s/');
+    expect(buildShareLink(base(), '', NOW).link.startsWith('https://danielpark64.github.io/sayram/s/#v1.')).toBe(true);
+  });
+  test('세 주소 모두 같은 일정으로 읽는다', () => {
+    for (const u of [
+      `https://danielpark64.github.io/sayram/s/#${p()}`,
+      `${LEGACY_SHARE_PAGE_URL}#${p()}`,
+      `https://sayram-app.github.io/s/#${p()}`,
+      `mallo://receive?d=${p()}`,
+    ]) expect(parseReceiveUrl(u, NOW)).toMatchObject({ ok: true, data: { content: '엄마 병원', from: '아들' } });
+  });
+  test('index.html·슬래시 없음·메신저가 붙인 ?꼬리도 읽는다', () => {
+    expect(parseReceiveUrl(`https://danielpark64.github.io/sayram/s/index.html#${p()}`, NOW)).toMatchObject({ ok: true });
+    expect(parseReceiveUrl(`https://danielpark64.github.io/sayram/s#${p()}`, NOW)).toMatchObject({ ok: true });
+    expect(parseReceiveUrl(`https://danielpark64.github.io/sayram/s/?fbclid=abc#${p()}`, NOW)).toMatchObject({ ok: true });
+    expect(parseReceiveUrl(`https://sayram-app.github.io/s/?x=1#${p()}`, NOW)).toMatchObject({ ok: true });
+  });
+  test('같은 도메인의 다른 길·다른 앱 주소는 받기 주소가 아니다(null)', () => {
+    expect(parseReceiveUrl(`https://danielpark64.github.io/alarmapp/s/#${p()}`, NOW)).toBeNull();
+    expect(parseReceiveUrl(`https://danielpark64.github.io/sayram/#${p()}`, NOW)).toBeNull();
+    expect(parseReceiveUrl(`https://danielpark64.github.io/sayram/s/`, NOW)).toBeNull();
+    expect(parseReceiveUrl(`https://evil.example/danielpark64.github.io/sayram/s/#${p()}`, NOW)).toBeNull();
+    expect(parseReceiveUrl(`https://danielpark64.github.io.evil.example/sayram/s/#${p()}`, NOW)).toBeNull();
+  });
+  test('새 주소의 깨진 링크는 { ok: false }', () => {
+    expect(parseReceiveUrl('https://danielpark64.github.io/sayram/s/#v1.@@@', NOW)).toEqual({ ok: false });
+    expect(parseReceiveUrl('https://danielpark64.github.io/sayram/s/#', NOW)).toEqual({ ok: false });
+  });
+});
+
+describe('더 새 형식 — 업데이트가 필요해요', () => {
+  const body = toBase64Url(JSON.stringify({ i: 'a1', c: '병원', d: '2026-11-25', h: 900, t: NOW }));
+  test('v2·v10 은 깨진 링크가 아니라 업데이트 필요', () => {
+    expect(classifyPayload(`v2.${body}`, NOW)).toEqual({ ok: false, needsUpdate: true });
+    expect(classifyPayload('v10.아무거나~모양', NOW)).toEqual({ ok: false, needsUpdate: true });
+    expect(parseReceiveUrl(`mallo://receive?d=v2.${body}`, NOW)).toEqual({ ok: false, needsUpdate: true });
+    expect(parseReceiveUrl(`https://danielpark64.github.io/sayram/s/#v2.${body}`, NOW)).toEqual({ ok: false, needsUpdate: true });
+    expect(parseReceiveUrl(`https://sayram-app.github.io/s/#v3.${body}`, NOW)).toEqual({ ok: false, needsUpdate: true });
+  });
+  test('v1 은 지금처럼 일정, 깨진 것·옛 번호·번호 없음은 깨진 링크', () => {
+    expect(classifyPayload(`v1.${body}`, NOW)).toMatchObject({ ok: true });
+    expect(classifyPayload('v1.@@@', NOW)).toEqual({ ok: false });
+    expect(classifyPayload(`v0.${body}`, NOW)).toEqual({ ok: false });
+    expect(classifyPayload(body, NOW)).toEqual({ ok: false });
+    expect(classifyPayload('v2.', NOW)).toEqual({ ok: false });
+    expect(classifyPayload('vx.abc', NOW)).toEqual({ ok: false });
+    expect(classifyPayload('v2.' + 'A'.repeat(9000), NOW)).toEqual({ ok: false });
   });
 });
 

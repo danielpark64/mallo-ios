@@ -104,7 +104,7 @@ import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, p
 import { ScheduleDetail, type DetailOpenSheet } from './components/ScheduleDetail';
 import { SendSheet } from './components/SendSheet';
 import { ReceiveSheet } from './components/ReceiveSheet';
-import { applySharedUpdate, canArmShared, parseReceiveUrl, receiveDecision, recordFromShared, type ReceiveParse, type SharedSchedule } from './lib/sendSchedule';
+import { applySharedUpdate, canArmShared, parseReceiveUrl, SAYRAM_APP_STORE_URL, SAYRAM_PLAY_STORE_URL, receiveDecision, recordFromShared, type ReceiveParse, type SharedSchedule } from './lib/sendSchedule';
 import { ScheduleEditor, type AppendResult, type EditorPrefill, type EditorResult, type ImportSeed } from './components/ScheduleEditor';
 
 
@@ -832,7 +832,7 @@ function AppInner() {
         if (!(initial && launchedFromHistory())) widgetLinkRef.current(w);
         return;
       }
-      // 일정 받기(mallo://receive?d=…) — 확인 시트를 띄운다(바로 저장하지 않는다)
+      // 일정 받기(mallo://receive?d=… · https 안내 페이지 주소 새·옛) — 확인 시트를 띄운다(바로 저장하지 않는다)
       const rv = parseReceiveUrl(url);
       if (rv) {
         // Android 최근 앱에서 다시 열면 예전에 누른 링크가 다시 온다 → 무시(같은 시트가 또 뜨지 않게)
@@ -1148,6 +1148,17 @@ function AppInner() {
   const [receiving, setReceiving] = useState<{ data: SharedSchedule; update: boolean } | null>(null);
   const [pendingReceive, setPendingReceive] = useState<SharedSchedule | null>(null);
   const handleReceiveLink = (rv: ReceiveParse) => {
+    if (!rv.ok && rv.needsUpdate) {
+      // 더 새 형식(새 버전 앱이 보낸 링크) — 깨진 링크가 아니라 이 앱을 업데이트하면 열린다
+      const openStore = () => {
+        Linking.openURL(Platform.OS === 'android' ? SAYRAM_PLAY_STORE_URL : SAYRAM_APP_STORE_URL).catch(() => {});
+      };
+      Alert.alert(t('업데이트가 필요해요'), t('새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.'), [
+        { text: t('닫기'), style: 'cancel' },
+        { text: t('업데이트'), onPress: openStore },
+      ]);
+      return;
+    }
     if (!rv.ok) { Alert.alert(t('링크가 올바르지 않아요')); return; } // 깨진 링크는 저장하지 않고 알리기만
     const dec = receiveDecision(rv.data, recordsRef.current);
     if (dec.kind === 'stale') { Alert.alert(t('이미 받은 일정이에요'), (dec.existing.content || '').slice(0, 60)); return; }

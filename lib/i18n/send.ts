@@ -32,6 +32,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': 'You already have this schedule',
     '내가 보낸 일정이에요': 'This is a schedule you sent',
     '링크가 올바르지 않아요': 'This link isn’t valid',
+    '업데이트가 필요해요': 'Update needed',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': 'This schedule uses a newer format. Update the app, then tap the link again to open it.',
+    '업데이트': 'Update',
     '받은 일정': 'Received',
   },
   ja: {
@@ -63,6 +66,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': 'すでに受け取った予定です',
     '내가 보낸 일정이에요': '自分が送った予定です',
     '링크가 올바르지 않아요': 'リンクが正しくありません',
+    '업데이트가 필요해요': 'アップデートが必要です',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': '新しい形式の予定です。アップデートしてからリンクをもう一度タップすると開きます。',
+    '업데이트': 'アップデート',
     '받은 일정': '届いた予定',
   },
   'zh-Hans': {
@@ -94,6 +100,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': '已经收到过这个日程',
     '내가 보낸 일정이에요': '这是你发出的日程',
     '링크가 올바르지 않아요': '链接无效',
+    '업데이트가 필요해요': '需要更新',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': '这是新格式的日程。更新后再次点击链接即可打开。',
+    '업데이트': '更新',
     '받은 일정': '收到的日程',
   },
   'zh-Hant': {
@@ -125,6 +134,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': '已經收到過這個行程',
     '내가 보낸 일정이에요': '這是你傳出的行程',
     '링크가 올바르지 않아요': '連結無效',
+    '업데이트가 필요해요': '需要更新',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': '這是新格式的行程。更新後再次點選連結即可開啟。',
+    '업데이트': '更新',
     '받은 일정': '收到的行程',
   },
   es: {
@@ -156,6 +168,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': 'Ya tienes este evento',
     '내가 보낸 일정이에요': 'Este evento lo enviaste tú',
     '링크가 올바르지 않아요': 'El enlace no es válido',
+    '업데이트가 필요해요': 'Hace falta actualizar',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': 'Este evento usa un formato nuevo. Actualiza la app y vuelve a tocar el enlace para abrirlo.',
+    '업데이트': 'Actualizar',
     '받은 일정': 'Recibido',
   },
   fr: {
@@ -187,6 +202,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': 'Vous avez déjà cet événement',
     '내가 보낸 일정이에요': 'C’est un événement que vous avez envoyé',
     '링크가 올바르지 않아요': 'Ce lien n’est pas valide',
+    '업데이트가 필요해요': 'Mise à jour requise',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': 'Cet événement utilise un nouveau format. Mettez l’app à jour, puis touchez à nouveau le lien pour l’ouvrir.',
+    '업데이트': 'Mettre à jour',
     '받은 일정': 'Reçu',
   },
   de: {
@@ -218,6 +236,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': 'Diesen Termin hast du schon',
     '내가 보낸 일정이에요': 'Diesen Termin hast du selbst gesendet',
     '링크가 올바르지 않아요': 'Dieser Link ist ungültig',
+    '업데이트가 필요해요': 'Update erforderlich',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': 'Dieser Termin hat ein neues Format. Aktualisiere die App und tippe dann erneut auf den Link, um ihn zu öffnen.',
+    '업데이트': 'Aktualisieren',
     '받은 일정': 'Erhalten',
   },
   pt: {
@@ -249,6 +270,9 @@ export const SEND_DICTS: Record<Exclude<Lang, 'ko'>, Record<string, string>> = {
     '이미 받은 일정이에요': 'Você já tem este compromisso',
     '내가 보낸 일정이에요': 'Este compromisso foi você que enviou',
     '링크가 올바르지 않아요': 'Este link não é válido',
+    '업데이트가 필요해요': 'Atualização necessária',
+    '새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.': 'Este evento usa um formato novo. Atualize o app e toque no link de novo para abri-lo.',
+    '업데이트': 'Atualizar',
     '받은 일정': 'Recebido',
   },
 };

@@ -2,7 +2,7 @@
   "expo": {
     "name": "SayRam",
     "slug": "mallo",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.danielpark.sayram",
-      "buildNumber": "14",
+      "buildNumber": "15",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ko",
         "CFBundleLocalizations": [
@@ -57,7 +57,10 @@
         ],
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "appleTeamId": "T5Z6ACK2PU"
+      "appleTeamId": "T5Z6ACK2PU",
+      "associatedDomains": [
+        "applinks:danielpark64.github.io"
+      ]
     },
     "android": {
       "package": "com.danielpark.sayram",
@@ -78,13 +81,30 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.USE_FULL_SCREEN_INTENT"
       ],
-      "versionCode": 7,
+      "versionCode": 8,
       "blockedPermissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.WRITE_CONTACTS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "danielpark64.github.io",
+              "pathPrefix": "/sayram/s/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {

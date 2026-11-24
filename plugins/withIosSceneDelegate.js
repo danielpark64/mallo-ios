@@ -77,6 +77,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var launchOptions = appDelegate.launchOptions ?? [:]
     if let url = connectionOptions.urlContexts.first?.url {
       launchOptions[.url] = url
+    } else if let activity = connectionOptions.userActivities.first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb }),
+      let url = activity.webpageURL {
+      // 유니버설 링크(https://…)로 앱이 켜진 경우도 같은 자리에 심는다(getInitialURL이 읽도록)
+      launchOptions[.url] = url
     }
     let window = UIWindow(windowScene: windowScene)
     factory.startReactNative(
