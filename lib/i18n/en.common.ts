@@ -25,6 +25,11 @@ export const EN_COMMON: Record<string, string> = {
   '세이람 · 미리 알림': 'SayRam · Reminder',
   '알람 끄기': 'Stop alarm',
   '5분 후 다시': 'Snooze 5 min',
+  // 울림 카드(1.2.3, lib/ringCard.ts)
+  '끄기': 'Stop',
+  '지금 · 일정 시간': 'Now · Event time',
+  '다시 알림': 'Snoozed',
+  '{label} 알림': '{label}',
   '일정 알람 (소리+진동)': 'Schedule alarm (sound + vibration)',
   '일정 알람 (소리)': 'Schedule alarm (sound)',
   '일정 알람 (진동)': 'Schedule alarm (vibration)',

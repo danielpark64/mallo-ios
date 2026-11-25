@@ -1,6 +1,6 @@
 import { prepareVoiceAlarm, resetVoiceAlarms, voiceUriOf } from './voiceAlarm';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 // 알림 제목·버튼·채널 이름 번역. i18n → prefs → expo-file-system 순으로 끌려오므로 모듈 평가 시점이 아니라
 // 호출 시점에 읽고, 어떤 이유로든 i18n을 못 읽으면 한국어 원문을 쓴다 (알람 예약 자체는 절대 막지 않는다).
@@ -16,6 +16,7 @@ import {
   cancelNativeAlarms,
   cancelNativeAlarmsByRecordId,
   isNativeAlarmAvailable,
+  openNativeNotificationSettings,
   scheduleNativeAlarm,
 } from './nativeAlarm';
 import { usesAlarmKit } from './alarmkitRoute';
@@ -48,6 +49,22 @@ export async function requestNotificationPermission(): Promise<boolean> {
     ios: { allowAlert: true, allowBadge: true, allowSound: true, allowCriticalAlerts: true },
   });
   return status === 'granted';
+}
+
+/** 알림 권한이 꺼져 있지 않은지(묻지 않고 보기만). 거부(denied)일 때만 false — 아직 안 물은 상태(시스템 창이 떠 있는 중 등)는 안내하지 않는다 */
+export async function notificationPermissionGranted(): Promise<boolean> {
+  try {
+    const p = await Notifications.getPermissionsAsync();
+    return p.granted || p.status !== 'denied';
+  } catch {
+    return true;
+  }
+}
+
+/** 알림이 꺼져 있을 때 켜는 화면: Android는 앱 알림 설정, iOS(또는 네이티브 없음)는 설정 앱의 세이람 */
+export function openNotificationSettings(): void {
+  if (openNativeNotificationSettings()) return;
+  Linking.openSettings().catch(() => {});
 }
 
 export type AlarmMode = 'both' | 'sound' | 'vibe';
@@ -172,6 +189,11 @@ export type AlarmOptions = {
   voiceUri?: string | null;
   /** 일정에 고른 알람 소리(record.alarmSound). 없으면 설정의 기본 소리 (lib/alarmSounds.ts) */
   alarmSound?: string | null;
+  /**
+   * 스누즈로 다시 거는 것이면 원래 알림 정보(1.2.3 Android 울림 카드) — 카드가 "다시 알림" 띠와 원래 일정 시각을 보여 준다.
+   * 없으면 이번에 거는 시각이 일정 시각, 정각 알림으로 본다.
+   */
+  snoozeOf?: { eventAt?: Date | null; leadMin: number };
 };
 
 export async function scheduleAlarm(
@@ -218,7 +240,8 @@ async function scheduleSlots(
   // 알람 소리: 일정에 고른 것 → 설정 기본. 정각·미리 알림·재알림·스누즈·AlarmKit·Android 네이티브 모두 같은 소리
   const toneId = resolveAlarmSound(opts.alarmSound);
   const toneFile = Platform.OS === 'android' ? androidSoundFile(toneId) : iosSoundFile(toneId);
-  const sound = mode === 'vibe' ? undefined : (voiceSound ?? toneFile);
+  // 진동만: iOS는 소리를 비우면 진동 없는 무음 배너가 된다 → 무음 파일을 붙여 진동만 나게(교대알람 alarmTones.notifSoundFor에서 가져옴, 11-25)
+  const sound = mode === 'vibe' ? (Platform.OS === 'ios' ? 'silent_short.wav' : undefined) : (voiceSound ?? toneFile);
   // Android: 소리가 채널 단위라 모드 × 소리 채널을 고른다(진동만은 예전 alarm_vibe 그대로). iOS는 무시됨
   const channelId = await ensureAndroidChannel(mode, toneId);
   const akSound = iosSoundFile(toneId);
@@ -245,7 +268,7 @@ async function scheduleSlots(
     expoSlots++;
     const nativeArmed =
       useNative &&
-      scheduleNativeAlarm({ key: identifier, recordId: subId, at: fireAt, title: t('세이람 · 미리 알림'), body, mode, tone: toneId });
+      scheduleNativeAlarm({ key: identifier, recordId: subId, at: fireAt, title: t('세이람 · 미리 알림'), body, mode, tone: toneId, eventAt: at, leadMin: m, content });
     try {
       const id = await Notifications.scheduleNotificationAsync({
         identifier,
@@ -301,7 +324,12 @@ async function scheduleSlots(
     const identifier = `mallo_${recordId}_${offset}`;
     const nativeArmed =
       useNative &&
-      scheduleNativeAlarm({ key: identifier, recordId, at: fireAt, title: t('세이람'), body: content, mode, tone: toneId });
+      scheduleNativeAlarm({
+        key: identifier, recordId, at: fireAt, title: t('세이람'), body: content, mode, tone: toneId, content,
+        ...(opts.snoozeOf
+          ? { eventAt: opts.snoozeOf.eventAt ?? undefined, leadMin: opts.snoozeOf.leadMin, snoozed: true }
+          : { eventAt: at, leadMin: 0 }),
+      });
     try {
       const id = await Notifications.scheduleNotificationAsync({
         identifier,
@@ -344,6 +372,22 @@ export async function cancelAlarmByRecordId(recordId: string): Promise<void> {
       .filter((n) => (n.content.data as any)?.recordId === recordId)
       .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {}))
   );
+  await dismissPresentedFor(recordId);
+}
+
+/**
+ * 끈(또는 지우·고친) 일정의 이미 뜬 알림을 알림 줄·알림 센터에서 지운다 — 지난 알람 알림이 쌓이지 않게.
+ * 이미 뜬 것만 지우므로 새로 걸 예약에는 영향이 없다. 실패해도 알람 취소는 막지 않는다.
+ */
+async function dismissPresentedFor(recordId: string): Promise<void> {
+  try {
+    const shown = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(
+      (shown ?? [])
+        .filter((n) => (n.request?.content?.data as any)?.recordId === recordId)
+        .map((n) => Notifications.dismissNotificationAsync(n.request.identifier).catch(() => {}))
+    );
+  } catch {}
 }
 
 /**

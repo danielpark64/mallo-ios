@@ -51,7 +51,7 @@ Si no dices fecha ni hora, como un rápido "comprar leche" o una reunión o clas
 Guarda todas las citas y grabaciones en una carpeta y elige esa carpeta en tu nuevo teléfono para recuperarlo todo.
 
 [Sin inicio de sesión, sin servidor, sin rastreo publicitario]
-No hay cuenta ni inicio de sesión. Las citas y grabaciones se quedan solo en este dispositivo y la app no envía tus datos a ningún sitio. (El paso de voz a texto lo hace el reconocimiento de voz de Apple en tu dispositivo.) Al final de la lista hay un pequeño banner que presenta el canal de YouTube del desarrollador. No se usa ninguna red publicitaria.
+No hay cuenta ni inicio de sesión. Tus citas y grabaciones nunca salen de tu teléfono. Para comprobar si hay una versión nueva, la app solo consulta el número de versión en la App Store. (El paso de voz a texto lo hace el reconocimiento de voz de Apple en tu dispositivo.) Al final de la lista hay un pequeño banner que presenta el canal de YouTube del desarrollador. No se usa ninguna red publicitaria.
 
 [Ligera]
 SayRam solo trabaja mientras grabas o reproduces. Nada se queda funcionando en segundo plano.

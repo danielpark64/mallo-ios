@@ -355,7 +355,7 @@ const MonthBlock = memo(function MonthBlock({
         return (
           <View key={wi} style={[s.week, { height: weekHeight(metrics, subH) }]}>
             {week.map((d, ci) => {
-              if (!d) return <View key={ci} style={s.cell} />;
+              if (!d) return <View key={`e${ci}`} style={s.cell} />;
               const k = ymdKey(d);
               const isToday = k === todayKey;
               const isSel = k === selKey;
@@ -374,7 +374,8 @@ const MonthBlock = memo(function MonthBlock({
               const holBelow = !!hol && !!shift;
               return (
                 <TouchableOpacity
-                  key={ci}
+                  // 칸 번호 대신 날짜+비번 여부로 — 근무표가 바뀌어 비번 배경이 뒤집힐 때 옛 스타일이 남지 않게(교대알람 CalendarView와 같게, 11-25)
+                  key={`${k}-${shift?.off ? 1 : 0}`}
                   style={[s.cell, shift?.off && s.cellOff, isSel && s.cellSel]}
                   onPress={() => onPickDay(d)}
                   activeOpacity={0.6}

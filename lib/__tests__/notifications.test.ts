@@ -9,6 +9,8 @@ jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: jest.fn(async () => {}),
   cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
   getAllScheduledNotificationsAsync: jest.fn(async () => []),
+  getPresentedNotificationsAsync: jest.fn(async () => []),
+  dismissNotificationAsync: jest.fn(async () => {}),
   getPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   SchedulableTriggerInputTypes: { DATE: 'date' },
@@ -90,6 +92,16 @@ describe('cancelAlarmByRecordId', () => {
     await cancelAlarmByRecordId('a');
     const cancelled = mocked.cancelScheduledNotificationAsync.mock.calls.map((c) => c[0]);
     expect(cancelled.sort()).toEqual(['mallo_a_0', 'mallo_a_1']);
+  });
+
+  test('끈 일정의 이미 뜬 알림도 알림 줄에서 지운다(다른 일정 알림은 그대로)', async () => {
+    mocked.getPresentedNotificationsAsync.mockResolvedValueOnce([
+      { request: { identifier: 'mallo_a_0', content: { data: { recordId: 'a' } } } },
+      { request: { identifier: 'mallo_b_0', content: { data: { recordId: 'b' } } } },
+      { request: { identifier: 'other', content: { data: {} } } },
+    ] as any);
+    await cancelAlarmByRecordId('a');
+    expect(mocked.dismissNotificationAsync.mock.calls.map((c) => c[0])).toEqual(['mallo_a_0']);
   });
 });
 

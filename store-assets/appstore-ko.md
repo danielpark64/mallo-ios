@@ -55,7 +55,7 @@ SayRam 세이람 – 말로 하는 알람·일정
 일정과 녹음을 한 폴더로 백업하고, 새 폰에서 그 폴더를 골라 그대로 가져올 수 있어요.
 
 [로그인 없음, 서버 없음, 광고 추적 없음]
-회원가입도 로그인도 없어요. 일정과 녹음은 모두 이 기기 안에만 저장되고, 앱은 내 데이터를 어디로도 보내지 않아요. (말을 글로 바꾸는 일은 기기의 Apple 음성 인식이 맡습니다.) 일정 목록 맨 아래에 개발자의 유튜브 채널을 알리는 작은 배너가 하나 있어요. 광고 네트워크를 쓰지 않습니다.
+회원가입도 로그인도 없어요. 일정과 녹음은 폰 밖으로 나가지 않습니다. 새 버전 확인을 위해 App Store에 버전만 조회합니다. (말을 글로 바꾸는 일은 기기의 Apple 음성 인식이 맡습니다.) 일정 목록 맨 아래에 개발자의 유튜브 채널을 알리는 작은 배너가 하나 있어요. 광고 네트워크를 쓰지 않습니다.
 
 [가볍게]
 녹음하거나 재생할 때만 일하고, 뒤에서 계속 도는 작업이 없도록 만들었어요.
@@ -86,6 +86,7 @@ https://danielpark64.github.io/mallo-ios/privacy.html
 ## 앱 개인정보 보호(App Privacy)
 "데이터를 수집하지 않음(Data Not Collected)".
 (일정·녹음은 기기 안에만 저장, 서버·분석·광고 SDK 없음. 음성 인식은 Apple이 처리 — 개발자 수집 아님.)
+(1.2.3~: 앱을 열 때 App Store 공개 조회(itunes lookup)에 번들 ID·기기 지역만 보내 최신 버전 번호를 받는다 — 이용자 데이터가 아니고 개발자가 받지도 않으므로 '수집하지 않음' 그대로. 끄려면 lib/appInfo.ts IOS_UPDATE_CHECK_ENABLED.)
 
 ## 심사 정보 — 메모 (App Review에 보이는 글, 영어 권장)
 SayRam is a voice-first alarm & schedule app. Tap the red microphone button and speak naturally, e.g. "내일 오후 3시 치과 예약" (Korean) or switch the app language in Settings to English and say "Dentist tomorrow at 3 pm". The app parses the date/time on-device with rule-based code and schedules local notifications. No account or login is required. All data stays on the device; the app has no server. Microphone and Speech Recognition are used only while the user is recording. The small banner at the bottom of the schedule list links to the developer's own YouTube channel (no ad network).

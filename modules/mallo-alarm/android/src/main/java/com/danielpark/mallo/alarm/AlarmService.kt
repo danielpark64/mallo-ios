@@ -69,10 +69,13 @@ class AlarmService : Service() {
     private var displayListener: DisplayManager.DisplayListener? = null
     private var coverRelaunch: Runnable? = null
     private var keepFront: Runnable? = null
+    /** 지금 울리는 슬롯의 일정 정보(울림 화면·알림 버튼 인텐트에 함께 싣는다). ACTION_RING에서만 바꾼다 */
+    private var ringMeta: RingMeta = RingMeta.NONE
     private var balOverlay: View? = null
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         createChannel()
     }
 
@@ -86,6 +89,10 @@ class AlarmService : Service() {
         val tone = intent?.getStringExtra(AlarmScheduling.EXTRA_TONE)
             ?: (if (intent?.action == ACTION_SNOOZE || intent?.action == ACTION_STOP) currentRinging?.tone else null)
             ?: AlarmTones.DEFAULT
+        // 울림 카드용 일정 시각·몇 분 전(1.2.3). 없으면 끄기·5분 후는 지금 울리는 것, 새 울림(옛 예약)은 모름
+        val meta = RingMeta.from(intent)
+            ?: (if (intent?.action == ACTION_SNOOZE || intent?.action == ACTION_STOP) currentRinging?.meta else null)
+            ?: RingMeta.NONE
 
         when (intent?.action) {
             ACTION_STOP -> {
@@ -98,7 +105,7 @@ class AlarmService : Service() {
                 val info = currentRinging
                 val rid = recordId.ifEmpty { info?.recordId ?: "" }
                 stopEverything(rid)
-                scheduleSnooze(rid, title.ifEmpty { info?.title ?: AlarmLabels.app(this) }, body.ifEmpty { info?.body ?: "" }, soundOn, vibOn, tone)
+                scheduleSnooze(rid, title.ifEmpty { info?.title ?: AlarmLabels.app(this) }, body.ifEmpty { info?.body ?: "" }, soundOn, vibOn, tone, meta)
                 emit("malloAlarmSnoozed", rid)
                 return START_NOT_STICKY
             }
@@ -106,7 +113,8 @@ class AlarmService : Service() {
 
         // ACTION_RING (기본)
         stopRinging()
-        currentRinging = RingingInfo(recordId, title, body, soundOn, vibOn, tone)
+        ringMeta = meta
+        currentRinging = RingingInfo(recordId, title, body, soundOn, vibOn, tone, meta)
         val notif = buildServiceNotification(recordId, title, body, soundOn, vibOn, tone)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
@@ -162,7 +170,7 @@ class AlarmService : Service() {
             displayListener = null
             try {
                 val isCover = displayId != null && displayId != Display.DEFAULT_DISPLAY
-                val i = AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone)
+                val i = AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone, ringMeta)
                     // 기본 화면에서 키가드 해제를 요청하면 보안 잠금 입력창이 알람 화면을 가린다 — 커버 화면일 때만
                     .putExtra(AlarmRingActivity.EXTRA_DISMISS_KEYGUARD, isCover)
                 launchRing(i, displayId)
@@ -208,7 +216,7 @@ class AlarmService : Service() {
             override fun run() {
                 if (currentRinging == null) return
                 try {
-                    val i = AlarmRingActivity.intent(this@AlarmService, recordId, title, body, soundOn, vibOn, tone)
+                    val i = AlarmRingActivity.intent(this@AlarmService, recordId, title, body, soundOn, vibOn, tone, ringMeta)
                         .putExtra(AlarmRingActivity.EXTRA_DISMISS_KEYGUARD, true)
                     launchRing(i, displayId)
                 } catch (e: Exception) { e.printStackTrace() }
@@ -286,6 +294,19 @@ class AlarmService : Service() {
         handler.postDelayed(r, KEEP_FRONT_INTERVAL_MS)
     }
 
+    /**
+     * 울리는 도중 "다른 앱 위에 표시"가 켜졌으면 이 슬롯에서 바로 keepFront를 붙인다(1.2.3).
+     * 예전에는 슬롯을 시작할 때(showRingScreen)만 권한을 봐서, 울리는 중 권한을 켜면 그 1분 슬롯은 가려져도 다시 안 올라오고
+     * 다음 슬롯부터 붙었다. 새 타이머·폴링 없이 "알게 된 순간"에만 부른다: 울림 화면이 다시 앞에 올 때(AlarmRingActivity.onResume),
+     * 앱이 앞으로 올 때(JS AppState active → MalloAlarmModule.refreshRingFront). 이미 붙어 있거나 커버 화면 재표시 중이면 아무것도 안 한다.
+     */
+    private fun ensureKeepFront() {
+        if (currentRinging == null || keepFront != null || coverRelaunch != null || displayListener != null) return
+        if (!canDrawOverlays()) return
+        showBalOverlay() // Android 15+: 보이는 오버레이 창이 있어야 뒤에서 울림 화면을 다시 올릴 수 있다
+        scheduleKeepFront()
+    }
+
     private fun isScreenOn(): Boolean =
         try { (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive } catch (_: Exception) { true }
 
@@ -327,7 +348,7 @@ class AlarmService : Service() {
     }
 
     // 스누즈는 원장(AlarmStore)에 넣는다 — 재부팅 뒤에도 살아야 하고, 끄기/재동기화 때 recordId로 함께 정리된다.
-    private fun scheduleSnooze(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String) {
+    private fun scheduleSnooze(recordId: String, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String, meta: RingMeta) {
         if (recordId.isEmpty()) return
         val base = System.currentTimeMillis() + SNOOZE_MS
         // 미리 알림(id#preN)은 "한 번" 울리는 것이 설계라 스누즈도 1슬롯 (정각은 3슬롯)
@@ -337,6 +358,8 @@ class AlarmService : Service() {
                 key = AlarmScheduling.snoozeKey(recordId, slot), recordId = recordId,
                 triggerAtMs = base + slot * 60_000L, title = title, body = body,
                 soundOn = soundOn, vibOn = vibOn, tone = tone,
+                // 일정 시각·몇 분 전은 원래 알림 그대로, 띠만 "다시 알림"(1.2.3)
+                meta = meta.copy(snoozed = true),
             )
             AlarmScheduling.arm(this, e)
             AlarmStore.put(this, e)
@@ -592,6 +615,7 @@ class AlarmService : Service() {
                 putExtra(AlarmScheduling.EXTRA_SOUND_ON, soundOn)
                 putExtra(AlarmScheduling.EXTRA_VIB_ON, vibOn)
                 putExtra(AlarmScheduling.EXTRA_TONE, tone) // 워치·알림의 "5분 후"도 같은 소리로
+                ringMeta.putTo(this) // 울림이 끝난 뒤 알림의 "5분 후"를 눌러도 일정 시각·몇 분 전이 이어지게(1.2.3)
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -602,11 +626,11 @@ class AlarmService : Service() {
         // 누르면 울림 화면(끄기·5분 후)으로 바로 간다 — 이 알림은 울리는 동안에만 있으므로 언제 눌러도 울림 화면이 맞다
         val ringPi = PendingIntent.getActivity(
             this, 14,
-            AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone),
+            AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone, ringMeta),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, CHANNEL_SERVICE)
-            .setContentTitle(AlarmLabels.ringing(this))
+            .setContentTitle("${AlarmLabels.app(this)} · ${AlarmLabels.ringing(this)}")  // 어느 앱 알람인지(11-25)
             .setContentText(body)
             .setContentIntent(ringPi)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -650,6 +674,8 @@ class AlarmService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setWhen(System.currentTimeMillis())
             .setShowWhen(true)
+            // 어느 일정의 알림인지 적어 둔다 — 울림이 끝난 뒤 그 일정을 끄면 이 알림만 골라 지운다(clearStaleAlert)
+            .addExtras(android.os.Bundle().apply { putString(AlarmScheduling.EXTRA_RECORD_ID, recordId) })
         // "다른 앱 위에 표시"가 허용돼 있으면 showRingScreen이 디스플레이를 지정해 직접 띄운다. 그때 fullScreenIntent까지
         // 달면 시스템이 먼저 기본 화면에 띄워 버려 접은 플립의 커버 화면 지정과 경쟁한다(교대알람에서 확인) → 생략.
         // 단, 화면이 하나뿐인 일반 폰은 커버와 경쟁할 일이 없으므로 권한이 있어도 단다 — 직접 띄우기가 어떤 이유로 막혀도
@@ -657,7 +683,7 @@ class AlarmService : Service() {
         if (!canDrawOverlays() || !hasMultipleDisplays()) {
             val fullScreenPi = PendingIntent.getActivity(
                 this, 12,
-                AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone),
+                AlarmRingActivity.intent(this, recordId, title, body, soundOn, vibOn, tone, ringMeta),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             b.setFullScreenIntent(fullScreenPi, true)
@@ -672,6 +698,7 @@ class AlarmService : Service() {
         try { Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this) } catch (_: Exception) { false }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         autoStop?.let { handler.removeCallbacks(it) }
         cancelCoverWork()
         stopRinging()
@@ -683,8 +710,15 @@ class AlarmService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        data class RingingInfo(val recordId: String, val title: String, val body: String, val soundOn: Boolean, val vibOn: Boolean, val tone: String = AlarmTones.DEFAULT)
+        data class RingingInfo(val recordId: String, val title: String, val body: String, val soundOn: Boolean, val vibOn: Boolean, val tone: String = AlarmTones.DEFAULT, val meta: RingMeta = RingMeta.NONE)
         @Volatile var currentRinging: RingingInfo? = null
+        /** 살아 있는 서비스(ensureKeepFront 전달용). 메인 스레드에서만 읽고 쓴다 */
+        @Volatile private var instance: AlarmService? = null
+
+        /** 울리는 중이고 "다른 앱 위에 표시"가 이제 켜져 있으면 이 슬롯에 keepFront를 붙인다(아니면 아무것도 안 함) */
+        fun refreshKeepFront() {
+            Handler(Looper.getMainLooper()).post { instance?.ensureKeepFront() }
+        }
 
         private const val LEGACY_CHANNEL_ID = "mallo_alarm_ring"
         const val CHANNEL_SERVICE = "mallo_alarm_service"
@@ -711,6 +745,29 @@ class AlarmService : Service() {
         private const val VOICE_MAX_MS = 10_000L
         private const val VOICE_GAP_MS = 600L
         private const val VOICE_GAIN_MB = 900
+
+        /**
+         * 울림이 끝난 뒤(다음 슬롯 대기 중·마지막 슬롯 뒤)에 남아 있는 이 일정의 알람 알림(7002)과 Expo 표시 알림을 지운다.
+         * JS가 "본 것"으로 끄거나(알림 탭·앱에서 끄기) 일정을 지우·고칠 때 불린다 — 끈 알람의 지난 알림이 알림 줄에 쌓이지 않게.
+         * 7002는 하나뿐이라 지금 다른 일정을 보여 주고 있으면 건드리지 않는다(알림에 적어 둔 일정 ID로 확인).
+         * 예약은 건드리지 않는다(Expo 예약 취소는 비동기라 바로 뒤의 새 예약을 지울 수 있다 — JS가 직접 취소한다).
+         */
+        fun clearStaleAlert(context: Context, recordId: String) {
+            if (recordId.isEmpty()) return
+            try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val mine = nm.activeNotifications.any {
+                        it.id == ALERT_ID && it.notification.extras?.getString(AlarmScheduling.EXTRA_RECORD_ID) == recordId
+                    }
+                    if (mine) nm.cancel(ALERT_ID)
+                }
+            } catch (_: Exception) {}
+            val ids = (0..2).map { AlarmScheduling.expoKey(recordId, it) }.toMutableList()
+            val hash = recordId.indexOf('#')
+            if (hash > 0) ids.add("mallo_" + recordId.substring(0, hash) + "_" + recordId.substring(hash + 1))
+            ExpoTwin.dismissPresented(context, ids)
+        }
 
         fun stop(context: Context, recordId: String?) {
             try {

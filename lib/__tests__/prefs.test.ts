@@ -28,11 +28,11 @@ beforeEach(() => mockStore.clear());
 
 describe('prefs', () => {
   test('파일이 없으면 기본값(월 보기·시스템 테마·보통 글자)', () => {
-    expect(loadPrefs()).toEqual({ calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false, listCompact: false, calDensity: 1, shareWithAlarmApp: false, showLunar: false, sendName: '', sendVia: 'auto', alarmSound: 'default', alarmScreenAskedAt: 0 });
+    expect(loadPrefs()).toEqual({ calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false, listCompact: false, calDensity: 1, shareWithAlarmApp: false, showLunar: false, sendName: '', sendVia: 'auto', alarmSound: 'default', alarmScreenAskedAt: 0, updateLaterDay: '' });
   });
   test('저장한 달력 모드를 다시 읽는다 (다른 값은 기본값 유지)', () => {
     savePrefs({ calendarMode: 'week' });
-    expect(JSON.parse(mockStore.get(FILE)!)).toEqual({ calendarMode: 'week', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false, listCompact: false, calDensity: 1, shareWithAlarmApp: false, showLunar: false, sendName: '', sendVia: 'auto', alarmSound: 'default', alarmScreenAskedAt: 0 });
+    expect(JSON.parse(mockStore.get(FILE)!)).toEqual({ calendarMode: 'week', theme: 'system', fontScale: 'medium', defaultRemind: [30], language: 'system', voiceAlarm: false, listCompact: false, calDensity: 1, shareWithAlarmApp: false, showLunar: false, sendName: '', sendVia: 'auto', alarmSound: 'default', alarmScreenAskedAt: 0, updateLaterDay: '' });
     expect(loadPrefs().calendarMode).toBe('week');
   });
   test('테마·글자 크기를 저장하고 다시 읽는다, 이상한 값은 기본값', () => {
@@ -88,5 +88,14 @@ describe('prefs 일정 보내기 방식(1.2.1 나라별 메신저)', () => {
     expect(loadPrefs().sendVia).toBe('auto');
     mockStore.clear();
     expect(loadPrefs().sendVia).toBe('auto');
+  });
+});
+
+describe('새 버전 안내 [나중에] 날짜(1.2.3)', () => {
+  test('날짜 형식만 받고, 이상한 값은 빈 값', () => {
+    savePrefs({ updateLaterDay: '2026-11-25' });
+    expect(loadPrefs().updateLaterDay).toBe('2026-11-25');
+    savePrefs({ updateLaterDay: 'x' as string });
+    expect(loadPrefs().updateLaterDay).toBe('');
   });
 });

@@ -49,7 +49,7 @@ import { setDefaultAlarmSound } from '../alarmSounds';
 const mocked = Notifications as jest.Mocked<typeof Notifications>;
 const future = (min: number) => new Date(Date.now() + min * 60_000);
 const expoCalls = () => mocked.scheduleNotificationAsync.mock.calls.map((c: any) => c[0]);
-const nativeTones = () => mockNative.schedule.mock.calls.map((c) => c[7]);
+const nativeTones = () => mockNative.schedule.mock.calls.map((c) => c[7].tone); // 8번째 인자는 소리·일정 정보 묶음(1.2.3)
 
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -114,7 +114,7 @@ describe('Android', () => {
     });
     await resyncAlarms([rec('r1', { alarmSound: 'music_box' }), rec('r2', {}), rec('r3', { alarmSound: 'default' })]);
     const byRecord: Record<string, string[]> = {};
-    for (const c of mockNative.schedule.mock.calls) (byRecord[c[1]] ??= []).push(c[7]);
+    for (const c of mockNative.schedule.mock.calls) (byRecord[c[1]] ??= []).push(c[7].tone);
     expect(byRecord).toEqual({
       r1: ['music_box', 'music_box', 'music_box'],
       r2: ['gentle_piano', 'gentle_piano', 'gentle_piano'],
@@ -143,10 +143,10 @@ describe('iOS', () => {
     expect(mockAK.schedule.mock.calls[0][0].sound).toBe('alarm_long.wav');
   });
 
-  test('진동만은 iOS에서도 무음(AlarmKit도 안 씀)', async () => {
+  test('진동만은 iOS에서 무음 파일로 진동만(AlarmKit도 안 씀 — 소리를 비우면 진동 없는 배너가 됨)', async () => {
     mockAKAuth = 'authorized';
     await scheduleAlarm('r1', 'a', future(60), 'vibe', { alarmSound: 'marimba' });
     expect(mockAK.schedule).not.toHaveBeenCalled();
-    for (const c of expoCalls()) expect(c.content.sound).toBeUndefined();
+    for (const c of expoCalls()) expect(c.content.sound).toBe('silent_short.wav');
   });
 });

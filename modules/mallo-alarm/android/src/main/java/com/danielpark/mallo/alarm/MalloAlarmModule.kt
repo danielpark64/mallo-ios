@@ -8,11 +8,26 @@ import android.provider.Settings
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
 
 /**
  * JS(lib/nativeAlarm.ts)에 노출되는 Expo 모듈. Android 전용.
  * 모든 함수는 동기 Function — AlarmManager 호출은 수 ms고, 원장 디스크 쓰기는 AlarmStore가 워커로 미룬다.
  */
+/** schedule()의 소리·일정 정보 묶음(JS lib/nativeAlarm.ts가 객체로 넘긴다). 빠진 값은 옛 예약과 같은 기본값 */
+class ScheduleOptions : Record {
+    @Field val tone: String = ""
+    /** 일정 시각(ms). 0 = 모름 */
+    @Field val eventAtMs: Double = 0.0
+    /** 미리 알림 분(0 = 정각, -1 = 모름) */
+    @Field val leadMin: Int = -1
+    /** 일정 내용 원문(카드에 보여 줄 것) */
+    @Field val content: String = ""
+    /** 스누즈로 다시 거는 것(JS 쪽 5분 후 — 카드 띠 "다시 알림") */
+    @Field val snoozed: Boolean = false
+}
+
 class MalloAlarmModule : Module() {
     private val context: Context
         get() = (appContext.reactContext ?: throw Exceptions.ReactContextLost()).applicationContext
@@ -45,12 +60,16 @@ class MalloAlarmModule : Module() {
             id
         }
 
-        /** key = Expo 식별자와 동일(mallo_<recordId>_<slot>). 같은 키로 다시 부르면 덮어쓴다. */
-        Function("schedule") { key: String, recordId: String, triggerAtMs: Double, title: String, body: String, soundOn: Boolean, vibOn: Boolean, tone: String ->
+        /**
+         * key = Expo 식별자와 동일(mallo_<recordId>_<slot>). 같은 키로 다시 부르면 덮어쓴다.
+         * Expo 동기 함수 인자는 8개가 한도라 소리·일정 정보는 opts 하나로 받는다(1.2.3 — 울림 카드의 일정 시각·몇 분 전).
+         */
+        Function("schedule") { key: String, recordId: String, triggerAtMs: Double, title: String, body: String, soundOn: Boolean, vibOn: Boolean, opts: ScheduleOptions ->
             val e = AlarmStore.Entry(
                 key = key, recordId = recordId, triggerAtMs = triggerAtMs.toLong(),
                 title = title, body = body, soundOn = soundOn, vibOn = vibOn,
-                tone = tone.ifEmpty { AlarmTones.DEFAULT },
+                tone = opts.tone.ifEmpty { AlarmTones.DEFAULT },
+                meta = RingMeta(eventAtMs = opts.eventAtMs.toLong(), leadMin = opts.leadMin, snoozed = opts.snoozed, content = opts.content),
             )
             AlarmScheduling.arm(context, e)
             AlarmStore.put(context, e)
@@ -62,6 +81,7 @@ class MalloAlarmModule : Module() {
 
         Function("cancelByRecordId") { recordId: String ->
             if (AlarmService.currentRinging?.recordId == recordId) AlarmService.stop(context, recordId)
+            else AlarmService.clearStaleAlert(context, recordId)   // 울림이 끝난 뒤 남은 알람 알림(7002)·Expo 표시 알림 정리
             AlarmScheduling.cancelByRecordId(context, recordId)
         }
 
@@ -75,6 +95,53 @@ class MalloAlarmModule : Module() {
         }
 
         Function("getRingingRecordId") { -> AlarmService.currentRinging?.recordId }
+
+        /** 앱이 앞으로 올 때(JS AppState active) — 울리는 중 "다른 앱 위에 표시"가 켜졌으면 이 슬롯에 keepFront를 붙인다(1.2.3) */
+        Function("refreshRingFront") { AlarmService.refreshKeepFront() }
+
+        /** 울리는 중이면 울림 화면을 맨 앞에 띄운다(알림 본문을 눌러 앱이 열렸을 때 — 끄지 않고 끄기 화면으로). 울리는 중이 아니면 false */
+        Function("showRingScreen") { ->
+            val starter: Context = appContext.currentActivity ?: context
+            val i = AlarmRingActivity.ringingIntent(starter)
+            if (i == null) false
+            else try { starter.startActivity(i); true } catch (e: Exception) { e.printStackTrace(); false }
+        }
+
+        /** 배터리 최적화에서 빠져 있는지(빠져 있어야 Doze·절전에서도 울림 화면이 제때 뜬다). 6.0 미만은 늘 true */
+        Function("isIgnoringBatteryOptimizations") { ->
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) true
+            else try {
+                (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(context.packageName)
+            } catch (_: Exception) { true }
+        }
+
+        /**
+         * 배터리 최적화 목록 화면을 연다(사용자가 세이람을 찾아 "최적화 안 함"으로). 바로 묻는 창
+         * (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)은 권한·Play 선언이 필요해 쓰지 않는다. 없는 기기는 앱 정보 화면.
+         */
+        Function("openBatteryOptimizationSettings") {
+            var opened = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                try {
+                    context.startActivity(
+                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+                    )
+                    opened = true
+                } catch (_: Exception) {}
+            }
+            if (!opened) openAppDetails()
+        }
+
+        /** 이 앱의 알림 설정 화면(알림 권한이 꺼져 있을 때). 없는 기기는 앱 정보 화면 */
+        Function("openNotificationSettings") {
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+                )
+            } catch (_: Exception) { openAppDetails() }
+        }
 
         Function("canScheduleExact") { -> AlarmScheduling.canScheduleExact(context) }
 
@@ -141,6 +208,11 @@ class MalloAlarmModule : Module() {
             AlarmLabels.save(context, stop, snooze, ringing, app)
         }
 
+        /** 울림 카드 글자(띠·오늘/내일·끄기·앱 언어) — 키는 AlarmLabels.RING_KEYS. JS lib/ringCard.ts ringCardLabels()가 만든다(1.2.3) */
+        Function("setRingLabels") { labels: Map<String, String> ->
+            AlarmLabels.saveRing(context, labels)
+        }
+
         // [VOICE_ALARM] 보류된 기능 (setVoice/clearVoices)
         /** "내 목소리" 알람: 이 일정이 울릴 때 쓸 녹음 파일. path가 비면 기본 알람음으로 되돌린다. */
         Function("setVoice") { recordId: String, path: String ->
@@ -155,6 +227,15 @@ class MalloAlarmModule : Module() {
         Function("listScheduled") { ->
             AlarmStore.all(context).map { mapOf("key" to it.key, "recordId" to it.recordId, "at" to it.triggerAtMs.toDouble()) }
         }
+    }
+
+    private fun openAppDetails() {
+        try {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                    .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+            )
+        } catch (_: Exception) {}
     }
 
     private fun showRingScreenIfRinging() {

@@ -51,7 +51,7 @@ Se você não disser data nem hora, como um rápido "comprar leite" ou uma reuni
 Faça backup de todos os compromissos e gravações numa pasta e escolha essa pasta no celular novo para recuperar tudo.
 
 [Sem login, sem servidor, sem rastreamento de anúncios]
-Não há conta nem login. Compromissos e gravações ficam só neste aparelho e o app não envia seus dados para lugar nenhum. (A conversão de voz em texto é feita pelo reconhecimento de fala da Apple no seu aparelho.) Um pequeno banner no fim da lista apresenta o canal do desenvolvedor no YouTube. Nenhuma rede de anúncios é usada.
+Não há conta nem login. Seus compromissos e gravações nunca saem do seu celular. Para verificar se há uma nova versão, o app consulta na App Store apenas o número da versão. (A conversão de voz em texto é feita pelo reconhecimento de fala da Apple no seu aparelho.) Um pequeno banner no fim da lista apresenta o canal do desenvolvedor no YouTube. Nenhuma rede de anúncios é usada.
 
 [Leve]
 O SayRam só trabalha enquanto você grava ou reproduz. Nada fica rodando em segundo plano.

@@ -132,6 +132,11 @@
     try { return new Intl.DateTimeFormat(loc, opt).format(d); } catch (e) { return d.toLocaleString(); }
   }
 
+  // LINE 안 브라우저는 앱 주소를 막는 경우가 있다 — LINE 공식 기능 openExternalBrowser=1로 기본 브라우저에서 다시 연다(교대알람 a39c4a0)
+  if (/\bLine\//i.test(navigator.userAgent || '') && !/[?&]openExternalBrowser=1/.test(location.search)) {
+    location.replace(location.pathname + (location.search ? location.search + '&' : '?') + 'openExternalBrowser=1' + location.hash);
+    return;
+  }
   var raw = '';
   try { raw = decodeURIComponent((location.hash || '').replace(/^#/, '')); } catch (e) { raw = ''; }
   var data = parse(raw);
@@ -158,7 +163,12 @@
   $('content').textContent = data.c;
   $('card').hidden = false;
   // 앱 열기: mallo://receive?d=v1.… (앱의 scheme — app.json "scheme": "mallo")
-  $('open').href = 'mallo://receive?d=' + encodeURIComponent(raw);
+  // Android는 intent:// 로 연다 — 카톡·LINE 같은 메신저 안 브라우저는 mallo://를 막는 경우가 많지만 intent://는 대부분 앱으로 넘긴다.
+  // 앱이 없으면 Play로(교대알람 9f1e9e3에서 검증된 방식, 2026-11-25 가져옴). 세이람은 호스트 receive가 있어야 앱이 받는다.
+  var q = 'receive?d=' + encodeURIComponent(raw);
+  $('open').href = android
+    ? 'intent://' + q + '#Intent;scheme=mallo;package=com.danielpark.sayram;S.browser_fallback_url=' + encodeURIComponent(PLAY) + ';end'
+    : 'mallo://' + q;
   $('open').textContent = T.open;
   $('open').hidden = false;
   $('hint').textContent = T.hint;

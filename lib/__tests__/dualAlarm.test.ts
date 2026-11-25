@@ -76,7 +76,9 @@ describe('scheduleAlarm — 두 경로 모두 예약', () => {
     expect(nativeCalls.map((c) => c[0])).toEqual(['mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
     expect(nativeCalls.map((c) => c[1])).toEqual(['r1', 'r1', 'r1']);
     expect(nativeCalls.map((c) => c[2] - at.getTime())).toEqual([0, 60_000, 120_000]);
-    expect(nativeCalls[0].slice(3)).toEqual(['세이람', '회의', true, true, 'default']);
+    expect(nativeCalls[0].slice(3)).toEqual(['세이람', '회의', true, true, { tone: 'default', eventAtMs: at.getTime(), leadMin: 0, content: '회의', snoozed: false }]);
+    // 울림 카드(1.2.3): +1·+2분 재알림도 일정 시각은 정각 그대로, 정각 알림(leadMin 0)
+    expect(nativeCalls.map((c) => [c[7].eventAtMs, c[7].leadMin])).toEqual([[at.getTime(), 0], [at.getTime(), 0], [at.getTime(), 0]]);
 
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
     const expoOffsets = mocked.scheduleNotificationAsync.mock.calls.map(
@@ -170,6 +172,16 @@ describe('resyncAlarms — 전체 재스케줄', () => {
   });
 });
 
+test('JS 쪽 5분 후(snoozeOf): 원래 일정 시각·몇 분 전과 snoozed를 넘겨 카드에 "다시 알림"', async () => {
+  const orig = future(-3);
+  const at = future(5);
+  await scheduleAlarm('r1#pre30', '치과', at, 'both', { single: true, snoozeOf: { eventAt: orig, leadMin: 30 } });
+  expect(mockNative.schedule.mock.calls[0][7]).toEqual({ tone: 'default', eventAtMs: orig.getTime(), leadMin: 30, content: '치과', snoozed: true });
+  mockNative.schedule.mockClear();
+  await scheduleAlarm('r2', '회의', at, 'both', { single: true, snoozeOf: { eventAt: null, leadMin: 0 } });
+  expect(mockNative.schedule.mock.calls[0][7]).toMatchObject({ eventAtMs: 0, snoozed: true }); // 일정 시각 모름 → 띠 없이
+});
+
 describe('미리 알림 — 네이티브·Expo 두 경로, 정각과 독립', () => {
   beforeEach(() => { Platform.OS = 'android'; mockNativeAvailable = true; });
   test('30분 전은 recordId "r1#pre30"으로 네이티브(정각 T-30분)와 Expo(+유예)에 걸리고, 정각 3슬롯은 "r1"', async () => {
@@ -179,6 +191,8 @@ describe('미리 알림 — 네이티브·Expo 두 경로, 정각과 독립', ()
     const n = mockNative.schedule.mock.calls;
     expect(n[0].slice(0, 5)).toEqual(['mallo_r1_pre30', 'r1#pre30', at.getTime() - 30 * 60_000, '세이람 · 미리 알림', '30분 뒤 · 치과']);
     expect(n[1][1]).toBe('r1');
+    // 울림 카드(1.2.3): 미리 알림은 일정 시각·30분·내용 원문(본문의 "30분 뒤 · " 없이)을 넘긴다
+    expect(n[0][7]).toEqual({ tone: 'default', eventAtMs: at.getTime(), leadMin: 30, content: '치과', snoozed: false });
     const expoPre = mocked.scheduleNotificationAsync.mock.calls[0][0];
     expect((expoPre.trigger as any).date.getTime()).toBe(at.getTime() - 30 * 60_000 + EXPO_FALLBACK_GRACE_MS);
   });
@@ -188,6 +202,8 @@ describe('미리 알림 — 네이티브·Expo 두 경로, 정각과 독립', ()
     const t = new Date(mockNative.schedule.mock.calls[0][2]);
     expect([t.getDate(), t.getHours(), t.getMinutes()]).toEqual([new Date(at.getTime() - 86_400_000).getDate(), 20, 0]);
     expect(mockNative.schedule).toHaveBeenCalledTimes(1); // 정각 꺼짐 → pre만
+    // 하루 전 알림은 전날 20:00에 울려도 카드에는 일정 시각을 보여 주도록 eventAt을 따로 넘긴다
+    expect(mockNative.schedule.mock.calls[0][7]).toMatchObject({ eventAtMs: at.getTime(), leadMin: 1440 });
   });
   test('네이티브가 없으면(iOS) 미리 알림도 Expo 단일 경로·정시', async () => {
     Platform.OS = 'ios'; mockNativeAvailable = false;

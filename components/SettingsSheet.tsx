@@ -10,7 +10,7 @@ import { FONT_SCALE_LABEL, THEME_LABEL, useTheme, useThemeSetting, type Palette 
 import type { FontScaleName, LanguageSetting, ThemeSetting } from '../lib/prefs';
 import { LANGS, LANGUAGE_LABEL, useT } from '../lib/i18n';
 import { REMIND_OPTIONS, normalizeRemind, remindLabel } from '../lib/reminders';
-import { canDrawOverlays, canUseFullScreenIntent, openFullScreenIntentSettings, requestOverlayPermission } from '../lib/nativeAlarm';
+import { canDrawOverlays, canUseFullScreenIntent, isIgnoringBatteryOptimizations, openBatteryOptimizationSettings, openFullScreenIntentSettings, requestOverlayPermission } from '../lib/nativeAlarm';
 import { alarmKitAuthState, openAlarmKitPermission } from '../lib/notifications';
 import type { CalendarMode } from '../lib/prefs';
 import type { ScheduleRecord } from '../lib/storage';
@@ -22,6 +22,7 @@ import { HelpSheet } from './HelpSheet';
 import { Popup } from './DetailSheets';
 import { SoundList, type SoundChoice } from './SoundPicker';
 import { SOUND_IDS, SOUND_LABEL, type SoundId } from '../lib/alarmSounds';
+import { IOS_UPDATE_CHECK_ENABLED } from '../lib/appInfo';
 
 export function SettingsSheet({
   visible,
@@ -77,11 +78,14 @@ export function SettingsSheet({
   // Android 14+ "전체 화면 알림"(잠금·화면 꺼짐 때 울림 화면) — 13 이하는 늘 허용이라 줄을 숨긴다
   const showFsiRow = Platform.OS === 'android' && Number(Platform.Version) >= 34;
   const [fsiOk, setFsiOk] = useState(() => canUseFullScreenIntent());
+  // 배터리 최적화 제외 — 이 줄에서만 안내한다(시작·알람 저장 때는 묻지 않는다: setAlarmClock이 1순위라 Doze에서도 울린다).
+  // 알람이 늦게 울리는 폰에서 사용자가 직접 눌러 목록 화면을 열고 뺀다
+  const [batteryOk, setBatteryOk] = useState(() => isIgnoringBatteryOptimizations());
   // iOS 26+ AlarmKit("알람 및 타이머") — iOS 26 미만은 'unavailable'이라 줄을 숨긴다
   const [akAuth, setAkAuth] = useState(() => alarmKitAuthState());
   useEffect(() => {
     const refresh = () => {
-      if (Platform.OS === 'android') { setOverlayOk(canDrawOverlays()); setFsiOk(canUseFullScreenIntent()); }
+      if (Platform.OS === 'android') { setOverlayOk(canDrawOverlays()); setFsiOk(canUseFullScreenIntent()); setBatteryOk(isIgnoringBatteryOptimizations()); }
       else setAkAuth(alarmKitAuthState());
     };
     if (visible) refresh();
@@ -259,6 +263,23 @@ export function SettingsSheet({
                       </TouchableOpacity>
                     </>
                   )}
+                  <View style={s.divider} />
+                  <TouchableOpacity
+                    style={s.rowBetween}
+                    onPress={() => { if (!batteryOk) openBatteryOptimizationSettings(); }}
+                    activeOpacity={batteryOk ? 1 : 0.7}
+                    accessibilityLabel="배터리 최적화 제외"
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle}>{t('배터리 최적화 제외')}</Text>
+                      <Text style={s.rowSub}>
+                        {batteryOk
+                          ? t('절전 중에도 알람 화면이 제때 떠요')
+                          : t('알람이 늦게 울리면 눌러 주세요')}
+                      </Text>
+                    </View>
+                    <Text style={[s.rowValue, batteryOk && { color: C.green }]}>{batteryOk ? t('켜짐') : t('꺼짐 ›')}</Text>
+                  </TouchableOpacity>
                 </>
               )}
               {Platform.OS === 'ios' && akAuth !== 'unavailable' && (
@@ -368,7 +389,10 @@ export function SettingsSheet({
               </View>
               <View style={s.divider} />
               <Text style={s.note}>
-                {t('모든 녹음과 일정은 이 폰 안에만 저장되고 서버로 보내지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.')}
+                {/* iOS는 새 버전 확인(lib/appInfo.ts IOS_UPDATE_CHECK_ENABLED)으로 App Store에 버전만 조회한다 — 방침·스토어 설명과 같은 문장 */}
+                {Platform.OS === 'ios' && IOS_UPDATE_CHECK_ENABLED
+                  ? t('일정과 녹음은 폰 밖으로 나가지 않습니다. 새 버전 확인을 위해 App Store에 버전만 조회합니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.')
+                  : t('일정과 녹음은 폰 밖으로 나가지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.')}
               </Text>
             </View>
           </ScrollView>

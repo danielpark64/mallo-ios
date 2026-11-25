@@ -34,8 +34,9 @@ import {
 } from './lib/dateUtils';
 import { loadPrefs, savePrefs } from './lib/prefs';
 import { baseRecordId, normalizeRemind, parsePreRecordId } from './lib/reminders';
-import { addNativeOpenRecordListener, canDrawOverlays, canUseFullScreenIntent, consumeNativeOpenRecordId, openFullScreenIntentSettings, requestOverlayPermission, setNativeAlarmLabels } from './lib/nativeAlarm';
-import { nextAlarmScreenNeed, shouldAskAlarmScreen, type AlarmScreenEnv, type AlarmScreenNeed } from './lib/alarmScreenAsk';
+import { ringCardLabels } from './lib/ringCard';
+import { addNativeOpenRecordListener, canDrawOverlays, canUseFullScreenIntent, consumeNativeOpenRecordId, nativeRingingRecordId, openFullScreenIntentSettings, refreshNativeRingFront, requestOverlayPermission, setNativeAlarmLabels, showNativeRingScreen } from './lib/nativeAlarm';
+import { nextAlarmScreenNeed, shouldAskAfterSave, shouldAskAlarmScreen, type AlarmScreenEnv, type AlarmScreenNeed } from './lib/alarmScreenAsk';
 import { LanguageProvider, useT } from './lib/i18n';
 import {
   EMPTY_FILTER,
@@ -67,7 +68,9 @@ import {
   registerAndroidChannels,
   registerNotificationCategories,
   alarmKitAuthState,
+  notificationPermissionGranted,
   openAlarmKitPermission,
+  openNotificationSettings,
   requestAlarmKitPermission,
   requestNotificationPermission,
   resyncAlarms,
@@ -104,7 +107,11 @@ import { consumeRecentShiftRequest, isNewerThan, loadShifts, markShiftRequest, p
 import { ScheduleDetail, type DetailOpenSheet } from './components/ScheduleDetail';
 import { SendSheet } from './components/SendSheet';
 import { ReceiveSheet } from './components/ReceiveSheet';
-import { applySharedUpdate, canArmShared, parseReceiveUrl, SAYRAM_APP_STORE_URL, SAYRAM_PLAY_STORE_URL, receiveDecision, recordFromShared, type ReceiveParse, type SharedSchedule } from './lib/sendSchedule';
+import { applySharedUpdate, canArmShared, parseReceiveUrl, receiveDecision, recordFromShared, type ReceiveParse, type SharedSchedule } from './lib/sendSchedule';
+import { openStore } from './lib/storeLink';
+import { bodyTapPlan } from './lib/notifTap';
+import { useAppUpdatePrompt } from './lib/useAppUpdatePrompt';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { ScheduleEditor, type AppendResult, type EditorPrefill, type EditorResult, type ImportSeed } from './components/ScheduleEditor';
 
 
@@ -453,7 +460,7 @@ function AppInner() {
   useEffect(() => {
     registerNotificationCategories().catch(() => {});
     registerAndroidChannels().catch(() => {});
-    setNativeAlarmLabels({ stop: t('알람 끄기'), snooze: t('5분 후 다시'), ringing: t('알람이 울리는 중'), app: t('세이람') });
+    setNativeAlarmLabels({ stop: t('알람 끄기'), snooze: t('5분 후 다시'), ringing: t('알람이 울리는 중'), app: t('세이람'), ring: ringCardLabels() });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
   const { scale: fontScale } = useFontScale();
@@ -523,16 +530,24 @@ function AppInner() {
     setRecords(recs);
     // 남는 붙여넣은 이미지 정리 — 시작 때 한 번만(타이머 없음)
     cleanupOrphanClips(recs);
+    let micAlertShown = false;
     (async () => {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
-      const audio = await AudioModule.requestRecordingPermissionsAsync();
-      const speech = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      await requestNotificationPermission();
+      // 알람이 울리는 중에 앱이 열렸으면 시스템 권한 창을 띄우지 않는다 — 권한 창이 울림 화면(끄기 버튼)을 가려서
+      // 못 끄는 일이 생긴다(1.2.3 A32 기기 확인, 규칙 알람-맨앞). 이번 실행은 현재 상태만 읽고, 묻는 것은 다음 실행에.
+      const ringingAtStart = Platform.OS === 'android' && !!nativeRingingRecordId();
+      const audio = ringingAtStart
+        ? await AudioModule.getRecordingPermissionsAsync()
+        : await AudioModule.requestRecordingPermissionsAsync();
+      const speech = ringingAtStart
+        ? await ExpoSpeechRecognitionModule.getPermissionsAsync()
+        : await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!ringingAtStart) await requestNotificationPermission();
       await registerAndroidChannels(); // Android 전용(모드별 소리/진동 채널), iOS는 no-op
       await registerNotificationCategories();
       // iOS 26+: AlarmKit 권한을 한 번 묻는다(알림 권한 창이 닫힌 뒤 — 두 시스템 창이 겹치지 않게).
       // 허용하면 바로 아래 재동기화부터 소리 알람이 AlarmKit으로 걸린다. Android·iOS 26 미만은 아무것도 안 한다.
-      await requestAlarmKitPermission();
+      if (!ringingAtStart) await requestAlarmKitPermission();
       // 삭제된 일정의 잔여 알림 정리 + iOS 64개 제한 대응 재등록
       // 권한 창을 기다리는 사이 받은·새로 만든 일정이 지워지지 않게 시작 때 목록(recs)이 아니라 지금 목록으로
       try {
@@ -542,70 +557,115 @@ function AppInner() {
         setPermissionGranted(audio.granted && speech.granted);
         setPermissionChecked(true);
       }
-      if (!audio.granted || !speech.granted) {
-        Alert.alert(t('권한 필요'), t('마이크 및 음성 인식 권한이 모두 필요합니다.'));
+      if (ringingAtStart) {
+        // 울리는 중엔 마이크 안내·알람 화면 허용 안내도 띄우지 않는다(위와 같은 이유)
+      } else if (!audio.granted || !speech.granted) {
+        micAlertShown = true;
+        // [확인]을 눌러 닫은 뒤에 새 버전 안내가 뜰 수 있게 한다(창 겹침 방지)
+        Alert.alert(t('권한 필요'), t('마이크 및 음성 인식 권한이 모두 필요합니다.'), [
+          { text: t('확인'), onPress: () => setStartupAsksDone(true) },
+        ]);
       } else {
         // 알림 창이 겹치지 않게 마이크 안내를 띄우지 않은 때만
-        maybeAskAlarmScreen();
+        await maybeAskAlarmScreen();
       }
-    })();
+    })().catch(() => {}).finally(() => {
+      // 시작 안내(권한 창·마이크 안내·알람 화면 허용 안내)를 다 지나갔다 — 새 버전 안내는 이 뒤에(useAppUpdatePrompt ready).
+      // 알람 화면 허용 안내가 떠 있으면 alarmAskOpen이 따로 막는다. 실패해도 막혀 있지 않게 finally에서 연다
+      if (!micAlertShown) setStartupAsksDone(true);
+    });
   }, []);
 
   // ── 알람 화면 권한 안내(lib/alarmScreenAsk.ts) ──
   // 울릴 때 끄기 화면이 맨 앞에 뜨게 하는 권한(Android: 전체 화면 알림·다른 앱 위에 표시, iOS 26+: AlarmKit)이 꺼져 있으면 알려 준다.
   // 안내를 보고 설정으로 간 동안에는 이미 물은 것 목록을 들고 있다가, 돌아왔을 때 남은 것이 있으면 이어서 한 번 더 묻는다.
   const askChainRef = useRef<AlarmScreenNeed[] | null>(null);
-  const alarmScreenEnv = (): AlarmScreenEnv => ({
+  // 알람 화면 허용 안내가 떠 있거나, 그 안내로 설정에 갔다가 돌아와 이어 묻는 중인지 — 새 버전 안내가 겹치지 않게(1.2.3)
+  const [alarmAskOpen, setAlarmAskOpen] = useState(false);
+  // 시작할 때의 안내(권한 창·마이크 안내·알람 화면 허용 안내)가 끝났는지 — 새 버전 안내는 이 뒤에(1.2.3)
+  const [startupAsksDone, setStartupAsksDone] = useState(false);
+  // 이번 실행에서 이미 안내했는지 — 알람 저장 직후 안내는 한 실행에 한 번만(시작 때 물었으면 안 묻는다)
+  const askedThisRunRef = useRef(false);
+  const alarmScreenEnv = async (): Promise<AlarmScreenEnv> => ({
     os: Platform.OS,
     fullScreenIntent: canUseFullScreenIntent(),
     overlay: canDrawOverlays(),
     alarmKit: alarmKitAuthState(),
+    notifications: await notificationPermissionGranted(),
   });
   const askAlarmScreen = (need: AlarmScreenNeed, asked: AlarmScreenNeed[]) => {
     const tt = tRef.current;
-    const title = need === 'alarmkit' ? tt('알람을 시계 앱처럼 울리려면') : tt('알람 화면을 맨 앞에 띄우려면');
+    askedThisRunRef.current = true;
+    setAlarmAskOpen(true);
+    const title =
+      need === 'alarmkit' ? tt('알람을 시계 앱처럼 울리려면')
+        : need === 'notif' ? tt('알람 알림을 받으려면')
+          : tt('알람 화면을 맨 앞에 띄우려면');
     const body =
-      need === 'fsi'
+      need === 'notif'
+        ? tt('알림이 꺼져 있으면 알람이 울릴 때 알림도 끄기 화면도 뜨지 않아요. 세이람의 알림을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 알림을 켜고 세이람으로 돌아오면 돼요.')
+      : need === 'fsi'
         ? tt('알람이 울릴 때 화면이 꺼져 있거나 잠겨 있어도 끄기 화면이 뜨게 하려면 "전체 화면 알림"을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 스위치를 켜고 ← 버튼으로 돌아오면 돼요.')
         : need === 'overlay'
           ? tt('알람이 울릴 때 다른 앱을 쓰는 중이어도 끄기 화면이 맨 앞에 바로 뜨게 하려면 "다른 앱 위에 표시"를 켜 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 "세이람" 옆 스위치를 켜고 ← 버튼으로 돌아오면 돼요.')
           : tt('무음·집중 모드에서도 시계 앱처럼 화면 가득 알람이 울리게 하려면 설정 앱에서 "알람 및 타이머"를 켜 주세요.\n\n"설정으로 이동"을 누르면 세이람 설정이 열려요. "알람 및 타이머"를 켜고 세이람으로 돌아오면 돼요.');
     const open = () => {
       askChainRef.current = [...asked, need];
-      if (need === 'fsi') openFullScreenIntentSettings();
+      if (need === 'notif') openNotificationSettings();
+      else if (need === 'fsi') openFullScreenIntentSettings();
       else if (need === 'overlay') requestOverlayPermission();
       else openAlarmKitPermission().catch(() => {});
     };
     Alert.alert(title, body, [
-      { text: tt('나중에'), style: 'cancel' },
+      { text: tt('나중에'), style: 'cancel', onPress: () => setAlarmAskOpen(false) },
+      // 설정으로 간 동안은 열린 채로 둔다 — 돌아와서 이어 물을 것이 없으면 아래 AppState에서 닫는다
       { text: tt('설정으로 이동'), onPress: open },
     ]);
   };
-  const maybeAskAlarmScreen = () => {
+  const maybeAskAlarmScreen = async () => {
     const now = Date.now();
     const upcoming = recordsRef.current.some((r) => (r.notifIds?.length ?? 0) > 0 && (r.scheduleAt ?? 0) > now);
     if (!shouldAskAlarmScreen(loadPrefs().alarmScreenAskedAt, now, upcoming)) return;
-    const need = nextAlarmScreenNeed(alarmScreenEnv());
+    const need = nextAlarmScreenNeed(await alarmScreenEnv());
     if (!need) return;
     savePrefs({ alarmScreenAskedAt: now });
     askAlarmScreen(need, []);
   };
+  // 알람을 건 일정을 저장한 직후: 맨 앞에 뜨는 데 필요한 허용이 꺼져 있으면 한 실행에 한 번 안내한다.
+  // 저장 창(편집기·녹음 창)이 닫히는 애니메이션이 끝난 뒤에 띄우고, 그사이 다른 창이 열렸으면 이번엔 묻지 않는다.
+  const maybeAskAlarmScreenAfterSave = (armed: boolean) => {
+    if (!shouldAskAfterSave(armed, askedThisRunRef.current)) return;
+    setTimeout(async () => {
+      if (askedThisRunRef.current || askChainRef.current) return;
+      const w = openWindowsRef.current;
+      if (w.editor || w.recorder || w.settings || w.day || w.detail) return;
+      // 배터리 최적화는 시작·저장 때 묻지 않는다(설정 화면 줄에서만 — lib/alarmScreenAsk.ts)
+      const need = nextAlarmScreenNeed(await alarmScreenEnv());
+      if (!need || askedThisRunRef.current) return;
+      savePrefs({ alarmScreenAskedAt: Date.now() });
+      askAlarmScreen(need, []);
+    }, 700);
+  };
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (st) => {
+    const sub = AppState.addEventListener('change', async (st) => {
       if (st !== 'active' || !askChainRef.current) return;
       const asked = askChainRef.current;
       askChainRef.current = null;
-      const need = nextAlarmScreenNeed(alarmScreenEnv(), asked);
+      const need = nextAlarmScreenNeed(await alarmScreenEnv(), asked);
       if (need) setTimeout(() => askAlarmScreen(need, asked), 400);
+      else setAlarmAskOpen(false);
     });
     return () => sub.remove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // iOS 26+: 설정 앱에서 AlarmKit 권한을 켜고/끄고 돌아오면 알람 방식이 바뀌어야 한다 — 앞으로 올 때만 확인(폴링 없음)
+  // Android: 울리는 도중 "다른 앱 위에 표시"를 켜고 돌아왔으면 그 슬롯부터 울림 화면이 가려져도 다시 올라오게(1.2.3, 울리는 중이 아니면 no-op)
   useEffect(() => {
     const sub = AppState.addEventListener('change', (st) => {
-      if (st === 'active') resyncAlarmsIfAlarmKitChanged(recordsRef.current).catch(() => {});
+      if (st !== 'active') return;
+      resyncAlarmsIfAlarmKitChanged(recordsRef.current).catch(() => {});
+      refreshNativeRingFront();
     });
     return () => sub.remove();
   }, []);
@@ -638,6 +698,19 @@ function AppInner() {
       if (!recordId) return;
       // 처리한 응답을 지워 둔다 — 남겨 두면 화면이 다시 만들어질 때(getLast…) 같은 응답을 또 처리한다
       try { Notifications.clearLastNotificationResponse(); } catch {}
+      // Android: 알람이 네이티브로 울리는 중에 알림 '본문'을 누른 것은 끄라는 뜻이 아니다 → 끄지 않고 울림 화면(끄기·5분 후)을 맨 앞에 띄운다.
+      // 예전에는 아래 '본 것' 처리로 울림이 꺼지고 앱 첫 화면만 열렸다(1.2.2 기기 점검). '알람 끄기'·'5분 후 다시' 버튼(폰·워치)은 그대로 아래에서 처리한다.
+      // 판정은 lib/notifTap.ts(jest로 고정)
+      const tapPlan = bodyTapPlan({
+        os: Platform.OS,
+        isBodyTap: response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER,
+        ringingId: Platform.OS === 'android' && response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER ? nativeRingingRecordId() : null,
+        recordId,
+      });
+      if (tapPlan !== 'normal') {
+        // 울림 화면을 못 띄웠으면(실행 막힘 등) 예전 처리로 내려간다 — 끌 곳이 없어지지 않게
+        if (showNativeRingScreen() && tapPlan === 'ringScreenOnly') return; // 같은 알람: 울림 화면에서 직접 끄게 둔다(상세도 열지 않는다 — 네이티브 알림 탭과 같게)
+      }
       // 알림 본문을 누른 경우만 연다(끄기·5분 뒤·밀어서 닫기는 열지 않는다)
       if (response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) openRecordFromAlarm(recordId);
       const pre = parsePreRecordId(recordId);
@@ -648,7 +721,11 @@ function AppInner() {
           const rec = recordsRef.current.find((r) => r.id === pre.recordId);
           if (rec && isMovedAway(rec)) return; // 알림 센터에 남은 알림이라도 미룬 일정은 다시 울리지 않는다
           const body = response.notification.request.content.body || rec?.content || t('미리 알림');
-          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { single: true, voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound });
+          await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', {
+            single: true, voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound,
+            // Android 울림 카드: "다시 알림" 띠 + 원래 일정 시각(1.2.3)
+            snoozeOf: { eventAt: rec?.scheduleAt ? new Date(rec.scheduleAt) : null, leadMin: pre.minutes },
+          });
         }
         return;
       }
@@ -658,7 +735,11 @@ function AppInner() {
         const rec = recordsRef.current.find((r) => r.id === recordId);
         if (rec && isMovedAway(rec)) return; // 미룬 일정은 새 일정 쪽에서만 울린다
         const body = rec?.content || rec?.transcript || response.notification.request.content.body || t('알람');
-        await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', { voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound });
+        await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', {
+          voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound,
+          // Android 울림 카드: "다시 알림" 띠 + 원래 일정 시각(1.2.3)
+          snoozeOf: { eventAt: rec?.scheduleAt ? new Date(rec.scheduleAt) : null, leadMin: 0 },
+        });
       } else {
         // 알람 끄기 버튼 / 알림 탭 / 스와이프 닫기 → 남은 재알림(+1/+2분) 취소
         cancelAlarmByRecordId(recordId).catch(() => {});
@@ -826,6 +907,8 @@ function AppInner() {
   useEffect(() => {
     const handle = (url: string | null, initial = false) => {
       if (!url) return;
+      // mallo://update-preview — 새 버전 안내 창 모양만 띄운다(스토어 확인 없이, 시작 창 순서·울림 검사는 그대로). 캡처·기기 확인용
+      if (/^mallo:\/\/update-preview\/?$/.test(url)) { appUpdatePreviewRef.current(); return; }
       const w = parseWidgetUrl(url);
       if (w) {
         // Android 최근 앱에서 다시 열면 예전에 누른 위젯 링크가 다시 온다 → 무시(녹음이 저절로 시작되지 않게)
@@ -914,8 +997,16 @@ function AppInner() {
   const recordStartedAtRef = useRef<Date>(new Date());
   const startRecording = async () => {
     if (!permissionGranted) {
-      Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'));
-      return;
+      // 시작 때 못 물었거나(알람이 울리는 중에 열림) 거절했던 경우 — 사용자가 직접 누른 지금 한 번 더 묻는다.
+      // 다시 묻지 않음 상태면 시스템 창 없이 바로 거절이 돌아오고 아래 안내가 뜬다.
+      const audio = await AudioModule.requestRecordingPermissionsAsync();
+      const speech = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      const ok = audio.granted && speech.granted;
+      setPermissionGranted(ok);
+      if (!ok) {
+        Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'), [{ text: t('확인') }]);
+        return;
+      }
     }
     sharedPlayer.stop(); // 카드 재생 소리가 녹음에 섞이지 않게
     recordStartedAtRef.current = new Date(); // 날짜를 말하지 않았을 때 이 시각으로 저장한다
@@ -936,10 +1027,7 @@ function AppInner() {
     setDetailId(null);
     setActiveTab('calendar');
     if (w.kind === 'mic') {
-      if (permissionChecked && !permissionGranted) {
-        Alert.alert(t('권한 없음'), t('마이크 및 음성 인식 권한을 허용해주세요.'));
-        return;
-      }
+      // 권한이 없으면 startRecording이 한 번 더 묻는다(창이 닫힌 뒤에)
       // 시작 직후에는 마이크 권한 확인이 끝나지 않았을 수 있다 → 확인이 끝나면 아래 effect가 시작한다
       setMicPending(true);
       return;
@@ -953,8 +1041,7 @@ function AppInner() {
   widgetLinkRef.current = handleWidgetLink;
   useEffect(() => {
     if (!micPending || !permissionChecked) return;
-    // 권한을 거절했으면 그만둔다(시작할 때 '권한 필요' 안내가 이미 떴다)
-    if (!permissionGranted) { setMicPending(false); return; }
+    // 권한이 없으면 startRecording이 한 번 더 묻고, 거절이면 안내만 띄운다
     // 열려 있던 창이 닫힌 뒤에 녹음 창을 연다(대기 표시는 그때 끈다 — 먼저 끄면 이 effect가 다시 돌며 예약을 지운다)
     const id = setTimeout(() => {
       setMicPending(false);
@@ -1056,6 +1143,9 @@ function AppInner() {
         const to = parsed.sendTo;
         if (voiceSendTimerRef.current) clearTimeout(voiceSendTimerRef.current);
         voiceSendTimerRef.current = setTimeout(() => { voiceSendTimerRef.current = null; setVoiceSend({ id, to }); }, 450);
+      } else if (!res.audioLost) {
+        // 보내기 시트·녹음 유실 안내와 겹치지 않을 때만 — 알람 화면 허용 안내(한 실행에 한 번)
+        maybeAskAlarmScreenAfterSave(!!notifIds?.length);
       }
     };
 
@@ -1147,12 +1237,20 @@ function AppInner() {
   // 받은 링크: 확인 시트에 띄울 것 / 쓰거나 녹음하는 중이라 기다리는 것
   const [receiving, setReceiving] = useState<{ data: SharedSchedule; update: boolean } | null>(null);
   const [pendingReceive, setPendingReceive] = useState<SharedSchedule | null>(null);
+  // ── 새 버전 안내(1.2.3, 본부/규칙/업데이트-안내.md · lib/useAppUpdatePrompt.ts) ──
+  // 뒤에서 스토어 판을 확인하고, 시작 안내(권한 창 → 마이크 안내 → 알람 화면 허용 안내)가 끝나고 다른 창이 하나도 없을 때만 띄운다.
+  // 울리는 중(Android 네이티브 울림)엔 띄우지 않는다 — 세이람은 JS 울림 화면이 없고, 울림 화면은 네이티브(AlarmRingActivity)·iOS 시스템이 맡는다.
+  const appUpdate = useAppUpdatePrompt({
+    loaded: true,
+    ready: startupAsksDone && !alarmAskOpen && !editorOpen && !showRecorder && !settingsOpen && daySheet == null
+      && detailId == null && receiving == null && pendingReceive == null && voiceSend == null,
+  });
+  const appUpdatePreviewRef = useRef(appUpdate.preview);
+  appUpdatePreviewRef.current = appUpdate.preview;
   const handleReceiveLink = (rv: ReceiveParse) => {
     if (!rv.ok && rv.needsUpdate) {
-      // 더 새 형식(새 버전 앱이 보낸 링크) — 깨진 링크가 아니라 이 앱을 업데이트하면 열린다
-      const openStore = () => {
-        Linking.openURL(Platform.OS === 'android' ? SAYRAM_PLAY_STORE_URL : SAYRAM_APP_STORE_URL).catch(() => {});
-      };
+      // 더 새 형식(새 버전 앱이 보낸 링크) — 깨진 링크가 아니라 이 앱을 업데이트하면 열린다.
+      // [업데이트]는 새 버전 안내와 같은 스토어 열기(lib/storeLink.ts openStore)
       Alert.alert(t('업데이트가 필요해요'), t('새 형식의 일정이에요. 업데이트한 뒤 링크를 다시 누르면 열려요.'), [
         { text: t('닫기'), style: 'cancel' },
         { text: t('업데이트'), onPress: openStore },
@@ -1210,6 +1308,7 @@ function AppInner() {
           ? await scheduleAlarm(next.id, next.content, data.date, next.alarmMode ?? 'both', { remindBefore: next.remindBefore, exactAlarm: next.exactAlarm, voiceUri: voiceUriOf(next), alarmSound: next.alarmSound })
           : [];
         commit(recordsRef.current.map((r) => (r.id === old.id ? { ...next, notifIds: ids.length ? ids : undefined } : r)));
+        maybeAskAlarmScreenAfterSave(ids.length > 0);
       } else {
         const id = Date.now().toString();
         const rec = recordFromShared(data, id, armed);
@@ -1217,6 +1316,7 @@ function AppInner() {
           ? await scheduleAlarm(id, rec.content, data.date, 'both', { remindBefore: rec.remindBefore, exactAlarm: rec.exactAlarm })
           : [];
         commit([{ ...rec, notifIds: ids.length ? ids : undefined }, ...recordsRef.current]);
+        maybeAskAlarmScreenAfterSave(ids.length > 0);
       }
       setActiveTab('calendar');
       setSelectedDate(new Date(data.date.getFullYear(), data.date.getMonth(), data.date.getDate()));
@@ -1466,6 +1566,7 @@ function AppInner() {
       const synced = syncCarryDate(next, res.id);
       const moved = synced.find((r) => r.id === res.id);
       commit(moved?.outcome && !isPastItem(moved) && !silenced ? dropOutcome(synced, res.id) : synced);
+      maybeAskAlarmScreenAfterSave(!!notifIds?.length);
     } else {
       const id = Date.now().toString();
       // 새 일정 화면의 마이크로 말했다면 그 녹음을 메인 녹음으로 남긴다 (마이크 FAB로 만든 일정과 같게)
@@ -1499,6 +1600,7 @@ function AppInner() {
       if (from) await cancelAlarmGroup(from.id, from.notifIds);
       const linked = carry ? linkCarry([rec, ...records], carry.fromId, carry.kind, rec) : [rec, ...records];
       commit(from ? linked.map((r) => (r.id === from.id ? { ...r, notifIds: undefined } : r)) : linked);
+      maybeAskAlarmScreenAfterSave(!!notifIds?.length);
     }
     clearCarry();
     setImportSeed(null);
@@ -1585,6 +1687,7 @@ function AppInner() {
     // 하단은 SafeAreaView에 맡기지 않고 FAB에서 직접 insets.bottom을 더함 —
     // absolute 포지션 FAB가 SafeAreaView의 padding 안에서 이중으로 계산되어
     // 기기별로 안전영역을 못 미치게 잡히는 경우가 있어 명시적으로 처리
+    <>
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
      <View style={styles.page}>
       <StatusBar style={resolvedTheme === 'light' ? 'dark' : 'light'} />
@@ -1849,6 +1952,12 @@ function AppInner() {
         </View>
       </Modal>
     </SafeAreaView>
+    {/* 새 버전 안내 — Modal이 아닌 덮개(다른 창·울림 화면이 늘 위). SafeAreaView 밖에 두어 상태 표시줄까지 어둡게 덮는다.
+        띄울지는 useAppUpdatePrompt가 정한다 */}
+    {appUpdate.visible && (
+      <UpdatePrompt required={appUpdate.required} onUpdate={appUpdate.onUpdate} onLater={appUpdate.onLater} />
+    )}
+    </>
   );
 }
 

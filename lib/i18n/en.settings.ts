@@ -15,6 +15,14 @@ export const EN_SETTINGS: Record<string, string> = {
   '알람이 울릴 때 화면이 꺼져 있거나 잠겨 있어도 끄기 화면이 뜨게 하려면 "전체 화면 알림"을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 스위치를 켜고 ← 버튼으로 돌아오면 돼요.': 'To have the stop screen appear when an alarm rings, even when the screen is off or locked, allow "Full screen notifications".\n\nTap "Open settings", turn on the switch, then come back with the ← button.',
   '설정으로 이동': 'Open settings',
   '나중에': 'Later',
+  // 1.2.3 알람 화면 허용 안내 — 알림 권한·배터리 최적화
+  '알람 알림을 받으려면': 'Get alarm notifications',
+  '알림이 꺼져 있으면 알람이 울릴 때 알림도 끄기 화면도 뜨지 않아요. 세이람의 알림을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 알림을 켜고 세이람으로 돌아오면 돼요.': 'If notifications are off, neither the alarm notification nor the stop screen appears when an alarm rings. Please allow notifications for SayRam.\n\nTap "Open settings", turn on notifications, then come back to SayRam.',
+  '배터리 최적화 제외': 'Exclude from battery optimization',
+  '알람이 늦게 울리면 눌러 주세요': 'Tap if alarms ring late',
+  // 새 버전 안내(1.2.3, lib/appUpdate.ts) — [업데이트]·[나중에]는 이미 있는 문구를 쓴다
+  '새 버전이 있어요': 'A new version is available',
+  '절전 중에도 알람 화면이 제때 떠요': 'The alarm screen appears on time even in power saving',
   '시계 앱처럼 울리기': 'Ring like the Clock app',
   '무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요': 'Alarms fill the lock screen like the Clock app, even in silent or Focus mode',
   '눌러서 허용하면 무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요': 'Tap and allow it so alarms fill the lock screen like the Clock app, even in silent or Focus mode',
@@ -53,8 +61,9 @@ export const EN_SETTINGS: Record<string, string> = {
   '말하는 요령, 달력·찾기, 구간 재생, 알람, 백업': 'How to speak, calendar & search, playback, alarms, backup',
   '앱 정보': 'About',
   '버전': 'Version',
-  '모든 녹음과 일정은 이 폰 안에만 저장되고 서버로 보내지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.':
-    'All recordings and schedules stay on this phone and are never sent to a server. Speech recognition uses your device’s built-in recognizer.',
+  // 1.2.3 설정 맨 아래 안내 — Android(인터넷 권한 없음)·iOS(App Store에 버전만 조회) 따로
+  '일정과 녹음은 폰 밖으로 나가지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.': 'Your schedules and recordings never leave your phone. Speech recognition uses your device\'s built-in speech recognition.',
+  '일정과 녹음은 폰 밖으로 나가지 않습니다. 새 버전 확인을 위해 App Store에 버전만 조회합니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.': 'Your schedules and recordings never leave your phone. To check for a new version, the app asks the App Store only for the version number. Speech recognition uses your device\'s built-in speech recognition.',
 
   // ── 백업 화면 ──
   '일정 {n}건과 녹음 파일을 통째로 한 폴더에 모아 둡니다. 폰을 바꾸거나 앱을 다시 설치해도 이 폴더만 있으면 그대로 되살릴 수 있어요.':

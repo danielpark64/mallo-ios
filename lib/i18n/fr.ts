@@ -22,6 +22,11 @@ export const FR: Record<string, string> = {
   '세이람 · 미리 알림': 'SayRam · Rappel',
   '알람 끄기': 'Arrêter l’alarme',
   '5분 후 다시': 'Répéter dans 5 min',
+  // 울림 카드(1.2.3, lib/ringCard.ts)
+  '끄기': 'Arrêter',
+  '지금 · 일정 시간': 'Maintenant · Heure prévue',
+  '다시 알림': 'Rappel répété',
+  '{label} 알림': '{label}',
   '일정 알람 (소리+진동)': 'Alarme d’événement (son + vibration)',
   '일정 알람 (소리)': 'Alarme d’événement (son)',
   '일정 알람 (진동)': 'Alarme d’événement (vibration)',
@@ -272,8 +277,9 @@ export const FR: Record<string, string> = {
   '말하는 요령, 달력·찾기, 구간 재생, 알람, 백업': 'Comment parler, calendrier et recherche, lecture, alarmes, sauvegarde',
   '앱 정보': 'À propos',
   '버전': 'Version',
-  '모든 녹음과 일정은 이 폰 안에만 저장되고 서버로 보내지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.':
-    'Tous les enregistrements et événements restent sur ce téléphone et ne sont jamais envoyés à un serveur. La reconnaissance vocale utilise celle intégrée à l’appareil.',
+  // 1.2.3 설정 맨 아래 안내 — Android(인터넷 권한 없음)·iOS(App Store에 버전만 조회) 따로
+  '일정과 녹음은 폰 밖으로 나가지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.': 'Vos rendez-vous et enregistrements ne quittent jamais votre téléphone. La reconnaissance vocale utilise celle de l\'appareil.',
+  '일정과 녹음은 폰 밖으로 나가지 않습니다. 새 버전 확인을 위해 App Store에 버전만 조회합니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.': 'Vos rendez-vous et enregistrements ne quittent jamais votre téléphone. Pour vérifier s\'il existe une nouvelle version, l\'app demande uniquement le numéro de version à l\'App Store. La reconnaissance vocale utilise celle de l\'appareil.',
   '일정 {n}건과 녹음 파일을 통째로 한 폴더에 모아 둡니다. 폰을 바꾸거나 앱을 다시 설치해도 이 폴더만 있으면 그대로 되살릴 수 있어요.':
     'Regroupe les {n} événements et leurs enregistrements dans un seul dossier. Si vous changez de téléphone ou réinstallez l’app, ce dossier suffit pour tout restaurer.',
   '지금 백업 만들기': 'Sauvegarder maintenant',
@@ -456,6 +462,14 @@ export const FR: Record<string, string> = {
   '알람이 울릴 때 화면이 꺼져 있거나 잠겨 있어도 끄기 화면이 뜨게 하려면 "전체 화면 알림"을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 스위치를 켜고 ← 버튼으로 돌아오면 돼요.': 'Pour que l’écran d’arrêt s’affiche quand une alarme sonne, même écran éteint ou verrouillé, autorisez « Notifications en plein écran ».\n\nTouchez « Ouvrir les réglages », activez l’interrupteur, puis revenez avec le bouton ←.',
   '설정으로 이동': 'Ouvrir les réglages',
   '나중에': 'Plus tard',
+  // 1.2.3 알람 화면 허용 안내 — 알림 권한·배터리 최적화
+  '알람 알림을 받으려면': 'Pour recevoir les alertes d’alarme',
+  '알림이 꺼져 있으면 알람이 울릴 때 알림도 끄기 화면도 뜨지 않아요. 세이람의 알림을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 알림을 켜고 세이람으로 돌아오면 돼요.': 'Si les notifications sont désactivées, ni la notification ni l’écran d’arrêt n’apparaissent quand une alarme sonne. Autorisez les notifications de SayRam.\n\nTouchez « Ouvrir les réglages », activez les notifications, puis revenez dans SayRam.',
+  '배터리 최적화 제외': 'Exclure de l’optimisation de la batterie',
+  '알람이 늦게 울리면 눌러 주세요': 'Touchez ici si les alarmes sonnent en retard',
+  // 새 버전 안내(1.2.3, lib/appUpdate.ts) — [업데이트]·[나중에]는 이미 있는 문구를 쓴다
+  '새 버전이 있어요': 'Une nouvelle version est disponible',
+  '절전 중에도 알람 화면이 제때 떠요': 'L’écran d’alarme s’affiche à l’heure même en économie d’énergie',
   '시계 앱처럼 울리기': 'Sonner comme l’app Horloge',
   '무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요': 'Les alarmes occupent tout l’écran verrouillé comme l’app Horloge, même en mode silencieux ou Concentration',
   '눌러서 허용하면 무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요': 'Touchez et autorisez pour que les alarmes occupent tout l’écran verrouillé comme l’app Horloge, même en mode silencieux ou Concentration',

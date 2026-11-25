@@ -22,6 +22,11 @@ export const DE: Record<string, string> = {
   '세이람 · 미리 알림': 'SayRam · Erinnerung',
   '알람 끄기': 'Alarm stoppen',
   '5분 후 다시': 'In 5 Min. erneut',
+  // 울림 카드(1.2.3, lib/ringCard.ts)
+  '끄기': 'Stopp',
+  '지금 · 일정 시간': 'Jetzt · Terminzeit',
+  '다시 알림': 'Erneute Erinnerung',
+  '{label} 알림': '{label}',
   '일정 알람 (소리+진동)': 'Terminalarm (Ton + Vibration)',
   '일정 알람 (소리)': 'Terminalarm (Ton)',
   '일정 알람 (진동)': 'Terminalarm (Vibration)',
@@ -272,8 +277,9 @@ export const DE: Record<string, string> = {
   '말하는 요령, 달력·찾기, 구간 재생, 알람, 백업': 'Sprechtipps, Kalender und Suche, Wiedergabe, Alarme, Sicherung',
   '앱 정보': 'Über die App',
   '버전': 'Version',
-  '모든 녹음과 일정은 이 폰 안에만 저장되고 서버로 보내지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.':
-    'Alle Aufnahmen und Termine bleiben auf diesem Telefon und werden nie an einen Server gesendet. Die Spracherkennung nutzt die im Gerät eingebaute Erkennung.',
+  // 1.2.3 설정 맨 아래 안내 — Android(인터넷 권한 없음)·iOS(App Store에 버전만 조회) 따로
+  '일정과 녹음은 폰 밖으로 나가지 않습니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.': 'Deine Termine und Aufnahmen verlassen nie dein Handy. Die Spracherkennung nutzt die Spracherkennung des Geräts.',
+  '일정과 녹음은 폰 밖으로 나가지 않습니다. 새 버전 확인을 위해 App Store에 버전만 조회합니다. 음성 인식은 기기의 음성 인식 기능을 사용합니다.': 'Deine Termine und Aufnahmen verlassen nie dein Handy. Um nach einer neuen Version zu suchen, fragt die App im App Store nur die Versionsnummer ab. Die Spracherkennung nutzt die Spracherkennung des Geräts.',
   '일정 {n}건과 녹음 파일을 통째로 한 폴더에 모아 둡니다. 폰을 바꾸거나 앱을 다시 설치해도 이 폴더만 있으면 그대로 되살릴 수 있어요.':
     'Legt alle {n} Termine samt Aufnahmen in einem Ordner ab. Bei einem Telefonwechsel oder einer Neuinstallation genügt dieser Ordner, um alles wiederherzustellen.',
   '지금 백업 만들기': 'Jetzt sichern',
@@ -456,6 +462,14 @@ export const DE: Record<string, string> = {
   '알람이 울릴 때 화면이 꺼져 있거나 잠겨 있어도 끄기 화면이 뜨게 하려면 "전체 화면 알림"을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 스위치를 켜고 ← 버튼으로 돌아오면 돼요.': 'Damit der Stopp-Bildschirm beim Klingeln auch bei ausgeschaltetem oder gesperrtem Bildschirm erscheint, erlauben Sie „Vollbildbenachrichtigungen“.\n\nTippen Sie auf „Einstellungen öffnen“, schalten Sie den Schalter ein und kehren Sie mit der ←-Taste zurück.',
   '설정으로 이동': 'Einstellungen öffnen',
   '나중에': 'Später',
+  // 1.2.3 알람 화면 허용 안내 — 알림 권한·배터리 최적화
+  '알람 알림을 받으려면': 'Alarmbenachrichtigungen erhalten',
+  '알림이 꺼져 있으면 알람이 울릴 때 알림도 끄기 화면도 뜨지 않아요. 세이람의 알림을 허용해 주세요.\n\n"설정으로 이동"을 누르면 열리는 화면에서 알림을 켜고 세이람으로 돌아오면 돼요.': 'Wenn Benachrichtigungen aus sind, erscheinen beim Klingeln weder die Benachrichtigung noch der Stopp-Bildschirm. Bitte erlauben Sie Benachrichtigungen für SayRam.\n\nTippen Sie auf „Einstellungen öffnen“, schalten Sie die Benachrichtigungen ein und kehren Sie zu SayRam zurück.',
+  '배터리 최적화 제외': 'Von der Akkuoptimierung ausnehmen',
+  '알람이 늦게 울리면 눌러 주세요': 'Tippen, wenn Alarme zu spät klingeln',
+  // 새 버전 안내(1.2.3, lib/appUpdate.ts) — [업데이트]·[나중에]는 이미 있는 문구를 쓴다
+  '새 버전이 있어요': 'Eine neue Version ist verfügbar',
+  '절전 중에도 알람 화면이 제때 떠요': 'Der Alarmbildschirm erscheint auch im Energiesparmodus pünktlich',
   '시계 앱처럼 울리기': 'Wie die Uhr-App klingeln',
   '무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요': 'Alarme füllen den Sperrbildschirm wie bei der Uhr-App, auch im Stumm- oder Fokus-Modus',
   '눌러서 허용하면 무음·집중 모드에서도 시계 앱처럼 잠금 화면 가득 알람이 떠요': 'Tippen und erlauben, dann füllen Alarme den Sperrbildschirm wie bei der Uhr-App, auch im Stumm- oder Fokus-Modus',

@@ -51,7 +51,7 @@ Sagst du kein Datum und keine Uhrzeit, etwa ein schnelles "Milch kaufen" oder ei
 Sichere alle Termine und Aufnahmen in einem Ordner und wähle diesen Ordner auf dem neuen Telefon, um alles zurückzuholen.
 
 [Kein Login, kein Server, kein Werbe-Tracking]
-Kein Konto, keine Anmeldung. Termine und Aufnahmen bleiben nur auf diesem Gerät, und die App sendet deine Daten nirgendwohin. (Die Umwandlung von Sprache in Text übernimmt die Apple-Spracherkennung auf deinem Gerät.) Ein kleines Banner am Ende der Liste stellt den YouTube-Kanal des Entwicklers vor. Es wird kein Werbenetzwerk verwendet.
+Kein Konto, keine Anmeldung. Deine Termine und Aufnahmen verlassen nie dein Handy. Um nach einer neuen Version zu suchen, fragt die App im App Store nur die Versionsnummer ab. (Die Umwandlung von Sprache in Text übernimmt die Apple-Spracherkennung auf deinem Gerät.) Ein kleines Banner am Ende der Liste stellt den YouTube-Kanal des Entwicklers vor. Es wird kein Werbenetzwerk verwendet.
 
 [Leicht]
 SayRam arbeitet nur beim Aufnehmen oder Abspielen. Im Hintergrund läuft nichts weiter.

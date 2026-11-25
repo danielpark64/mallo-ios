@@ -1,0 +1,21 @@
+// 새 버전 안내(교대알람 1.6.3에서 그대로 가져옴, 세이람 1.2.3) — Play 인앱 업데이트(AppUpdateManager)로 스토어 판만 확인한다(Expo 로컬 모듈, Android).
+// Play 스토어 앱이 확인하므로 앱에 INTERNET 권한이 없어도 된다(세이람). 앱에 묶인 값이 없어 다른 앱에 그대로 복사한다.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.danielpark.appupdate'
+version = '1.0.0'
+
+android {
+  namespace "com.danielpark.appupdate"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  implementation 'com.google.android.play:app-update:2.1.0'
+}

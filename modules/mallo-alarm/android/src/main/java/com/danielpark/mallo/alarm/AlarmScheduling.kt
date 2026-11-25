@@ -36,6 +36,7 @@ object AlarmScheduling {
             putExtra(EXTRA_SOUND_ON, e.soundOn)
             putExtra(EXTRA_VIB_ON, e.vibOn)
             putExtra(EXTRA_TONE, e.tone)
+            e.meta.putTo(this) // 울림 카드용 일정 시각·몇 분 전(1.2.3)
         }
 
     fun arm(context: Context, e: AlarmStore.Entry) {

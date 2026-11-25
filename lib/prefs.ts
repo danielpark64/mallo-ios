@@ -9,11 +9,11 @@ export type ThemeSetting = 'system' | 'light' | 'dark';
 export type FontScaleName = 'small' | 'medium' | 'large' | 'xlarge';
 export type LanguageSetting = 'system' | 'ko' | 'en' | 'ja' | 'zh-Hans' | 'zh-Hant' | 'es' | 'fr' | 'de' | 'pt';
 // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
-export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[]; language: LanguageSetting; /** 새 일정의 알람을 내 목소리로 (기본 꺼짐) */ voiceAlarm: boolean; /** 목록을 한 줄 보기로 (기본 꺼짐 = 크게) */ listCompact: boolean; /** 달력 확대 단계 0 작게·1 보통·2 크게 */ calDensity: 0 | 1 | 2; /** 교대알람과 일정 자동 공유(한쪽만 켜도 공유) */ shareWithAlarmApp: boolean; /** 달력·위젯에 음력·절기 표시(한국어 화면에서만 쓰인다, 기본 꺼짐) */ showLunar: boolean; /** 일정 보내기: 보내는 사람 이름(한 번 적으면 기억) */ sendName: string; /** 일정 보내기: 마지막에 고른 방식(위에 둔다). 'auto' = 아직 안 고름(나라 기본: 나라 메신저가 있으면 메신저, 미국·캐나다는 문자, 나라를 모르면 다른 앱 — lib/messenger.ts sendButtons) */ sendVia: SendVia | 'auto'; /** 기본 알람 소리('default' = 지금까지 쓰던 소리). 소리를 따로 고르지 않은 일정은 모두 이 소리 */ alarmSound: SoundId; /** 알람 화면 권한 안내(다른 앱 위에 표시·전체 화면 알림·AlarmKit)를 마지막으로 띄운 때(epoch ms, 0 = 아직) — lib/alarmScreenAsk.ts */ alarmScreenAskedAt: number };
+export type Prefs = { calendarMode: CalendarMode; theme: ThemeSetting; fontScale: FontScaleName; defaultRemind: number[]; language: LanguageSetting; /** 새 일정의 알람을 내 목소리로 (기본 꺼짐) */ voiceAlarm: boolean; /** 목록을 한 줄 보기로 (기본 꺼짐 = 크게) */ listCompact: boolean; /** 달력 확대 단계 0 작게·1 보통·2 크게 */ calDensity: 0 | 1 | 2; /** 교대알람과 일정 자동 공유(한쪽만 켜도 공유) */ shareWithAlarmApp: boolean; /** 달력·위젯에 음력·절기 표시(한국어 화면에서만 쓰인다, 기본 꺼짐) */ showLunar: boolean; /** 일정 보내기: 보내는 사람 이름(한 번 적으면 기억) */ sendName: string; /** 일정 보내기: 마지막에 고른 방식(위에 둔다). 'auto' = 아직 안 고름(나라 기본: 나라 메신저가 있으면 메신저, 미국·캐나다는 문자, 나라를 모르면 다른 앱 — lib/messenger.ts sendButtons) */ sendVia: SendVia | 'auto'; /** 기본 알람 소리('default' = 지금까지 쓰던 소리). 소리를 따로 고르지 않은 일정은 모두 이 소리 */ alarmSound: SoundId; /** 알람 화면 권한 안내(다른 앱 위에 표시·전체 화면 알림·AlarmKit)를 마지막으로 띄운 때(epoch ms, 0 = 아직) — lib/alarmScreenAsk.ts */ alarmScreenAskedAt: number; /** 새 버전 안내에서 [나중에]를 누른 날('YYYY-MM-DD', '' = 없음) — 그날은 다시 안 묻는다(lib/useAppUpdatePrompt.ts) */ updateLaterDay: string };
 /** 'messenger' = 나라별 메신저(1.2.0까지는 'kakao'로 저장됐다 — 읽을 때 'messenger'로 바꾼다), 'share' = 다른 앱으로(OS 공유 창) */
 export type SendVia = 'messenger' | 'sms' | 'share';
 
-const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND], language: 'system', voiceAlarm: false, listCompact: false, calDensity: 1, shareWithAlarmApp: false, showLunar: false, sendName: '', sendVia: 'auto', alarmSound: 'default', alarmScreenAskedAt: 0 };
+const DEFAULTS: Prefs = { calendarMode: 'month', theme: 'system', fontScale: 'medium', defaultRemind: [...DEFAULT_REMIND], language: 'system', voiceAlarm: false, listCompact: false, calDensity: 1, shareWithAlarmApp: false, showLunar: false, sendName: '', sendVia: 'auto', alarmSound: 'default', alarmScreenAskedAt: 0, updateLaterDay: '' };
 const LANGUAGES: LanguageSetting[] = ['system', 'ko', 'en', 'ja', 'zh-Hans', 'zh-Hant', 'es', 'fr', 'de', 'pt'];
 const THEMES: ThemeSetting[] = ['system', 'light', 'dark'];
 const FONT_SCALES: FontScaleName[] = ['small', 'medium', 'large', 'xlarge'];
@@ -42,6 +42,7 @@ export function loadPrefs(): Prefs {
       ...(parsed?.sendVia === 'sms' || parsed?.sendVia === 'share' ? { sendVia: parsed.sendVia as SendVia } : {}),
       ...(isSoundId(parsed?.alarmSound) ? { alarmSound: parsed.alarmSound as SoundId } : {}),
       ...(typeof parsed?.alarmScreenAskedAt === 'number' && parsed.alarmScreenAskedAt >= 0 ? { alarmScreenAskedAt: parsed.alarmScreenAskedAt } : {}),
+      ...(typeof parsed?.updateLaterDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.updateLaterDay) ? { updateLaterDay: parsed.updateLaterDay } : {}),
       ...([0, 1, 2].includes(parsed?.calDensity) ? { calDensity: parsed.calDensity as 0 | 1 | 2 } : {}),
     };
   } catch {

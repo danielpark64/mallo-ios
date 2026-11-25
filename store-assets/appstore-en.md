@@ -52,7 +52,7 @@ If you don't say a date or time, like a quick "buy milk" or a whole meeting or l
 Back up all schedules and recordings to one folder, then pick that folder on your new phone to bring everything back.
 
 [No login, no server, no ad tracking]
-There is no account and no login. Schedules and recordings stay only on this device, and the app sends your data nowhere. (Turning speech into text is handled by Apple speech recognition on your device.) A small banner at the bottom of the list points to the developer's YouTube channel. No ad network is used.
+There is no account and no login. Your schedules and recordings never leave your phone. To check for a new version, the app asks the App Store only for the version number. (Turning speech into text is handled by Apple speech recognition on your device.) A small banner at the bottom of the list points to the developer's YouTube channel. No ad network is used.
 
 [Light]
 SayRam only works while you record or play back. Nothing keeps running in the background.

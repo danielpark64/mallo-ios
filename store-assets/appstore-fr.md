@@ -50,7 +50,7 @@ Si vous ne dites ni date ni heure, comme un rapide "acheter du lait" ou toute un
 Sauvegardez tous les rendez-vous et enregistrements dans un dossier, puis choisissez ce dossier sur votre nouveau téléphone pour tout retrouver.
 
 [Sans connexion, sans serveur, sans pistage publicitaire]
-Pas de compte, pas de connexion. Les rendez-vous et enregistrements restent uniquement sur cet appareil et l'app n'envoie vos données nulle part. (La transcription de la voix en texte est faite par la reconnaissance vocale d'Apple sur votre appareil.) Une petite bannière en bas de la liste présente la chaîne YouTube du développeur. Aucun réseau publicitaire n'est utilisé.
+Pas de compte, pas de connexion. Vos rendez-vous et enregistrements ne quittent jamais votre téléphone. Pour vérifier s'il existe une nouvelle version, l'app demande uniquement le numéro de version à l'App Store. (La transcription de la voix en texte est faite par la reconnaissance vocale d'Apple sur votre appareil.) Une petite bannière en bas de la liste présente la chaîne YouTube du développeur. Aucun réseau publicitaire n'est utilisé.
 
 [Légère]
 SayRam ne travaille que pendant l'enregistrement ou la lecture. Rien ne tourne en arrière-plan.

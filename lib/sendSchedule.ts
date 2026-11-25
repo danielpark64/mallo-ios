@@ -20,10 +20,8 @@ export const LEGACY_SHARE_PAGE_URL = 'https://sayram-app.github.io/s/';
 /** 받는 앱 주소 */
 export const RECEIVE_URL_PREFIX = 'mallo://receive?d=';
 export const PAYLOAD_VERSION = 'v1';
-/** 세이람 스토어 주소('업데이트가 필요해요' 창의 [업데이트]).
- *  Android는 market:// 대신 https 주소 — 삼성 폰은 market://에 원스토어·갤럭시 스토어까지 골라라 창이 떠서(기기 확인 11-24) Play 앱으로 바로 가는 https를 쓴다 */
-export const SAYRAM_APP_STORE_URL = 'https://apps.apple.com/app/id6825225042';
-export const SAYRAM_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.danielpark.sayram';
+/** 세이람 스토어 주소 — 값은 lib/appInfo.ts 한 곳에(1.2.3). '업데이트가 필요해요'·'새 버전이 있어요'의 [업데이트]는 lib/storeLink.ts openStore를 쓴다 */
+export { STORE_IOS as SAYRAM_APP_STORE_URL, STORE_ANDROID_WEB as SAYRAM_PLAY_STORE_URL } from './appInfo';
 /** 이 앱이 읽을 줄 아는 가장 높은 형식 번호 — 이보다 큰 번호는 '업데이트가 필요해요' */
 export const KNOWN_PAYLOAD_NUMBER = 1;
 

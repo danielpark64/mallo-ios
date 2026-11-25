@@ -37,6 +37,7 @@ object AlarmStore {
         val soundOn: Boolean,
         val vibOn: Boolean,
         val tone: String = AlarmTones.DEFAULT, // 알람 소리 id(AlarmTones) — 재부팅 복구·스누즈도 같은 소리로
+        val meta: RingMeta = RingMeta.NONE,    // 울림 카드용 일정 시각·몇 분 전(1.2.3) — 재부팅 복구·스누즈에도 그대로
     ) {
         val requestCode: Int get() = key.hashCode()
     }
@@ -132,6 +133,8 @@ object AlarmStore {
         put("title", e.title); put("body", e.body)
         put("snd", e.soundOn); put("vib", e.vibOn)
         put("tone", e.tone)
+        put("ev", e.meta.eventAtMs); put("lead", e.meta.leadMin)
+        put("zz", e.meta.snoozed); put("ct", e.meta.content)
     }
 
     private fun fromJson(o: JSONObject) = Entry(
@@ -143,5 +146,12 @@ object AlarmStore {
         soundOn = o.optBoolean("snd", true),
         vibOn = o.optBoolean("vib", true),
         tone = o.optString("tone", AlarmTones.DEFAULT), // 1.2.0 이전 원장에는 없다 → 기본 소리
+        // versionCode 10 이전 원장에는 없다 → RingMeta.NONE(띠 없이 울린 시각을 보여 줌)
+        meta = RingMeta(
+            eventAtMs = o.optLong("ev", 0L),
+            leadMin = o.optInt("lead", -1),
+            snoozed = o.optBoolean("zz", false),
+            content = o.optString("ct", ""),
+        ),
     )
 }

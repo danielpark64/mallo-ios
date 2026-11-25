@@ -8,8 +8,21 @@ import { Platform } from 'react-native';
 
 import type { AlarmMode } from './notifications';
 
+type NativeScheduleOptions = {
+  tone: string;
+  /** 일정 시각(ms) — 울림 카드에 크게 보여 줄 시각. 0 = 모름 */
+  eventAtMs: number;
+  /** 미리 알림 분(0 = 정각, -1 = 모름) */
+  leadMin: number;
+  /** 일정 내용 원문(미리 알림 본문의 "30분 뒤 · " 앞말 없이) */
+  content: string;
+  /** 5분 후 다시로 다시 거는 것 — 카드 띠가 "다시 알림" */
+  snoozed: boolean;
+};
+
 type MalloAlarmNative = {
-  schedule(key: string, recordId: string, triggerAtMs: number, title: string, body: string, soundOn: boolean, vibOn: boolean, tone: string): void;
+  /** 동기 함수 인자 8개 한도라 소리·일정 정보는 opts로(네이티브 MalloAlarmModule.ScheduleOptions) */
+  schedule(key: string, recordId: string, triggerAtMs: number, title: string, body: string, soundOn: boolean, vibOn: boolean, opts: NativeScheduleOptions): void;
   cancel(keys: string[]): void;
   cancelByRecordId(recordId: string): void;
   cancelAll(): void;
@@ -22,10 +35,16 @@ type MalloAlarmNative = {
   canUseFullScreenIntent?(): boolean;
   openFullScreenIntentSettings?(): void;
   setLabels?(stop: string, snooze: string, ringing: string, app: string): void;
+  setRingLabels?(labels: Record<string, string>): void;
   setVoice?(recordId: string, path: string): void;
   clearVoices?(): void;
   listScheduled(): Array<{ key: string; recordId: string; at: number }>;
   consumeOpenRecordId?(): string | null;
+  showRingScreen?(): boolean;
+  refreshRingFront?(): void;
+  isIgnoringBatteryOptimizations?(): boolean;
+  openBatteryOptimizationSettings?(): void;
+  openNotificationSettings?(): void;
   addListener?(event: 'onOpenRecord', listener: () => void): { remove(): void };
 };
 
@@ -58,6 +77,11 @@ export function scheduleNativeAlarm(params: {
   mode: AlarmMode;
   /** 알람 소리 id(lib/alarmSounds.ts SoundId). 네이티브가 원장에 같이 적어 재부팅 복구·스누즈도 같은 소리로 울린다 */
   tone?: string;
+  /** 울림 카드용(1.2.3): 일정 시각·미리 알림 분(0 = 정각)·일정 내용 원문. 없으면 카드가 띠 없이 울린 시각을 보여 준다 */
+  eventAt?: Date;
+  leadMin?: number;
+  content?: string;
+  snoozed?: boolean;
 }): boolean {
   const native = getNative();
   if (!native) return false;
@@ -70,7 +94,13 @@ export function scheduleNativeAlarm(params: {
       params.body,
       params.mode !== 'vibe',
       params.mode !== 'sound',
-      params.tone ?? 'default'
+      {
+        tone: params.tone ?? 'default',
+        eventAtMs: params.eventAt?.getTime() ?? 0,
+        leadMin: params.leadMin ?? -1,
+        content: params.content ?? '',
+        snoozed: params.snoozed ?? false,
+      }
     );
     return true;
   } catch (e) {
@@ -152,10 +182,14 @@ export function openFullScreenIntentSettings(): void {
  * 네이티브 울림 화면·알림 버튼 글자를 앱 언어에 맞춘다. 네이티브는 앱 언어 설정을 모르므로(잠금해제 전·앱 미기동
  * 상태에서도 울린다) 언어가 정해지거나 바뀔 때마다 넘겨 저장해 둔다. iOS·구버전 네이티브는 no-op.
  */
-export function setNativeAlarmLabels(labels: { stop: string; snooze: string; ringing: string; app: string }): void {
+export function setNativeAlarmLabels(labels: { stop: string; snooze: string; ringing: string; app: string; ring?: Record<string, string> }): void {
   const native = getNative();
   if (!native?.setLabels) return;
   try { native.setLabels(labels.stop, labels.snooze, labels.ringing, labels.app); } catch {}
+  // 울림 카드 글자(띠·오늘/내일·끄기·앱 언어) — lib/ringCard.ts ringCardLabels()
+  if (labels.ring && native.setRingLabels) {
+    try { native.setRingLabels(labels.ring); } catch {}
+  }
 }
 
 // [VOICE_ALARM] 보류된 기능 (lib/voiceAlarm.ts 스위치로 꺼짐)
@@ -187,4 +221,52 @@ export function addNativeOpenRecordListener(listener: () => void): { remove(): v
   const native = getNative();
   if (!native?.addListener) return { remove() {} };
   try { return native.addListener('onOpenRecord', listener); } catch { return { remove() {} }; }
+}
+
+/** 지금 네이티브로 울리는 일정 ID(울리는 중이 아니거나 iOS면 null) */
+export function nativeRingingRecordId(): string | null {
+  const native = getNative();
+  if (!native) return null;
+  try { return native.getRingingRecordId() ?? null; } catch { return null; }
+}
+
+/**
+ * 울리는 중이면 울림 화면(끄기·5분 후)을 맨 앞에 띄운다 — 알림 본문을 눌러 앱이 열렸을 때 끄지 않고 끄기 화면으로 보낸다.
+ * 울리는 중이 아니거나 iOS·구버전 네이티브면 false.
+ */
+export function showNativeRingScreen(): boolean {
+  const native = getNative();
+  if (!native?.showRingScreen) return false;
+  try { return native.showRingScreen(); } catch { return false; }
+}
+
+/**
+ * 앱이 앞으로 올 때 부른다(Android) — 울리는 도중 "다른 앱 위에 표시"를 켰으면 그 슬롯부터 울림 화면이 가려져도 다시 올라오게 한다.
+ * 울리는 중이 아니거나 권한이 없으면 네이티브가 아무것도 안 한다. iOS·구버전 네이티브는 no-op.
+ */
+export function refreshNativeRingFront(): void {
+  const native = getNative();
+  if (!native?.refreshRingFront) return;
+  try { native.refreshRingFront(); } catch {}
+}
+
+/** 배터리 최적화에서 빠져 있는지(Android). iOS·네이티브 없으면 true(안내 불필요) */
+export function isIgnoringBatteryOptimizations(): boolean {
+  const native = getNative();
+  if (!native?.isIgnoringBatteryOptimizations) return true;
+  try { return native.isIgnoringBatteryOptimizations(); } catch { return true; }
+}
+
+/** 배터리 최적화 목록 화면(세이람을 찾아 "최적화 안 함"으로). 바로 묻는 창은 Play 선언이 필요해 쓰지 않는다 */
+export function openBatteryOptimizationSettings(): void {
+  const native = getNative();
+  if (!native?.openBatteryOptimizationSettings) return;
+  try { native.openBatteryOptimizationSettings(); } catch {}
+}
+
+/** Android 앱 알림 설정 화면을 연다. 열었으면 true(iOS·네이티브 없으면 false — 호출자가 앱 설정으로) */
+export function openNativeNotificationSettings(): boolean {
+  const native = getNative();
+  if (!native?.openNotificationSettings) return false;
+  try { native.openNotificationSettings(); return true; } catch { return false; }
 }
