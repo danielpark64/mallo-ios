@@ -75,7 +75,7 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 스토어 스크린샷: `python3 scripts/dev/pad.py <원본.png> <출력.png>` → 1350×2400(9:16) 여백 붙이기.
 
 ## 4-0. 최신 (2026-11-23)
-- **1.2.4 진행 중(11-26, 커밋 안 함 — 주간 사용량 84%로 토요일 11-28 오전 10시 이후 이어서)**
+- **1.2.4 양쪽 제출(11-26, 커밋 `8c75972`)** — Play vc11 검토 중, iOS 1.2.4(24) 심사 대기(재제출 금지). 1.2.3은 양쪽 공개.
   - 내용: 스누즈가 재동기화에 지워지던 버그 31 수정(`lib/snoozeKeep.ts`, 네이티브 `cancelAllKeepSnooze`, AlarmKit `cancelAll(keep, rearm)`), 결과 표시·삭제·시간 변경 시 스누즈도 끔(버그 30), iOS AlarmKit [5분 후 다시] 버튼, iOS 알림 액션 `opensAppToForeground: true`(교대알람과 같게), 재동기화 때 Expo 전체 취소 대신 읽은 목록만 지움(앱 꺼진 채 스누즈 누르면 지워지던 경합).
   - 버전: 1.2.4 / vc11 / iOS 빌드 24(TestFlight 업로드됨 — 22·23은 경합·안내 수정 전). AAB `~/Desktop/세이람-1.2.4-vc11.aab`(11-26 00:56). TestFlight·ASC 스크립트(tf24.sh, v123.mjs 등)와 기기 캡처는 `~/Desktop/세이람-작업도구/`.
   - 확인: tsc·jest 920 통과, verify-fix·alarm-logic 통과, A32 실기기 스누즈 A~E 통과. 미니 실기기에서 앱 종료 상태 [5분 후 다시]·[알람 끄기] 확인(11-26 새벽). **남은 것**: 아이폰에서 AlarmKit [5분 후 다시] 카운트다운·워치, 미니에서 본 저장 직후 달력 '2024년' 잠깐 표시 — 다음 판으로(달력 목록 맨 위=24달 전, 칸 높이 바뀔 때 보던 달로 되돌리기(MonthScroll.tsx keepMonthRef)가 빗나간 것으로 추정, 재현 먼저), 커밋·푸시(사용자 "마무리" 필요). 체크리스트 `docs/checklist-1.2.4.md`.
