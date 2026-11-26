@@ -57,7 +57,8 @@ import {
   type OutcomeKind,
   type ScheduleRecord,
 } from './lib/storage';
-import { carryDefaultDate, dropOutcome, isMovedAway, linkCarry, setOutcome, syncCarryDate, unlinkDeleted } from './lib/outcome';
+import { carryDefaultDate, dropOutcome, isMovedAway, linkCarry, outcomeStopsAlarms, setOutcome, syncCarryDate, unlinkDeleted } from './lib/outcome';
+import { silencedByOutcome } from './lib/snoozeKeep';
 import { useVoiceRecorder } from './lib/useVoiceRecorder';
 import { NO_FILE_NOTICE } from './lib/voiceCapture';
 import { sttBlockedNotice } from './lib/sttErrors';
@@ -634,7 +635,7 @@ function AppInner() {
   // 알람을 건 일정을 저장한 직후: 맨 앞에 뜨는 데 필요한 허용이 꺼져 있으면 한 실행에 한 번 안내한다.
   // 저장 창(편집기·녹음 창)이 닫히는 애니메이션이 끝난 뒤에 띄우고, 그사이 다른 창이 열렸으면 이번엔 묻지 않는다.
   const maybeAskAlarmScreenAfterSave = (armed: boolean) => {
-    if (!shouldAskAfterSave(armed, askedThisRunRef.current)) return;
+    if (!shouldAskAfterSave(armed, askedThisRunRef.current, loadPrefs().alarmScreenAskedAt)) return;
     setTimeout(async () => {
       if (askedThisRunRef.current || askChainRef.current) return;
       const w = openWindowsRef.current;
@@ -719,7 +720,8 @@ function AppInner() {
         await cancelAlarmByRecordId(recordId).catch(() => {});
         if (response.actionIdentifier === 'snooze') {
           const rec = recordsRef.current.find((r) => r.id === pre.recordId);
-          if (rec && isMovedAway(rec)) return; // 알림 센터에 남은 알림이라도 미룬 일정은 다시 울리지 않는다
+          // 알림 센터에 남은 알림이라도 미룬 일정·결과(못 했어요·덜 했어요)를 표시한 일정은 다시 울리지 않는다(1.2.4 버그 30)
+          if (rec && (isMovedAway(rec) || silencedByOutcome(rec))) return;
           const body = response.notification.request.content.body || rec?.content || t('미리 알림');
           await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', {
             single: true, voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound,
@@ -733,7 +735,8 @@ function AppInner() {
         // 스누즈: 남은 슬롯 취소 후 5분 뒤로 다시 예약
         await cancelAlarmByRecordId(recordId).catch(() => {});
         const rec = recordsRef.current.find((r) => r.id === recordId);
-        if (rec && isMovedAway(rec)) return; // 미룬 일정은 새 일정 쪽에서만 울린다
+        // 미룬 일정은 새 일정 쪽에서만 울린다. 결과를 표시한 일정도 다시 걸지 않는다(1.2.4 버그 30)
+        if (rec && (isMovedAway(rec) || silencedByOutcome(rec))) return;
         const body = rec?.content || rec?.transcript || response.notification.request.content.body || t('알람');
         await scheduleAlarm(recordId, body, new Date(Date.now() + 5 * 60 * 1000), rec?.alarmMode ?? 'both', {
           voiceUri: voiceUriOf(rec), alarmSound: rec?.alarmSound,
@@ -1416,7 +1419,7 @@ function AppInner() {
     await unmarkOutcome(fromId, (list) => setOutcome(unlinkDeleted(list.filter((r) => r.id !== linked.id), linked.id), fromId, null));
     releaseUnused(linked.attachments ?? [], recordsRef.current.filter((r) => r.id !== linked.id));
   };
-  const handleOutcome = (rec: ScheduleRecord, kind: OutcomeKind) => {
+  const handleOutcome = async (rec: ScheduleRecord, kind: OutcomeKind) => {
     const all = recordsRef.current;
     const cur = all.find((r) => r.id === rec.id)?.outcome;
     const linked = cur?.nextId ? all.find((r) => r.id === cur.nextId) : undefined;
@@ -1431,7 +1434,15 @@ function AppInner() {
       return;
     }
     if (kind === 'moved' && !linked) { startCarry(rec, 'moved'); return; } // 새 날짜를 저장해야 표시가 남는다
-    commit(setOutcome(all, rec.id, kind));
+    // 결과를 표시한 일정은 더 울리지 않는다(1.2.4 버그 30) — 정각에 울려 "5분 후 다시"를 누른 뒤 앱에서 표시해도 5분 뒤 또 울렸다.
+    // 남은 스누즈·+1/+2분 재알림·미리 알림 스누즈를 세 경로(Expo·Android 네이티브 _z* 슬롯·iOS AlarmKit 카운트다운) 모두 정리한다.
+    // 결과 표시는 지난 일정(또는 미룬 일정)에만 있으므로 다시 걸 정각 알람은 없다. 표시를 풀어도 지난 일정이면 다시 걸 것이 없다(unmarkOutcome).
+    const silence = outcomeStopsAlarms(rec, kind);
+    // 다른 정리 경로(삭제·미룸 저장·unmarkOutcome)처럼 취소가 끝난 뒤 저장한다
+    if (silence) await cancelAlarmGroup(rec.id, all.find((r) => r.id === rec.id)?.notifIds ?? rec.notifIds).catch(() => {});
+    const latest = recordsRef.current; // 취소를 기다리는 사이 바뀐 목록 위에 표시한다
+    const nextList = setOutcome(latest, rec.id, kind);
+    commit(silence ? nextList.map((r) => (r.id === rec.id ? { ...r, notifIds: undefined } : r)) : nextList);
     if (kind === 'partial' && !linked) {
       Alert.alert(t('남은 걸 다시 잡을까요?'), undefined, [
         { text: t('괜찮아요'), style: 'cancel' },

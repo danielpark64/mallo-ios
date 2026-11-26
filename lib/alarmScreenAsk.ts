@@ -50,7 +50,12 @@ export function shouldAskAlarmScreen(lastAskedAt: number, now: number, hasUpcomi
   return now - lastAskedAt >= ASK_INTERVAL_MS || lastAskedAt > now;
 }
 
-/** 알람을 저장한 직후 물을지: 알람이 걸렸고, 이번 실행에서 아직 안 물었을 때(꺼진 권한이 있는지는 호출자가 본다) */
-export function shouldAskAfterSave(armed: boolean, askedThisRun: boolean): boolean {
-  return armed && !askedThisRun;
+export const AFTER_SAVE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/** 알람을 저장한 직후 물을지: 알람이 걸렸고, 이번 실행에서 아직 안 물었고, 마지막으로 물은 지 하루가 지났을 때
+ *  (꺼진 권한이 있는지는 호출자가 본다). 하루 조건이 없으면 앱을 껐다 켤 때마다 저장할 때 또 묻는다(1.2.4). */
+export function shouldAskAfterSave(armed: boolean, askedThisRun: boolean, lastAskedAt = 0, now = Date.now()): boolean {
+  if (!armed || askedThisRun) return false;
+  if (!(lastAskedAt > 0) || lastAskedAt > now) return true;
+  return now - lastAskedAt >= AFTER_SAVE_INTERVAL_MS;
 }

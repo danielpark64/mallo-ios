@@ -7,6 +7,7 @@ const mockNative = {
   cancel: jest.fn(),
   cancelByRecordId: jest.fn(),
   cancelAll: jest.fn(),
+  cancelAllKeepSnooze: jest.fn(),
   stopRinging: jest.fn(),
   getRingingRecordId: jest.fn(() => null),
   canScheduleExact: jest.fn(() => true),
@@ -154,22 +155,87 @@ describe('취소 — 두 경로 모두', () => {
   });
 });
 
-describe('resyncAlarms — 전체 재스케줄', () => {
-  test('Expo 전체 취소 + 네이티브 전체 취소 후, 미래 일정을 두 경로에 다시 건다', async () => {
+describe('resyncAlarms — 전체 재스케줄(스누즈는 남김, 1.2.4 버그 31)', () => {
+  test('목록을 읽은 뒤에 걸린 예약(앱 시작과 동시에 건 스누즈)은 지우지 않는다', async () => {
+    mocked.getAllScheduledNotificationsAsync.mockResolvedValueOnce([
+      { identifier: 'mallo_old_0', content: { data: { recordId: 'old' } } },
+    ] as any);
+    await resyncAlarms([]);
+    expect(mocked.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+    expect(mocked.cancelScheduledNotificationAsync.mock.calls.map((c) => c[0])).toEqual(['mallo_old_0']);
+  });
+  test('목록을 못 읽으면 예전처럼 전부 지운다', async () => {
+    mocked.getAllScheduledNotificationsAsync.mockRejectedValueOnce(new Error('x'));
+    await resyncAlarms([]);
+    expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  });
+  test('Expo 전체 취소 + 네이티브는 스누즈만 남기고 비운 뒤, 미래 일정을 두 경로에 다시 건다', async () => {
     const now = Date.now();
     await resyncAlarms([
       { id: 'soon', content: 'c', transcript: '', scheduleAt: now + 600_000, hasTime: true },
       { id: 'past', content: 'c', transcript: '', scheduleAt: now - 1000, hasTime: true },
     ]);
-    expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
-    expect(mockNative.cancelAll).toHaveBeenCalledTimes(1);
+    expect(mocked.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled(); // 전체 취소는 그 뒤 걸린 스누즈까지 지우므로 쓰지 않는다
+    // 네이티브: 원장 통째 비우기(cancelAll) 대신, 남아 있는 일정의 스누즈(_z*·snoozed)는 남기는 취소
+    expect(mockNative.cancelAll).not.toHaveBeenCalled();
+    expect(mockNative.cancelAllKeepSnooze).toHaveBeenCalledWith(['soon', 'past'], ['soon']);
+    // 지난 일정(past)의 정각은 다시 걸지 않는다 — 그 일정에 걸려 있던 스누즈는 위에서 남겼다
     expect(mockNative.schedule.mock.calls.map((c) => c[0])).toEqual(['mallo_soon_0', 'mallo_soon_1', 'mallo_soon_2']);
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
     // 취소가 예약보다 먼저
-    const cancelOrder = mockNative.cancelAll.mock.invocationCallOrder[0];
+    const cancelOrder = mockNative.cancelAllKeepSnooze.mock.invocationCallOrder[0];
     const firstSchedule = mockNative.schedule.mock.invocationCallOrder[0];
     expect(cancelOrder).toBeLessThan(firstSchedule);
   });
+
+  test('Expo: 남아 있는 일정의 스누즈 알림(data.snooze)은 남기고, 지운 일정·결과 표시 일정·일반 알림은 지운다', async () => {
+    const now = Date.now();
+    mocked.getAllScheduledNotificationsAsync.mockResolvedValueOnce([
+      { identifier: 'mallo_past_0', content: { data: { recordId: 'past', slotOffset: 0, snooze: true } } },
+      { identifier: 'mallo_past#pre30_0', content: { data: { recordId: 'past#pre30', slotOffset: 0, snooze: true } } },
+      { identifier: 'mallo_gone_0', content: { data: { recordId: 'gone', slotOffset: 0, snooze: true } } },
+      { identifier: 'mallo_done_0', content: { data: { recordId: 'done', slotOffset: 0, snooze: true } } },
+      { identifier: 'mallo_soon_0', content: { data: { recordId: 'soon', slotOffset: 0, snooze: true } } },
+      { identifier: 'mallo_soon_pre10', content: { data: { recordId: 'soon#pre10', pre: 10 } } },
+    ] as any);
+    await resyncAlarms([
+      { id: 'soon', content: 'c', transcript: '', scheduleAt: now + 600_000, hasTime: true },
+      { id: 'past', content: 'c', transcript: '', scheduleAt: now - 60_000, hasTime: true },
+      { id: 'done', content: 'c', transcript: '', scheduleAt: now - 60_000, hasTime: true, outcome: { kind: 'skipped' } },
+    ]);
+    expect(mocked.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+    expect(mocked.cancelScheduledNotificationAsync.mock.calls.map((c) => c[0]).sort()).toEqual(
+      ['mallo_done_0', 'mallo_gone_0', 'mallo_soon_0', 'mallo_soon_pre10'].sort()
+    );
+    // 결과 표시 일정은 남길 일정에서 빠진다(네이티브도 같은 규칙)
+    expect(mockNative.cancelAllKeepSnooze).toHaveBeenCalledWith(['soon', 'past'], ['soon']);
+  });
+
+  test('옛 네이티브(cancelAllKeepSnooze 없음)면 예전처럼 원장을 통째로 비운다', async () => {
+    const saved = mockNative.cancelAllKeepSnooze;
+    delete (mockNative as any).cancelAllKeepSnooze;
+    try {
+      await resyncAlarms([]);
+      expect(mockNative.cancelAll).toHaveBeenCalledTimes(1);
+    } finally {
+      (mockNative as any).cancelAllKeepSnooze = saved;
+    }
+  });
+});
+
+test('5분 후 다시(snoozeOf)로 건 Expo 알림에는 data.snooze 표시가 붙고, 일반 알람에는 없다', async () => {
+  await scheduleAlarm('r1', '회의', future(5), 'both', { snoozeOf: { eventAt: future(-3), leadMin: 0 } });
+  expect(mocked.scheduleNotificationAsync.mock.calls.map((c) => (c[0].content.data as any).snooze)).toEqual([true, true, true]);
+  mocked.scheduleNotificationAsync.mockClear();
+  await scheduleAlarm('r1', '회의', future(5), 'both');
+  expect(mocked.scheduleNotificationAsync.mock.calls.map((c) => (c[0].content.data as any).snooze)).toEqual([undefined, undefined, undefined]);
+});
+
+test('결과 표시(버그 30): cancelAlarmGroup이 네이티브 스누즈 슬롯(recordId 단위)과 미리 알림 스누즈까지 정리한다', async () => {
+  await cancelAlarmGroup('r1', ['mallo_r1_0']);
+  const ids = mockNative.cancelByRecordId.mock.calls.map((c) => c[0]);
+  expect(ids).toContain('r1');          // 원장의 _z* 스누즈 항목도 recordId가 r1이라 함께 내려간다
+  expect(ids).toContain('r1#pre30');    // 미리 알림을 5분 후로 미룬 것
 });
 
 test('JS 쪽 5분 후(snoozeOf): 원래 일정 시각·몇 분 전과 snoozed를 넘겨 카드에 "다시 알림"', async () => {

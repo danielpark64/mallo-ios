@@ -23,6 +23,9 @@ type ScheduleOptions = {
   title: string;
   stopText: string;     // iOS 26.0은 끄기 버튼을 직접 줘야 한다(26.1부터 시스템이 그린다)
   sound: string;        // 앱 번들 소리 파일 이름(lib/alarmSounds.iosSoundFile — alarm_long.wav / snd_<id>.caf)
+  snoozeText: string;   // 울림 화면 [5분 후 다시] 버튼 글자(1.2.4)
+  snoozeMin: number;    // 다시 울릴 때까지 분(0이면 버튼 없음)
+  snooze: boolean;      // JS가 "5분 후 다시"로 다시 건 슬롯 — 재동기화가 남긴다(lib/snoozeKeep.ts)
 };
 type Native = {
   isAvailable(): boolean;
@@ -31,7 +34,7 @@ type Native = {
   schedule(o: ScheduleOptions): Promise<boolean>;
   cancelKeys(keys: string[]): Promise<number>;
   cancelForRecord(recordId: string): Promise<number>;
-  cancelAll(keepBaseRecordIds: string[]): Promise<number>;
+  cancelAll(keepBaseRecordIds: string[], rearmBaseRecordIds: string[]): Promise<number>;
   listScheduled(): Promise<{ id: string; key: string; recordId: string; state: string; when: number | null }[]>;
 };
 
@@ -85,14 +88,19 @@ export async function openAlarmKitPermission(): Promise<void> {
   if (auth === 'denied') { try { await Linking.openSettings(); } catch {} }
 }
 
-/** 슬롯 하나를 AlarmKit에 건다. false면 실패(호출한 쪽이 Expo 방식으로 대신 건다). */
-export function scheduleAlarmKit(p: { key: string; recordId: string; baseRecordId: string; at: Date; title: string; stopText: string; sound?: string }): Promise<boolean> {
+/** AlarmKit 울림 화면의 [5분 후 다시] 간격(분) — Expo 알림의 "5분 후 다시"·Android 네이티브 스누즈와 같다 */
+export const ALARMKIT_SNOOZE_MIN = 5;
+
+/** 슬롯 하나를 AlarmKit에 건다. false면 실패(호출한 쪽이 Expo 방식으로 대신 건다).
+ *  snoozeText를 주면 울림 화면에 [5분 후 다시] 버튼이 붙는다. snooze: JS가 5분 후로 다시 건 슬롯(재동기화가 남김) */
+export function scheduleAlarmKit(p: { key: string; recordId: string; baseRecordId: string; at: Date; title: string; stopText: string; sound?: string; snoozeText?: string; snooze?: boolean }): Promise<boolean> {
   const native = getNative();
   if (!native) return Promise.resolve(false);
   const fireMs = p.at.getTime();
   const o: ScheduleOptions = {
     id: alarmKitUuid(p.key, fireMs), key: p.key, recordId: p.recordId, baseRecordId: p.baseRecordId,
     fireMs, title: p.title, stopText: p.stopText, sound: p.sound || 'alarm_long.wav',
+    snoozeText: p.snoozeText ?? '', snoozeMin: p.snoozeText ? ALARMKIT_SNOOZE_MIN : 0, snooze: !!p.snooze,
   };
   return serial(() => native.schedule(o)).catch(() => false);
 }
@@ -110,12 +118,14 @@ export function cancelAlarmKitForRecord(recordId: string): Promise<number> {
   return serial(() => native.cancelForRecord(recordId)).catch(() => 0);
 }
 
-/** keepBaseRecordIds: 지금 울리는 중인 예약 가운데 이 일정들(아직 남아 있는 일정)의 것은 남긴다 —
- *  울리는 도중 앱을 열어 재동기화가 돌아도 울림이 끊기지 않게. 지운 일정의 것은 상태와 무관하게 지운다. */
-export function cancelAllAlarmKit(keepBaseRecordIds: string[] = []): Promise<number> {
+/** 재동기화용 전체 정리. keepBaseRecordIds(남아 있고 결과 표시가 없는 일정)에 속한 것 가운데
+ *  지금 울리는 중·[5분 후 다시] 카운트다운 중인 것과 JS가 건 스누즈 슬롯은 남긴다 — 울림·스누즈가 끊기지 않게(1.2.4 버그 31).
+ *  rearmBaseRecordIds: 앞으로의 정각으로 다시 걸리는 일정 — 그 일정의 정각 스누즈 슬롯은 지운다(lib/snoozeKeep.ts 규칙).
+ *  지운 일정·결과를 표시한 일정의 것은 상태와 무관하게 지운다. */
+export function cancelAllAlarmKit(keepBaseRecordIds: string[] = [], rearmBaseRecordIds: string[] = []): Promise<number> {
   const native = getNative();
   if (!native) return Promise.resolve(0);
-  return serial(() => native.cancelAll(keepBaseRecordIds)).catch(() => 0);
+  return serial(() => native.cancelAll(keepBaseRecordIds, rearmBaseRecordIds)).catch(() => 0);
 }
 
 export function listAlarmKit(): Promise<{ id: string; key: string; recordId: string; state: string; when: number | null }[]> {

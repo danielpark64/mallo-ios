@@ -75,6 +75,12 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 스토어 스크린샷: `python3 scripts/dev/pad.py <원본.png> <출력.png>` → 1350×2400(9:16) 여백 붙이기.
 
 ## 4-0. 최신 (2026-11-23)
+- **1.2.4 진행 중(11-26, 커밋 안 함 — 주간 사용량 84%로 토요일 11-28 오전 10시 이후 이어서)**
+  - 내용: 스누즈가 재동기화에 지워지던 버그 31 수정(`lib/snoozeKeep.ts`, 네이티브 `cancelAllKeepSnooze`, AlarmKit `cancelAll(keep, rearm)`), 결과 표시·삭제·시간 변경 시 스누즈도 끔(버그 30), iOS AlarmKit [5분 후 다시] 버튼, iOS 알림 액션 `opensAppToForeground: true`(교대알람과 같게), 재동기화 때 Expo 전체 취소 대신 읽은 목록만 지움(앱 꺼진 채 스누즈 누르면 지워지던 경합).
+  - 버전: 1.2.4 / vc11 / iOS 빌드 24(TestFlight 업로드됨 — 22·23은 경합·안내 수정 전). AAB `~/Desktop/세이람-1.2.4-vc11.aab`(11-26 00:56). TestFlight·ASC 스크립트(tf24.sh, v123.mjs 등)와 기기 캡처는 `~/Desktop/세이람-작업도구/`.
+  - 확인: tsc·jest 920 통과, verify-fix·alarm-logic 통과, A32 실기기 스누즈 A~E 통과. 미니 실기기에서 앱 종료 상태 [5분 후 다시]·[알람 끄기] 확인(11-26 새벽). **남은 것**: 아이폰에서 AlarmKit [5분 후 다시] 카운트다운·워치, 미니에서 본 저장 직후 달력 '2024년' 잠깐 표시 — 다음 판으로(달력 목록 맨 위=24달 전, 칸 높이 바뀔 때 보던 달로 되돌리기(MonthScroll.tsx keepMonthRef)가 빗나간 것으로 추정, 재현 먼저), 커밋·푸시(사용자 "마무리" 필요). 체크리스트 `docs/checklist-1.2.4.md`.
+  - 1.2.4에 넣을지 사용자에게 물은 작은 것: 스누즈 중인데 상세 배지 '지난 일정 (알림 없음)', 일정 저장 때마다 '맨 앞' 안내창 반복. 따로 조사할 것: 오버레이 권한 없을 때 다른 앱 위로 울림 화면이 안 뜸(`알람-맨앞.md`와 어긋남).
+  - 제출: iOS 1.2.3(20) 심사 통과 뒤에만, Play도 사용자 "올려" 뒤에만(양쪽 같은 버전).
 - **iOS 1.2.0(빌드 13) 심사 대기** — 11-23 제출, 재제출 금지. 9개 로캘 새 기능 입력(`docs/release-1.2.0-notes.md`).
 - **Android 1.2.0(vc6) AAB** `~/Desktop/세이람-1.2.0-vc6.aab` — 사용자가 Play 프로덕션에 직접 올림. 새 권한 READ_CONTACTS(말로 보내기) → 데이터 보안 '연락처' 확인.
 - 1.2.0 내용: iOS 26 AlarmKit, 일정 보내기(+안내 docs/s), 복사한 것 붙이기·OCR, 상세+수정 한 화면, 알람 소리 6개(`lib/alarmSounds.ts`, Android `AlarmTones.kt`, iOS `plugins/withIosAlarmSounds.js`). '점점 크게'는 사용자 지시로 뺌.
@@ -101,7 +107,7 @@ xcrun devicectl device install app --device 00008150-000C61A11AE9401C "$HOME/Lib
 - 그다음: App Store 아이폰(1206×2622) 8개 언어 + **아이패드 13인치(2064×2752) 9개 언어**(세이람은 iPad 지원).
 
 **다음 판(1.1.1)에 함께 넣을 것**
-- 위 달력·위젯 수정, 새 스토어 이미지(**Play·App Store 같은 날 함께 — Play 이미지만 먼저 바꾸지 않음**, 사용자 결정 11-21), Android 출시 국가를 iOS와 같게 전체로, App Store 키워드(`store-assets/appstore-keywords.md`). 제출 전 반드시 사용자 확인. Play 이미지는 언어별 폴더로 건네 사용자가 올리고, App Store는 관리자 API 키.
+- 위 달력·위젯 수정, 새 스토어 이미지(**Play·App Store 같은 날 함께 — Play 이미지만 먼저 바꾸지 않음**, 사용자 결정 11-21), Android 출시 국가를 iOS와 같게 전체로, App Store 키워드(`store-assets/appstore-keywords.md`). 제출 전 반드시 사용자 확인. 이미지는 Claude가 직접 올린다(Play 서비스 계정·App Store 관리자 API 키) — 11-25 확인: 스크린샷 9개 언어 양쪽 다 올라가 있음, Play 대표 이미지도 9개 언어 올림(11-25).
 
 **사용자 결정 (2026-11-21 밤)**
 - 고치기로 함 → **수정·커밋함**: 날짜 옆 "설날 연휴"·"추석 연휴"를 "연휴"로(`lib/calendarKit/holidays.ts` HOLIDAY_SHORT — 위젯 칸도 "연휴"로 바뀜), 근무 있는 날 아랫줄 공휴일 글씨 9→10(`components/MonthScroll.tsx` holBelow). verify-fix WARN(가벼움)·tsc·jest 통과, 아이폰(17 Pro Max)·노트10+ 2027-02 화면 직접 확인(연휴·설날·연휴·대체휴일, 입춘·우수·음력 맞음). 두 기기 모두 지금 작업본 Release가 설치돼 있음.

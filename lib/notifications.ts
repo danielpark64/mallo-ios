@@ -12,7 +12,7 @@ const t = (key: string): string => { const l = getLang(); return l === 'ko' ? ke
 import { REMIND_OPTIONS, normalizeRemind, preRecordId, remindBody, remindFireAt } from './reminders';
 import {
   EXPO_FALLBACK_GRACE_MS,
-  cancelAllNativeAlarms,
+  cancelAllNativeAlarmsKeepSnooze,
   cancelNativeAlarms,
   cancelNativeAlarmsByRecordId,
   isNativeAlarmAvailable,
@@ -30,6 +30,7 @@ import {
   requestAlarmKitIfNeeded,
   scheduleAlarmKit,
 } from './alarmkit';
+import { baseOfRecordId, snoozePlan, snoozeStillDue } from './snoozeKeep';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -146,11 +147,12 @@ export async function registerAndroidChannels() {
 
 export async function registerNotificationCategories() {
   // 버튼 구성 = 워치에서 사용자가 보게 될 버튼(폰 알림이 그대로 워치로 브릿지된다).
-  // iOS: 앱을 앞으로 열지 않는 백그라운드 액션으로 둔다 — 잠금 화면·애플워치에서 폰 잠금을 풀지 않고도
-  //      "알람 끄기"가 바로 처리된다(교대알람과 같은 구성). 앱은 백그라운드로 깨어나 응답 리스너가 남은 재알림을 취소한다.
+  // 두 플랫폼 모두 앱을 앞으로 여는 액션(opensAppToForeground: true, Expo 기본값 — 교대알람 1.6.4와 같은 구성).
+  // iOS(1.2.4): 백그라운드 액션은 앱이 종료돼 있을 때 [5분 후 다시]의 재예약이 JS에 닿지 않을 수 있어 앞으로 연다.
+  //      잠금 화면에서는 Face ID 뒤 앱이 열리고, 애플워치에서 누른 액션도 폰 앱으로 전달된다(실기기 확인 필요).
   // Android: 이 Expo 알림은 네이티브가 못 울렸을 때의 보조 경로다. 앱 프로세스가 죽어 있어도 응답이 확실히
   //      JS에 닿도록 앱을 앞으로 연다(평소 끄기는 네이티브 알림 버튼·워치 → AlarmService가 직접 처리).
-  const foreground = Platform.OS === 'android';
+  const foreground = true;
   await Notifications.setNotificationCategoryAsync(
     'alarm',
     [
@@ -259,7 +261,7 @@ async function scheduleSlots(
     const subId = preRecordId(recordId, m);
     const body = remindBody(m, content, at);
     // AlarmKit 울림 화면엔 제목 한 줄만 보이므로 본문(무슨 일정·몇 분 전)을 제목으로 쓴다
-    if (viaAlarmKit && (await scheduleAlarmKit({ key: identifier, recordId: subId, baseRecordId: recordId, at: fireAt, title: body, stopText: t('알람 끄기'), sound: akSound }))) {
+    if (viaAlarmKit && (await scheduleAlarmKit({ key: identifier, recordId: subId, baseRecordId: recordId, at: fireAt, title: body, stopText: t('알람 끄기'), sound: akSound, snoozeText: t('5분 후 다시') }))) {
       ids.push(identifier);
       continue;
     }
@@ -308,10 +310,15 @@ async function scheduleSlots(
     interruptionLevel: 'timeSensitive', // 위 미리 알림과 같은 이유(iOS 전용)
     data: { recordId },
   };
-  // AlarmKit은 끌 때까지 시스템이 울리므로 정각 슬롯 하나만 건다(+1·+2분 재알림 없음 — 걸면 끈 뒤에 또 울린다)
+  // "5분 후 다시"로 다시 거는 슬롯(1.2.4 버그 31): 재동기화가 지우지 않고 남기도록 표시한다 — Expo는 data.snooze,
+  // Android 네이티브는 meta.snoozed(원장 "zz"), AlarmKit은 원장 "snz". 남길지는 lib/snoozeKeep.ts가 정한다
+  const isSnooze = !!opts.snoozeOf;
+  // AlarmKit은 끌 때까지 시스템이 울리므로 정각 슬롯 하나만 건다(+1·+2분 재알림 없음 — 걸면 끈 뒤에 또 울린다).
+  // 울림 화면에 [5분 후 다시]가 붙는다(1.2.4) — 누르면 시스템이 같은 예약으로 5분 카운트다운 뒤 다시 울린다
   if (viaAlarmKit) {
     const identifier = `mallo_${recordId}_0`;
-    if (await scheduleAlarmKit({ key: identifier, recordId, baseRecordId: recordId, at, title: content || t('세이람'), stopText: t('알람 끄기'), sound: akSound })) {
+    // 미리 알림의 스누즈는 recordId가 "id#pre30"이라 원래 일정 id를 따로 뽑는다(재동기화가 남아 있는 일정인지 볼 때 쓴다)
+    if (await scheduleAlarmKit({ key: identifier, recordId, baseRecordId: baseOfRecordId(recordId), at, title: content || t('세이람'), stopText: t('알람 끄기'), sound: akSound, snoozeText: t('5분 후 다시'), snooze: isSnooze })) {
       ids.push(identifier);
       return done();
     }
@@ -333,7 +340,7 @@ async function scheduleSlots(
     try {
       const id = await Notifications.scheduleNotificationAsync({
         identifier,
-        content: { ...base, data: { recordId, slotOffset: offset } },
+        content: { ...base, data: isSnooze ? { recordId, slotOffset: offset, snooze: true } : { recordId, slotOffset: offset } },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: nativeArmed ? new Date(fireAt.getTime() + EXPO_FALLBACK_GRACE_MS) : fireAt,
@@ -428,15 +435,20 @@ export async function resyncAlarms(
   const gen = ++resyncGen;
   handledDuringResync.clear();
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    if (isStale(gen)) return;
-    cancelAllNativeAlarms(); // Android: 네이티브 원장도 전부 비운 뒤 아래에서 둘 다 다시 건다
-    // iOS 26+: AlarmKit 원장 전체 정리 — 방식과 무관하게 항상. 권한을 꺼서 Expo로 바뀌었으면 AlarmKit 쪽 잔여가,
-    // 지운 일정이면 그 예약이 여기서 지워진다. 남아 있는 일정의 "지금 울리는 중"인 것만 남긴다(울림이 끊기지 않게).
-    lastAlarmKitAuth = alarmKitEnv().auth;
-    await cancelAllAlarmKit(records.map((r) => r.id));
-    if (isStale(gen)) return;
     const now = Date.now();
+    // "5분 후 다시"(스누즈)는 지우지 않는다(1.2.4 버그 31 — 교대알람 1.6.3 0012cfc와 같은 방식). 예전엔 세 경로를 통째로 지워
+    // 지난 일정에 걸린 스누즈가 앱을 다시 열기만 해도(시작·소리 변경·백업 복원) 사라졌다. 지금 일정 목록과 맞춰 보아
+    // 지운 일정·결과를 표시한 일정·앞으로 다시 걸리는 정각의 스누즈만 지우고 나머지는 남긴다(규칙은 lib/snoozeKeep.ts 한 곳).
+    const plan = snoozePlan(records, now);
+    const keptExpo = await cancelAllExpoKeepSnooze(plan);
+    if (isStale(gen)) return;
+    cancelAllNativeAlarmsKeepSnooze(plan); // Android: 네이티브 원장도 스누즈만 남기고 비운 뒤 아래에서 둘 다 다시 건다
+    // iOS 26+: AlarmKit 원장 전체 정리 — 방식과 무관하게 항상. 권한을 꺼서 Expo로 바뀌었으면 AlarmKit 쪽 잔여가,
+    // 지운 일정이면 그 예약이 여기서 지워진다. 남아 있는 일정의 "지금 울리는 중"·[5분 후 다시] 카운트다운 중인 것과
+    // JS가 건 스누즈 슬롯은 남긴다(울림·스누즈가 끊기지 않게).
+    lastAlarmKitAuth = alarmKitEnv().auth;
+    await cancelAllAlarmKit(plan.keepBase, plan.rearmBase);
+    if (isStale(gen)) return;
     // 정각이 지났어도 미리 알림이 남아 있을 수는 없으므로(미리 알림은 정각보다 앞) 정각 기준으로 거른다
     const future = records
       .filter((r) => !r.needsDate && r.hasTime && r.scheduleAt != null && r.scheduleAt > now)
@@ -446,7 +458,7 @@ export async function resyncAlarms(
     // 내 목소리 알람: 네이티브 예약을 비운 직후에 정리한다(그 전에 지우면 그 사이 울리는 알람이 기본음이 된다).
     // 앞으로 울릴 일정 것만 남긴다 — 지난 일정의 iOS 소리 파일(건당 1~2MB)이 쌓이지 않게.
     resetVoiceAlarms(future.filter((r) => voiceUriOf(r)).map((r) => r.id));
-    let budget = 60; // 64개 한도에서 여유분 확보(Expo 알림만 센다)
+    let budget = 60 - keptExpo; // 64개 한도에서 여유분 확보(Expo 알림만 센다 — 남긴 스누즈 알림도 자리를 차지한다)
     const akMode = isAlarmKitMode();
     let expoClosed = false;
     for (const r of future) {
@@ -474,6 +486,35 @@ export async function resyncAlarms(
   } catch (e) {
     console.warn('알람 재동기화 실패:', e);
   }
+}
+
+/**
+ * 재동기화용 Expo 전체 취소 — "5분 후 다시"로 다시 건 알림(data.snooze) 가운데 아직 울려야 하는 것(lib/snoozeKeep.ts)은 남긴다.
+ * 남길 것이 없으면 예전처럼 한 번에 지운다. 반환: 남긴 알림 수(iOS 64개 예산에서 뺀다).
+ */
+async function cancelAllExpoKeepSnooze(plan: ReturnType<typeof snoozePlan>): Promise<number> {
+  let scheduled: Notifications.NotificationRequest[] = [];
+  try { scheduled = (await Notifications.getAllScheduledNotificationsAsync()) ?? []; } catch {
+    // 목록을 못 읽으면 남길 것을 가릴 수 없다 — 예전처럼 전부 지운다(지운 일정이 울리는 것보다 낫다)
+    await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    return 0;
+  }
+  const keep = new Set(
+    scheduled
+      .filter((n) => {
+        const d = n.content?.data as any;
+        return d?.snooze === true && typeof d.recordId === 'string' && snoozeStillDue(d.recordId, plan);
+      })
+      .map((n) => n.identifier)
+  );
+  // 전체 취소(cancelAllScheduledNotificationsAsync)는 쓰지 않는다 — 목록을 읽은 뒤에 등록된 예약(앱이 꺼진 채
+  // [5분 후 다시]를 눌러 시작과 동시에 걸리는 스누즈 등)까지 지워 버린다. 읽은 목록만 하나씩 지운다.
+  await Promise.all(
+    scheduled
+      .filter((n) => !keep.has(n.identifier))
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {}))
+  );
+  return keep.size;
 }
 
 // ── iOS 26+ AlarmKit 권한 ──────────────────────────────────────────────

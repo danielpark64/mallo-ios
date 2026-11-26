@@ -120,6 +120,16 @@ describe('예약 분기(scheduleAlarm)', () => {
     expect(main).toMatchObject({ key: 'mallo_r1_0', recordId: 'r1', baseRecordId: 'r1', fireMs: at.getTime(), title: '치과' });
     expect(main.id).toBe(alarmKitUuid('mallo_r1_0', at.getTime()));
   });
+  test('울림 화면 [5분 후 다시](1.2.4): 정각·미리 알림 모두 버튼 글자와 5분을 넘기고, 일반 예약은 스누즈 표시 없음', async () => {
+    await scheduleAlarm('r1', '치과', future(60), 'both', { remindBefore: [10] });
+    for (const c of mockAK.schedule.mock.calls) {
+      expect(c[0]).toMatchObject({ snoozeText: '5분 후 다시', snoozeMin: 5, snooze: false });
+    }
+  });
+  test('JS가 5분 후로 다시 건 슬롯은 snooze 표시 — 미리 알림 스누즈도 원래 일정 id(baseRecordId)로 남는다(버그 31)', async () => {
+    await scheduleAlarm('r1#pre30', '치과', future(5), 'both', { single: true, snoozeOf: { eventAt: future(30), leadMin: 30 } });
+    expect(mockAK.schedule.mock.calls[0][0]).toMatchObject({ key: 'mallo_r1#pre30_0', recordId: 'r1#pre30', baseRecordId: 'r1', snooze: true });
+  });
   test('같은 일정을 다시 걸면 같은 UUID(덮어쓰기)', async () => {
     const at = future(30);
     await scheduleAlarm('r1', 'a', at, 'sound');
@@ -192,14 +202,24 @@ describe('재동기화', () => {
   });
   test('Expo 전체 취소 + AlarmKit 전체 정리(남은 일정 id 전달) 뒤 다시 건다', async () => {
     const order: string[] = [];
-    mocked.cancelAllScheduledNotificationsAsync.mockImplementationOnce(async () => { order.push('expoAll'); });
+    mocked.getAllScheduledNotificationsAsync.mockImplementationOnce(async () => { order.push('expoAll'); return []; });
     mockAK.cancelAll.mockImplementationOnce(async () => { order.push('akAll'); return 0; });
     mockAK.schedule.mockImplementation(async () => { order.push('ak'); return true; });
     await resyncAlarms([rec('a', 30), rec('b', 60, 'vibe'), { ...rec('old', -60) }]);
-    expect(mockAK.cancelAll).toHaveBeenCalledWith(['a', 'b', 'old']);
+    expect(mockAK.cancelAll).toHaveBeenCalledWith(['a', 'b', 'old'], ['a', 'b']); // 남길 일정, 앞으로 정각이 다시 걸리는 일정(1.2.4)
     expect(order.slice(0, 3)).toEqual(['expoAll', 'akAll', 'ak']);
     expect(mockAK.schedule).toHaveBeenCalledTimes(1); // a만(b는 진동만 → Expo)
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
+  });
+  test('결과를 표시한 일정·지운 일정은 남길 일정에서 빠진다 — 카운트다운 중인 스누즈도 지워진다(버그 30·31)', async () => {
+    await resyncAlarms([rec('past', -3), { ...rec('done', -3), outcome: { kind: 'partial' } }, rec('soon', 30)]);
+    expect(mockAK.cancelAll).toHaveBeenCalledWith(['past', 'soon'], ['soon']);
+  });
+  test('결과 표시 때 쓰는 cancelAlarmGroup은 AlarmKit 원장에서 정각·미리 알림 recordId를 모두 지운다(카운트다운 중 포함)', async () => {
+    await cancelAlarmGroup('r1');
+    const ids = mockAK.cancelForRecord.mock.calls.map((c) => c[0]);
+    expect(ids).toContain('r1');
+    expect(ids).toContain('r1#pre30');
   });
   test('64개 예산: AlarmKit으로 걸린 슬롯은 Expo 예산에서 빼지 않는다', async () => {
     const many = Array.from({ length: 70 }, (_, i) => ({ ...rec(`r${i}`, 60 + i), remindBefore: [10] }));

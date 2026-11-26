@@ -6,7 +6,7 @@
 // 미룬 원래 일정은 알람을 걸지 않는다(isMovedAway) — 새 일정 쪽에서만 울린다.
 // 화면·알람과 무관한 순수 함수만 둔다(알람 예약·취소는 App.tsx가 lib/notifications.ts로).
 
-import { formatDayHeader, formatTime } from './dateUtils';
+import { formatDayHeader, formatTime, isPastItem } from './dateUtils';
 import { t } from './i18n';
 import type { OutcomeKind, ScheduleRecord } from './storage';
 
@@ -22,6 +22,14 @@ export const OUTCOME_BUTTON: Record<OutcomeKind, string> = {
 /** 다른 날로 옮겨 간 일정 — 알람을 걸지 않는다 */
 export function isMovedAway(r: Pick<ScheduleRecord, 'outcome'>): boolean {
   return r.outcome?.kind === 'moved';
+}
+
+/**
+ * 결과를 표시할 때 그 일정의 남은 알람(스누즈·재알림·미리 알림 스누즈)을 정리해야 하는지(1.2.4 버그 30).
+ * 지난 일정에 표시하면 더 울릴 이유가 없고, 미룬 일정(moved)은 새 일정 쪽에서만 울린다. 그 밖(아직 오지 않은 일정)은 건드리지 않는다.
+ */
+export function outcomeStopsAlarms(r: Parameters<typeof isPastItem>[0], kind: OutcomeKind, now: number = Date.now()): boolean {
+  return kind === 'moved' || isPastItem(r, now);
 }
 
 /** 카드·내보내기 꼬리표 이름 */

@@ -89,6 +89,11 @@ class MalloAlarmModule : Module() {
             AlarmScheduling.cancelAll(context)
         }
 
+        /** 재동기화용: 스누즈(5분 후 다시)는 남기고 나머지를 지운다(1.2.4 버그 31 — lib/snoozeKeep.ts와 같은 규칙) */
+        Function("cancelAllKeepSnooze") { keepBase: List<String>, rearmBase: List<String> ->
+            AlarmScheduling.cancelAllKeepSnooze(context, keepBase.toSet(), rearmBase.toSet())
+        }
+
         /** 울리는 중이면 멈춘다(남은 슬롯도 정리). recordId를 모르면 현재 울리는 것. */
         Function("stopRinging") { recordId: String? ->
             AlarmService.stop(context, recordId ?: AlarmService.currentRinging?.recordId)

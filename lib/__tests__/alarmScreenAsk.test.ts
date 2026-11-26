@@ -51,4 +51,9 @@ test('알람 저장 직후: 알람이 걸렸고 이번 실행에서 안 물었�
   expect(shouldAskAfterSave(true, false)).toBe(true);
   expect(shouldAskAfterSave(true, true)).toBe(false);
   expect(shouldAskAfterSave(false, false)).toBe(false);
+  // 1.2.4: 앱을 껐다 켜도 하루 안에 다시 물은 적이 있으면 저장 직후엔 안 묻는다
+  const now = 1_800_000_000_000;
+  expect(shouldAskAfterSave(true, false, now - 60_000, now)).toBe(false);
+  expect(shouldAskAfterSave(true, false, now - 25 * 3600_000, now)).toBe(true);
+  expect(shouldAskAfterSave(true, false, now + 60_000, now)).toBe(true); // 시계를 되돌린 경우
 });

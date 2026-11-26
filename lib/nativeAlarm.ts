@@ -26,6 +26,8 @@ type MalloAlarmNative = {
   cancel(keys: string[]): void;
   cancelByRecordId(recordId: string): void;
   cancelAll(): void;
+  /** 1.2.4: 스누즈는 남기는 전체 취소(lib/snoozeKeep.ts 규칙). 옛 네이티브에는 없다 */
+  cancelAllKeepSnooze?(keepBase: string[], rearmBase: string[]): void;
   stopRinging(recordId: string | null): void;
   getRingingRecordId(): string | null;
   canScheduleExact(): boolean;
@@ -125,6 +127,17 @@ export function cancelAllNativeAlarms(): void {
   const native = getNative();
   if (!native) return;
   try { native.cancelAll(); } catch (e) { console.warn('네이티브 알람 전체 취소 실패:', e); }
+}
+
+/**
+ * 재동기화용 전체 취소 — "5분 후 다시"(스누즈)는 남긴다(1.2.4 버그 31). 남길지는 lib/snoozeKeep.ts와 같은 규칙으로 네이티브가 정한다.
+ * 이 함수가 없는 옛 네이티브면 예전처럼 전부 지운다.
+ */
+export function cancelAllNativeAlarmsKeepSnooze(plan: { keepBase: string[]; rearmBase: string[] }): void {
+  const native = getNative();
+  if (!native) return;
+  if (!native.cancelAllKeepSnooze) { cancelAllNativeAlarms(); return; }
+  try { native.cancelAllKeepSnooze(plan.keepBase, plan.rearmBase); } catch (e) { console.warn('네이티브 알람 전체 취소 실패:', e); }
 }
 
 export function stopNativeRinging(recordId?: string): void {

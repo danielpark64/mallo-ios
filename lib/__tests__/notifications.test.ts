@@ -116,7 +116,7 @@ describe('resyncAlarms', () => {
       { id: 'notime', content: 'c', scheduleAt: now + 60_000, transcript: '', hasTime: false },
       { id: 'soon', content: 'c', scheduleAt: now + 600_000, ...base },
     ]);
-    expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+    expect(mocked.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled(); // 읽은 목록만 하나씩 지운다(1.2.4)
     const ids = mocked.scheduleNotificationAsync.mock.calls.map((c) => c[0].identifier);
     expect(ids).toEqual(['mallo_soon_0', 'mallo_soon_1', 'mallo_soon_2', 'mallo_late_0', 'mallo_late_1', 'mallo_late_2']);
   });

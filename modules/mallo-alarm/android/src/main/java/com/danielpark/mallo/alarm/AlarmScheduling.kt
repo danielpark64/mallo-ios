@@ -111,6 +111,39 @@ object AlarmScheduling {
         AlarmStore.clear(context)
     }
 
+    /**
+     * 재동기화용 전체 취소(1.2.4, 버그 31) — "5분 후 다시"(스누즈)는 남긴다(교대알람 1.6.3 0012cfc: 다시 걸 때 스누즈 9002를 지우지 않음).
+     * 예전엔 cancelAll이 원장을 통째로 비워, 지난 일정에 걸린 스누즈가 앱을 다시 열기만 해도 사라졌다.
+     * 남기는 기준은 lib/snoozeKeep.ts snoozeStillDue와 같다:
+     *  - 스누즈 항목(키 `_z<n>` = 네이티브 울림 화면·7002 알림의 5분 후, 또는 meta.snoozed = JS가 건 5분 후)이고 아직 안 울렸다
+     *  - 원래 일정이 keepBase(남아 있고 결과 표시가 없는 일정)에 있다 — 지운 일정·결과를 표시한 일정의 스누즈는 지운다
+     *  - 정각 알람의 스누즈인데 그 일정이 rearmBase(앞으로의 정각으로 다시 걸림)면 지운다(미리 알림 스누즈는 남김)
+     */
+    fun cancelAllKeepSnooze(context: Context, keepBase: Set<String>, rearmBase: Set<String>) {
+        val now = System.currentTimeMillis()
+        val drop = ArrayList<String>()
+        for (e in AlarmStore.all(context)) {
+            if (isSnoozeEntry(e) && e.triggerAtMs > now && snoozeStillDue(e.recordId, keepBase, rearmBase)) continue
+            disarm(context, e.key)
+            drop.add(e.key)
+        }
+        AlarmStore.remove(context, drop)
+    }
+
+    /** 스누즈 항목인지: 네이티브가 건 `_z<n>` 키, 또는 JS가 5분 후로 다시 건 슬롯(meta.snoozed) */
+    fun isSnoozeEntry(e: AlarmStore.Entry): Boolean = SNOOZE_KEY.matches(e.key) || e.meta.snoozed
+
+    /** lib/snoozeKeep.ts snoozeStillDue와 같은 규칙 */
+    fun snoozeStillDue(recordId: String, keepBase: Set<String>, rearmBase: Set<String>): Boolean {
+        if (recordId.isEmpty()) return false
+        val base = baseRecordId(recordId)
+        if (base !in keepBase) return false
+        if (recordId == base && base in rearmBase) return false
+        return true
+    }
+
+    private val SNOOZE_KEY = Regex(".*_z\\d+$")
+
     /** Expo 식별자 규칙(lib/notifications.ts와 동일): mallo_<recordId>_<slot> */
     fun expoKey(recordId: String, slot: Int) = "mallo_${recordId}_$slot"
     fun snoozeKey(recordId: String, slot: Int) = "mallo_${recordId}_z$slot"
