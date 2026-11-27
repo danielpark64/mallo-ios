@@ -147,24 +147,25 @@ export async function registerAndroidChannels() {
 
 export async function registerNotificationCategories() {
   // 버튼 구성 = 워치에서 사용자가 보게 될 버튼(폰 알림이 그대로 워치로 브릿지된다).
-  // 두 플랫폼 모두 앱을 앞으로 여는 액션(opensAppToForeground: true, Expo 기본값 — 교대알람 1.6.4와 같은 구성).
-  // iOS(1.2.4): 백그라운드 액션은 앱이 종료돼 있을 때 [5분 후 다시]의 재예약이 JS에 닿지 않을 수 있어 앞으로 연다.
-  //      잠금 화면에서는 Face ID 뒤 앱이 열리고, 애플워치에서 누른 액션도 폰 앱으로 전달된다(실기기 확인 필요).
-  // Android: 이 Expo 알림은 네이티브가 못 울렸을 때의 보조 경로다. 앱 프로세스가 죽어 있어도 응답이 확실히
-  //      JS에 닿도록 앱을 앞으로 연다(평소 끄기는 네이티브 알림 버튼·워치 → AlarmService가 직접 처리).
-  const foreground = true;
+  // [5분 후 다시]: 두 플랫폼 모두 앱을 앞으로 연다(1.2.4) — 앱이 종료돼 있어도 재예약이 확실히 JS에 닿게.
+  //      처리가 안 되면 스누즈가 사라지므로(위험) 확실한 쪽을 쓴다.
+  // [알람 끄기]: iOS는 백그라운드 액션(1.2.5, A안 — 교대알람과 같이) — 잠금 화면·워치에서 Face ID 없이 바로 끈다.
+  //      혹시 처리가 안 돼도 결과는 +1·+2분 재알림이 더 오는 것뿐(1.2.4에서 잠금을 안 풀었을 때와 같음).
+  //      Android는 이 Expo 알림이 네이티브가 못 울렸을 때의 보조 경로라 앞으로 연다(평소 끄기는 네이티브 알림 버튼·워치 → AlarmService).
+  const stopForeground = Platform.OS === 'android';
+  const snoozeForeground = true;
   await Notifications.setNotificationCategoryAsync(
     'alarm',
     [
       {
         identifier: 'stop',
         buttonTitle: t('알람 끄기'),
-        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: foreground },
+        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: stopForeground },
       },
       {
         identifier: 'snooze',
         buttonTitle: t('5분 후 다시'),
-        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: foreground },
+        options: { isDestructive: false, isAuthenticationRequired: false, opensAppToForeground: snoozeForeground },
       },
     ],
     // iOS: 워치/배너에서 스와이프로 닫기만 해도 응답 이벤트가 오도록 (재알림 취소 누락 방지)

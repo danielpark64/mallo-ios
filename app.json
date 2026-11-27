@@ -2,7 +2,7 @@
   "expo": {
     "name": "SayRam",
     "slug": "mallo",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.danielpark.sayram",
-      "buildNumber": "24",
+      "buildNumber": "25",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ko",
         "CFBundleLocalizations": [
@@ -81,7 +81,7 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.USE_FULL_SCREEN_INTENT"
       ],
-      "versionCode": 11,
+      "versionCode": 12,
       "blockedPermissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",

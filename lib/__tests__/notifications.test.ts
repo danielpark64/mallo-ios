@@ -23,6 +23,7 @@ import * as Notifications from 'expo-notifications';
 import {
   cancelAlarmByRecordId,
   registerAndroidChannels,
+  registerNotificationCategories,
   resyncAlarms,
   scheduleAlarm,
 } from '../notifications';
@@ -31,6 +32,24 @@ const mocked = Notifications as jest.Mocked<typeof Notifications>;
 const future = (min: number) => new Date(Date.now() + min * 60_000);
 
 beforeEach(() => jest.clearAllMocks());
+
+describe('registerNotificationCategories — 알림 버튼(1.2.5 A안)', () => {
+  const opts = () => {
+    const actions = (mocked.setNotificationCategoryAsync.mock.calls[0] as any)[1] as any[];
+    return Object.fromEntries(actions.map((a) => [a.identifier, a.options.opensAppToForeground]));
+  };
+  test('iOS: [알람 끄기]는 백그라운드(잠금 해제 없이), [5분 후 다시]는 앱을 연다, 닫기 이벤트 유지', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    await registerNotificationCategories();
+    expect(opts()).toEqual({ stop: false, snooze: true });
+    expect((mocked.setNotificationCategoryAsync.mock.calls[0] as any)[2]).toEqual({ customDismissAction: true });
+  });
+  test('Android: 두 버튼 모두 앱을 연다(보조 경로)', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    await registerNotificationCategories();
+    expect(opts()).toEqual({ stop: true, snooze: true });
+  });
+});
 
 describe('registerAndroidChannels', () => {
   test('iOS에서는 채널을 만들지 않는다', async () => {
