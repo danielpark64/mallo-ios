@@ -19,7 +19,7 @@ import {
   openNativeNotificationSettings,
   scheduleNativeAlarm,
 } from './nativeAlarm';
-import { usesAlarmKit } from './alarmkitRoute';
+import { alarmKitSound, usesAlarmKit } from './alarmkitRoute';
 import { SOUND_LABEL, androidChannelId, androidSoundFile, iosSoundFile, resolveAlarmSound, type SoundId } from './alarmSounds';
 import {
   alarmKitEnv,
@@ -247,8 +247,8 @@ async function scheduleSlots(
   const sound = mode === 'vibe' ? (Platform.OS === 'ios' ? 'silent_short.wav' : undefined) : (voiceSound ?? toneFile);
   // Android: 소리가 채널 단위라 모드 × 소리 채널을 고른다(진동만은 예전 alarm_vibe 그대로). iOS는 무시됨
   const channelId = await ensureAndroidChannel(mode, toneId);
-  const akSound = iosSoundFile(toneId);
-  // iOS 26+ AlarmKit 분기 — 이 한 곳에서만 정한다(alarmkitRoute.usesAlarmKit). 켜져 있으면 소리 알람 슬롯은
+  const akSound = alarmKitSound(mode, iosSoundFile(toneId)); // 진동만은 무음 30초(alarmkitRoute 주석)
+  // iOS 26+ AlarmKit 분기 — 이 한 곳에서만 정한다(alarmkitRoute.usesAlarmKit). 켜져 있으면 모든 슬롯(진동만 포함)은
   // AlarmKit에만 걸고 Expo 알림은 걸지 않는다(두 번 울림 방지). AlarmKit 예약이 실패한 슬롯만 아래 Expo 방식으로 건다.
   // Android는 alarmKitEnv().os가 'android'라 항상 false — 아래 Expo+네이티브 경로가 그대로 돈다.
   const viaAlarmKit = usesAlarmKit(mode, voiceSound, isAlarmKitMode());

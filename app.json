@@ -118,7 +118,8 @@
         {
           "sounds": [
             "./assets/alarm_long.wav",
-            "./assets/silent_short.wav"
+            "./assets/silent_short.wav",
+            "./assets/silent_30s.wav"
           ]
         }
       ],

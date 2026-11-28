@@ -143,10 +143,14 @@ describe('iOS', () => {
     expect(mockAK.schedule.mock.calls[0][0].sound).toBe('alarm_long.wav');
   });
 
-  test('진동만은 iOS에서 무음 파일로 진동만(AlarmKit도 안 씀 — 소리를 비우면 진동 없는 배너가 됨)', async () => {
+  test('진동만: AlarmKit이면 무음 30초로 AlarmKit에만(1.2.5), AlarmKit을 못 쓰면 Expo에 0.5초 무음 파일(소리를 비우면 진동 없는 배너가 됨)', async () => {
     mockAKAuth = 'authorized';
     await scheduleAlarm('r1', 'a', future(60), 'vibe', { alarmSound: 'marimba' });
-    expect(mockAK.schedule).not.toHaveBeenCalled();
+    expect(mockAK.schedule.mock.calls[0][0].sound).toBe('silent_30s.wav');
+    expect(expoCalls()).toHaveLength(0);
+    mockAKAuth = 'denied';
+    await scheduleAlarm('r2', 'a', future(60), 'vibe', { alarmSound: 'marimba' });
+    expect(expoCalls().length).toBeGreaterThan(0);
     for (const c of expoCalls()) expect(c.content.sound).toBe('silent_short.wav');
   });
 });

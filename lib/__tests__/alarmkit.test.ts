@@ -47,7 +47,7 @@ jest.mock('expo-notifications', () => ({
 }));
 
 import * as Notifications from 'expo-notifications';
-import { alarmKitEnabled, alarmKitUuid, shouldAskAlarmKit, usesAlarmKit } from '../alarmkitRoute';
+import { alarmKitEnabled, alarmKitSound, alarmKitUuid, shouldAskAlarmKit, usesAlarmKit } from '../alarmkitRoute';
 import {
   cancelAlarm,
   cancelAlarmByRecordId,
@@ -84,12 +84,18 @@ describe('경로 결정(순수 함수)', () => {
     expect(shouldAskAlarmKit({ os: 'ios', available: false, auth: 'unavailable' })).toBe(false);
     expect(shouldAskAlarmKit({ os: 'android', available: false, auth: 'unavailable' })).toBe(false);
   });
-  test('소리 알람만 AlarmKit — 진동만·내 목소리·모드 꺼짐은 Expo', () => {
+  test('진동만도 AlarmKit(1.2.5, 교대알람 bfefbbf) — 내 목소리·모드 꺼짐만 Expo', () => {
     expect(usesAlarmKit('both', null, true)).toBe(true);
     expect(usesAlarmKit('sound', null, true)).toBe(true);
-    expect(usesAlarmKit('vibe', null, true)).toBe(false);
+    expect(usesAlarmKit('vibe', null, true)).toBe(true);
     expect(usesAlarmKit('both', 'voice_x.caf', true)).toBe(false);
     expect(usesAlarmKit('both', null, false)).toBe(false);
+    expect(usesAlarmKit('vibe', null, false)).toBe(false);
+  });
+  test('AlarmKit 소리: 진동만은 무음 30초(0.5초 무음은 꺼진 화면에서 진동 없음), 소리 알람은 고른 소리', () => {
+    expect(alarmKitSound('vibe', 'snd_marimba.caf')).toBe('silent_30s.wav');
+    expect(alarmKitSound('both', 'snd_marimba.caf')).toBe('snd_marimba.caf');
+    expect(alarmKitSound('sound', 'alarm_long.wav')).toBe('alarm_long.wav');
   });
   test('예약 UUID: 같은 슬롯·같은 시각은 같고, 다르면 다르다', () => {
     const RE = /^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/;
@@ -137,10 +143,12 @@ describe('예약 분기(scheduleAlarm)', () => {
     const [a, b] = mockAK.schedule.mock.calls.map((c) => c[0].id);
     expect(a).toBe(b);
   });
-  test('진동만(vibe)은 AlarmKit 모드여도 Expo 3슬롯', async () => {
-    const ids = await scheduleAlarm('r1', 'a', future(30), 'vibe');
-    expect(mockAK.schedule).not.toHaveBeenCalled();
-    expect(ids).toEqual(['mallo_r1_0', 'mallo_r1_1', 'mallo_r1_2']);
+  test('진동만(vibe)도 AlarmKit 모드면 AlarmKit 정각 1슬롯 + 무음 30초, Expo는 안 건다(1.2.5)', async () => {
+    const ids = await scheduleAlarm('r1', 'a', future(30), 'vibe', { remindBefore: [10] });
+    expect(mockAK.schedule).toHaveBeenCalledTimes(2);
+    for (const c of mockAK.schedule.mock.calls) expect(c[0].sound).toBe('silent_30s.wav');
+    expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(ids).toEqual(['mallo_r1_pre10', 'mallo_r1_0']);
   });
   test('권한 거부·iOS 26 미만이면 Expo 그대로', async () => {
     mockAK.authorizationState.mockReturnValue('denied');
@@ -208,8 +216,8 @@ describe('재동기화', () => {
     await resyncAlarms([rec('a', 30), rec('b', 60, 'vibe'), { ...rec('old', -60) }]);
     expect(mockAK.cancelAll).toHaveBeenCalledWith(['a', 'b', 'old'], ['a', 'b']); // 남길 일정, 앞으로 정각이 다시 걸리는 일정(1.2.4)
     expect(order.slice(0, 3)).toEqual(['expoAll', 'akAll', 'ak']);
-    expect(mockAK.schedule).toHaveBeenCalledTimes(1); // a만(b는 진동만 → Expo)
-    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
+    expect(mockAK.schedule).toHaveBeenCalledTimes(2); // a·b 모두(진동만도 AlarmKit, 1.2.5)
+    expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
   test('결과를 표시한 일정·지운 일정은 남길 일정에서 빠진다 — 카운트다운 중인 스누즈도 지워진다(버그 30·31)', async () => {
     await resyncAlarms([rec('past', -3), { ...rec('done', -3), outcome: { kind: 'partial' } }, rec('soon', 30)]);
@@ -233,12 +241,12 @@ describe('재동기화', () => {
     await resyncAlarms(many);
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(60); // 20건 × 3슬롯
   });
-  test('64개 예산: 진동만(Expo)은 예산 안에서, AlarmKit 일정은 그와 별개로 모두 건다', async () => {
+  test('64개 예산: 진동만도 AlarmKit이라 Expo 예산과 무관하게 모두 건다(1.2.5)', async () => {
     const vibes = Array.from({ length: 25 }, (_, i) => rec(`v${i}`, i + 1, 'vibe'));
     const sounds = Array.from({ length: 30 }, (_, i) => rec(`s${i}`, 100 + i));
     await resyncAlarms([...vibes, ...sounds]);
-    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(60);
-    expect(mockAK.schedule).toHaveBeenCalledTimes(30);
+    expect(mocked.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(mockAK.schedule).toHaveBeenCalledTimes(55);
   });
   test('겹친 재동기화(iOS AlarmKit): 새 호출이 시작되면 앞 호출은 남은 예약을 멈춘다', async () => {
     const order: string[] = [];
